@@ -10,7 +10,6 @@ dependencies = [
   "mcp>=1.2",           # MCP 서버 (stdio)
   "jupyter-client>=8",  # persistent IPython 커널 제어
   "ipykernel>=6",       # 커널 본체
-  "nest-asyncio>=1.6",  # 셀 최상단 await
   "opa-runtime",        # 커널에 주입되는 shim (workspace member)
 ]
 
@@ -42,3 +41,4 @@ extend-exclude = ["_ref", "examples"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["slow: 실제 IPython 커널을 띄우는 통합 테스트"]

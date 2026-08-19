@@ -57,6 +57,13 @@ class SessionPaths:
     def children(self) -> Path:
         return self.dir / "children"
 
+    @property
+    def meta(self) -> Path:
+        return self.dir / "session.json"
+
     def ensure(self) -> SessionPaths:
         """필요한 디렉터리를 만든다."""
-        raise NotImplementedError
+        for directory in (self.dir, self.outputs, self.mailbox, self.children,
+                          self.harness_state.parent):
+            directory.mkdir(parents=True, exist_ok=True)
+        return self

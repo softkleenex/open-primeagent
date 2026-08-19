@@ -7,31 +7,40 @@
 
 ---
 
-## Phase 0 — 골격 · 결정 확정  ✅ 진행중
+## Phase 0 — 골격 · 결정 확정  ✅ 완료
 
 - [x] 원본 레포 실측 분석 (`_ref/prime-agent`)
 - [x] 호스트 CLI 어댑터 계약 검증 (claude / codex의 session-id · resume · json)
 - [x] ARCHITECTURE / ROADMAP / TODO
-- [ ] `uv sync` 통과, `opa` 엔트리포인트가 MCP handshake 응답
+- [x] `uv sync` 통과, `opa` 엔트리포인트가 MCP handshake 응답
 
-**Exit**: `claude mcp add opa -- uv run --directory <repo> opa` 후 `/mcp`에 도구 4개가 뜬다.
+**Exit ✅**: `claude mcp add opa --scope local -- uv run --directory <repo> opa` →
+`claude mcp list` 에서 `opa: ✔ Connected`. MCP stdio 클라이언트로도 handshake 확인
+(`server: opa 0.0.1`, tools 3개).
 
 ---
 
-## Phase 1 — Persistent Python  (L1)
+## Phase 1 — Persistent Python  (L1)  ✅ 완료
 
 핵심 가치 하나: *LLM 컨텍스트를 창고로 쓰지 않는다.*
 
-- [ ] `KernelManager` — 세션당 IPython 커널 1개, 부팅/재시작/인터럽트
-- [ ] `opa_python` 도구 — 실행 · 출력 캡처 · **잘라내기 + 전문 파일 저장**
-- [ ] `nest_asyncio` 주입, 셀 최상단 `await` 동작
-- [ ] 세션 디렉터리 규약 + JSONL trajectory 기록
-- [ ] `opa_status` / `opa_kernel`
+- [x] `KernelManager` — 세션당 IPython 커널 1개, 부팅/재시작/인터럽트
+- [x] `opa_python` 도구 — 실행 · 출력 캡처 · **잘라내기 + 전문 파일 저장**
+- [x] ~~`nest_asyncio` 주입~~ → IPython autoawait가 네이티브로 처리. 의존성 제거
+- [x] 세션 디렉터리 규약 + JSONL trajectory 기록
+- [x] `opa_status` / `opa_kernel`
 
-**Exit**:
-1. 셀 A에서 `files = glob(...)` (수백 개) → 셀 B에서 `len(files)`가 살아있다.
-2. 30KB 출력이 컨텍스트에 4KB만 들어오고 전문은 파일로 남는다.
-3. 커널 재시작 후 변수는 사라지지만 세션 기록은 남는다.
+**Exit ✅** (`tests/test_kernel_integration.py` 가 셋 다 강제):
+1. ✅ 셀 A의 `files`(500개) → 셀 B에서 `len(files)` == 500
+2. ✅ 30KB 출력 → limit만큼만 반환, 전문은 `outputs/00000.txt`
+3. ✅ restart 후 변수 소멸, `trajectory.jsonl`과 `rlm` 심볼은 유지
+
+추가로 확인한 것:
+- 커널 트랜스포트를 **IPC 소켓**으로 (TCP는 코드/출력을 로컬 평문으로 흘린다).
+  경로 길이 제한에 걸리면 TCP로 폴백.
+- traceback의 ANSI 코드 제거 — 모델 컨텍스트에 잡음이 안 들어가게
+- 잘라낼 때 **꼬리를 반드시 남긴다** — traceback의 실제 원인은 마지막 줄에 있다
+- 커널은 **지연 부팅** — MCP 서버가 떴다는 이유만으로 커널을 올리지 않는다
 
 ---
 
@@ -40,6 +49,7 @@
 이 프로젝트의 존재 이유.
 
 - [ ] `HostBridge` — Unix socket JSONL RPC (커널 없이 단독 테스트 가능)
+      ※ 커널에 `OPA_HOST_SOCKET` 주입은 이미 되어 있다 (KernelManager._env)
 - [ ] `opa_runtime` shim — 커널 안 `rlm` 심볼 (`rlm(...)`, `list_subagents`, `delete_subagent`)
 - [ ] `AgentAdapter` 프로토콜 + `claude-code` 어댑터
 - [ ] `ChildRegistry` — 디스크 영속, 커널/호스트 재시작 후 복구

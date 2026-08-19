@@ -1,0 +1,22 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev
+      - name: lint
+        run: uv run ruff check src tests
+      - name: unit tests
+        run: uv run pytest -q -m "not slow"
+      - name: integration tests (real IPython kernel)
+        run: uv run pytest -q -m slow

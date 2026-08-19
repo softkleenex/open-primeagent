@@ -11,7 +11,15 @@ Claude Code / Codex / opencode 위에 얹는 MCP 서버.
 claude mcp add opa -- uvx open-primeagent      # 이게 전부
 ```
 
-> 🚧 Phase 0 (골격/설계). 아직 동작하지 않는다. [ROADMAP.md](ROADMAP.md) 참조.
+> **상태**: Phase 1 완료 — persistent Python 커널이 동작한다.
+> RLM(persistent subagents)은 Phase 2 작업중. [ROADMAP.md](ROADMAP.md) 참조.
+
+```
+✅ L1  Persistent Python      커널 · 외부 작업 메모리 · 출력 잘라내기
+🚧 L2  RLM                    persistent subagents + A2A messaging
+⬜ L3  Continual Harness      prompts / subagents / skills / memory
+⬜ L4  Long-run               goal / heartbeat / schedule / autonomous
+```
 
 ---
 
@@ -61,10 +69,30 @@ child 세션 영속성은 호스트 CLI가 이미 제공한다:
 
 ## 노출 도구는 4개뿐
 
-`opa_python` · `opa_status` · `opa_kernel` · `opa_bootstrap`
+`opa_python` · `opa_status` · `opa_kernel` · `opa_bootstrap`*
+&nbsp;&nbsp;<sub>*Phase 3</sub>
 
 `rlm` / `harness` / `goal` / `agent_message`는 MCP 도구가 아니라
 **커널 안의 Python 심볼**이다. 호스트의 도구 목록을 오염시키지 않는다.
+
+상한은 `server.MAX_TOOLS = 4` 이고 테스트가 이걸 강제한다. 도구를 늘리고 싶어지면
+그건 커널 안 심볼로 노출하라는 신호다.
+
+## 지금 동작하는 것
+
+```bash
+git clone https://github.com/softkleenex/open-primeagent && cd open-primeagent
+uv sync --extra dev
+uv run pytest -q                  # 25 passed
+claude mcp add opa --scope local -- uv run --directory "$PWD" opa
+claude mcp list                   # opa: ✔ Connected
+```
+
+```python
+opa_python("files = [f'f{i}.py' for i in range(500)]")
+opa_python("len(files)")          # → 500   (별도 호출인데 살아있다)
+opa_python("print('x' * 30000)")  # → 잘려서 오고, 전문은 outputs/00000.txt
+```
 
 ## 문서
 

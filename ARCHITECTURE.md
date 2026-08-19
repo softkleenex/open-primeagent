@@ -160,7 +160,9 @@ test = await rlm("테스트 커버리지 분석", name="test-reviewer")
 
 - `jupyter_client.AsyncKernelManager`로 IPython 커널 1개를 세션당 소유.
 - 부팅 시 `opa_runtime`을 주입해 `rlm / harness / goal / agent_message` 심볼을 노출.
-- `nest_asyncio`로 `await`를 셀 최상단에서 사용 가능하게 한다 (원본과 동일 전제).
+- top-level `await`는 IPython autoawait가 네이티브로 처리한다.
+  원본은 `nest_asyncio`를 쓰지만 실측 결과 불필요해서 의존성에서 뺐다.
+- 커널 트랜스포트는 POSIX에서 **IPC 소켓**. TCP는 커널 코드/출력을 평문으로 흘린다.
 - 출력 정책: stdout/result를 **잘라서** 반환하고 전문은 세션 디렉터리에 저장,
   경로만 알려준다. 이것이 "context를 창고로 쓰지 않는다"의 실질이다.
   - 기본 `OPA_MAX_OUTPUT_CHARS=4000`, 초과분은 `<session>/outputs/<n>.txt`.
