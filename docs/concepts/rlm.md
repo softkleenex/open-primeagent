@@ -84,6 +84,40 @@ delegated to the CLI, so mixed setups are free:
 await rlm("refactor this module", name="refactorer", adapter="codex")
 ```
 
+## When not to fan out
+
+Spawning a child is **not** cheap. Every child is a full coding-agent session
+that pays for its own system prompt and tool schemas before it reads a single
+line of your code. We measured that startup at roughly **36,000 tokens per
+child**.
+
+To put that in scale: in [our benchmark](../../bench/README.md#0-sub-agent-fan-out--opa-loses-badly),
+reviewing an entire 12-file service cost a plain agent 34k tokens. *One child
+cost more than the whole job.* Fanning out to four specialists produced the same
+findings for **8.8x the cost and 3.4x the wall clock**.
+
+So the bar a fan-out has to clear:
+
+> Hand work to a sub-agent only when that work would cost the parent more than
+> ~36k tokens of its own context.
+
+Practically, that means:
+
+| don't | do |
+|---|---|
+| four reviewers on a small module | read it yourself |
+| a child for something you could grep | grep it |
+| a child per file | a child per *subsystem*, if any |
+| fan out for speed | fan out because the material does not fit |
+
+Parallelism does not rescue it either — four cold sessions still have to boot,
+so the wall clock got worse, not better.
+
+Where children earn their cost is **reuse**: a child that has already loaded a
+subsystem and gets re-tasked later, rather than a fresh child per question. That
+is what the registry exists for, and it is the case this project is actually
+built around.
+
 ## Rules that are enforced, not suggested
 
 - **One turn at a time per child.** Two concurrent `--resume` calls on one

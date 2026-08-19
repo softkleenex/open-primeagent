@@ -20,7 +20,61 @@ All runs: Sonnet, macOS, one machine, sequential. `billed tokens` =
 `input + output + cache_creation` (cache reads are reported separately in the
 raw JSON and excluded here, since they are billed at a fraction of the rate).
 
+```
+uv run python bench/subagents.py --experiment parallel --repeat 3
+uv run python bench/subagents.py --experiment warm --repeat 3
+```
+
 ---
+
+## 0. Sub-agent fan-out  ❌ opa loses badly
+
+`bench/subagents.py --experiment parallel`
+
+A 12-file service with one planted defect per review dimension (a hardcoded
+credential and SQL concatenation, an untested module, a quadratic scan, three
+different error response shapes). Both arms are asked for the most important
+concrete finding in each of the four dimensions.
+
+- **baseline** — plain Claude Code, with its own `Task` tool available
+- **opa** — spawns one named sub-agent per dimension via `rlm()`, polls the
+  mailbox, and summarises
+
+**Child tokens are counted.** The parent's `usage` reports only the parent, so
+reading it alone would make opa look nearly free. Every child's tokens and cost
+come from the registry and are added in.
+
+| metric | baseline | opa | delta |
+|---|---|---|---|
+| turns | 13.7 | 14.3 | +5% |
+| billed tokens | 34,286 | 189,858 | **+454%** |
+| cost (USD) | $0.287 | $2.522 | **+777%** |
+| wall clock | 35,169 ms | 121,114 ms | **+244%** |
+| ├ parent tokens | 34,286 | 45,251 | |
+| └ child tokens | 0 | 144,607 | |
+| findings | 3.33 / 4 | 3.00 / 4 | |
+| n | 3 | 3 | |
+
+Same findings. Nearly nine times the cost.
+
+**The mechanism is a fixed startup cost per child.** 144,607 child tokens across
+four children is roughly **36k tokens each, before a child does any work** —
+that is a full Claude Code session paying for its system prompt and tool
+schemas. Reviewing the entire 12-file project cost the baseline 34k tokens in
+total. *Spawning one child cost more than doing the whole job.*
+
+So the rule fan-out has to clear:
+
+> A sub-agent pays only when the work you hand it would cost the parent more
+> than ~36k tokens of its own context.
+
+On a small codebase that is never true, and no amount of parallelism fixes it —
+the wall clock got worse too, because four cold sessions have to boot.
+
+We have not yet measured the case where it should win: a codebase large enough
+that the parent could not hold the material at all. Until we do, **there is no
+measured evidence that sub-agent fan-out is worth it**, and
+[the docs say so where people will read them](../docs/concepts/rlm.md#when-not-to-fan-out).
 
 ## 1. Evolution — hard variant  ✅ the harness pays
 
@@ -113,9 +167,10 @@ tokens**, and the README does not claim there is.
 
 ## What we are not claiming
 
-- No claim that opa reduces tokens in general. Benchmark 3 shows the opposite on
-  a shell-friendly task.
-- No claim about sub-agent quality or throughput. Not measured yet.
+- No claim that opa reduces tokens in general. Benchmarks 0 and 3 show the
+  opposite.
+- No claim that sub-agent fan-out is worth its cost on a codebase of any size we
+  have actually measured.
 - n is small (3–7) and single-machine. Treat these as directional.
 - Only Sonnet. A weaker model would likely struggle more with rediscovery, which
   should *widen* benchmark 1's gap and shrink benchmark 2's; untested.

@@ -44,14 +44,15 @@ async def test_claude_parses_a_successful_turn(bin_dir, tmp_path):
     payload = {
         "result": "ALL DONE",
         "session_id": "sid-1",
-        "usage": {"input_tokens": 5, "output_tokens": 7},
+        "usage": {"input_tokens": 5, "output_tokens": 7,
+                  "cache_creation_input_tokens": 100},
         "total_cost_usd": 0.02,
         "subtype": "success",
     }
     fake_cli(bin_dir, "claude", f"import json; print(json.dumps({payload!r}))\n")
 
     result = await ClaudeCodeAdapter().run(request(tmp_path, session_id="sid-1"))
-    assert (result.ok, result.text, result.tokens) == (True, "ALL DONE", 12)
+    assert (result.ok, result.text, result.tokens) == (True, "ALL DONE", 112)
     assert result.cost_usd == 0.02
     assert result.raw_path.exists(), "the raw backend output must be kept"
 

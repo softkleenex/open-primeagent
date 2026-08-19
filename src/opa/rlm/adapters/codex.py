@@ -121,7 +121,12 @@ class CodexAdapter:
             elif kind == "turn.completed":
                 usage = event.get("usage") or {}
                 if usage:
-                    tokens = int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0))
+                    # cached_input_tokens is reported separately and is still billed
+                    tokens = (
+                        int(usage.get("input_tokens", 0))
+                        + int(usage.get("output_tokens", 0))
+                        + int(usage.get("cache_write_input_tokens", 0))
+                    )
         return TurnResult(
             ok=bool(text),
             text=text,

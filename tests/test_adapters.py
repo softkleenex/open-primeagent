@@ -48,14 +48,21 @@ def test_claude_parses_result_and_usage(tmp_path):
     payload = {
         "result": "HELLO-1",
         "session_id": "sid-9",
-        "usage": {"input_tokens": 2, "output_tokens": 8},
+        "usage": {
+            "input_tokens": 2,
+            "output_tokens": 8,
+            "cache_creation_input_tokens": 15000,
+        },
         "total_cost_usd": 0.1,
         "subtype": "success",
     }
     result = ClaudeCodeAdapter().parse_result(
         json.dumps(payload).encode(), request(tmp_path), Path("/tmp/x"), 10
     )
-    assert (result.ok, result.text, result.session_id, result.tokens) == (True, "HELLO-1", "sid-9", 10)
+    assert (result.ok, result.text, result.session_id) == (True, "HELLO-1", "sid-9")
+    # Cache creation dominates a fresh child session and is billed; excluding it
+    # under-reported children by roughly an order of magnitude.
+    assert result.tokens == 15010
 
 
 def test_claude_flags_errors(tmp_path):

@@ -108,7 +108,14 @@ class ClaudeCodeAdapter:
         usage = payload.get("usage") or {}
         tokens = None
         if usage:
-            tokens = int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0))
+            # Cache creation is billed and is most of a fresh child session's cost
+            # (system prompt + tool schemas). Leaving it out made opa_status
+            # under-report a child by roughly an order of magnitude.
+            tokens = (
+                int(usage.get("input_tokens", 0))
+                + int(usage.get("output_tokens", 0))
+                + int(usage.get("cache_creation_input_tokens", 0))
+            )
         is_error = bool(payload.get("is_error")) or payload.get("subtype") not in (None, "success")
         return TurnResult(
             ok=not is_error,

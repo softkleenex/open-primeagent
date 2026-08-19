@@ -63,6 +63,38 @@ def main() -> None:
         print(table(summarize(rows, "round"), ["A-no-harness", "B-with-harness"]))
         print()
 
+    for experiment, order in (("parallel", ["baseline", "opa"]),
+                              ("warm", ["cold", "warm"])):
+        path = RESULTS / f"subagents-{experiment}-sonnet.json"
+        if not path.exists():
+            continue
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        for row in rows:
+            row["tests_pass"] = True
+            row["agent_turns"] = row.get("agent_turns", 0)
+            row["billed_tokens"] = row["total_tokens"]
+            row["cost_usd"] = row["total_cost"]
+        print(f"## Sub-agents — {experiment}\n")
+        print(table(summarize(rows, "arm"), order))
+        by_arm: dict[str, list[dict]] = {}
+        for row in rows:
+            by_arm.setdefault(row["arm"], []).append(row)
+        parent = " | ".join(
+            f"{statistics.fmean(r['parent_tokens'] for r in by_arm[a]):,.0f}" for a in order
+        )
+        child = " | ".join(
+            f"{statistics.fmean(r['child_tokens'] for r in by_arm[a]):,.0f}" for a in order
+        )
+        print(f"| ├ parent tokens | {parent} | |")
+        print(f"| └ child tokens | {child} | |")
+        if any("found_count" in r for r in rows):
+            found = " | ".join(
+                f"{statistics.fmean(r.get('found_count', 0) for r in by_arm[a]):.2f} / 4"
+                for a in order
+            )
+            print(f"| findings | {found} | |")
+        print()
+
     multi = RESULTS / "multiturn-sonnet.json"
     if multi.exists():
         rows = json.loads(multi.read_text(encoding="utf-8"))
