@@ -32,6 +32,19 @@ _BLOCK = re.compile(
 MEMORY_DIR_NAME = "memory"
 
 
+def _inside(directory: Path, name: str) -> Path:
+    """Resolve `name` under `directory`, refusing to escape it.
+
+    Entry ids are validated on creation, but projection is the layer that
+    actually writes, so it checks again rather than trusting its input.
+    """
+    root = directory.resolve()
+    candidate = (root / name).resolve()
+    if candidate != root and root not in candidate.parents:
+        raise ValueError(f"refusing to write {name!r} outside {root}")
+    return candidate
+
+
 def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> str:
     """Render prompt entries, the memory index and the skill list as block body."""
     prompts = [e for e in entries if e.kind == "prompt"]
@@ -126,7 +139,7 @@ def write_memories(memory_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
     for entry in entries:
         if entry.kind != "memory":
             continue
-        path = memory_dir / f"{entry.id}.md"
+        path = _inside(memory_dir, f"{entry.id}.md")
         path.write_text(f"# {entry.title}\n\n{entry.content.rstrip()}\n", encoding="utf-8")
         written.append(path)
     for stale in memory_dir.glob("*.md"):
@@ -147,7 +160,7 @@ def write_skills(skills_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
         if entry.kind != "skill":
             continue
         wanted.add(entry.id)
-        directory = skills_dir / entry.id
+        directory = _inside(skills_dir, entry.id)
         directory.mkdir(parents=True, exist_ok=True)
         (directory / ".opa-managed").write_text(entry.id, encoding="utf-8")
         (directory / "SKILL.md").write_text(

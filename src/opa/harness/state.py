@@ -38,6 +38,24 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def validate_id(raw: str) -> str:
+    """Reject ids that are not safe as a single path component.
+
+    Entry ids become file and directory names during projection
+    (`.opa/memory/<id>.md`, `.claude/skills/<id>/`). A caller-supplied id like
+    `../../CLAUDE` would therefore write outside the target directory, so ids
+    must survive slugging unchanged.
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("id must be a non-empty string")
+    cleaned = slug(raw)
+    if cleaned != raw:
+        raise ValueError(
+            f"unsafe harness id {raw!r}; ids must match their slug, e.g. {cleaned!r}"
+        )
+    return cleaned
+
+
 def slug(raw: str, fallback: str = "entry") -> str:
     """Make a stable id from a title.
 
@@ -182,7 +200,8 @@ class HarnessStore:
             raise ValueError("title must be a non-empty string")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("content must be a non-empty string")
-        entry_id = kw.pop("id", None) or self._unique_id(kind, title)
+        supplied = kw.pop("id", None)
+        entry_id = validate_id(supplied) if supplied else self._unique_id(kind, title)
         entry = HarnessEntry(
             id=entry_id, kind=kind, title=title.strip(), content=content, scope=self.scope, **kw
         )

@@ -17,6 +17,6 @@ jobs:
       - name: lint
         run: uv run ruff check src tests
       - name: unit tests
-        run: uv run pytest -q -m "not slow"
+        run: uv run pytest -q -m "not slow" --cov=src/opa --cov=runtime/src/opa_runtime --cov-report=term
       - name: integration tests (real IPython kernel)
         run: uv run pytest -q -m "slow and not child"

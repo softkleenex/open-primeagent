@@ -4,26 +4,22 @@
 
 ## Where things stand (2026-08-19)
 
-**Phase 0 ✅ / Phase 1 ✅ / Phase 2 ✅ / Phase 3 ✅.**
-L0–L3 all work. Verified against a real Claude Code child: `rlm()` returns a
-handle without blocking, the result lands in the mailbox, the child survives a
-parent kernel restart, and re-tasking it via `agent_message.send` gets an answer
-that remembers the pre-restart turn. Harness CRUD, projection and rollback are
-verified end to end through the kernel. 99 tests pass (plus 1 child test run
-explicitly with `-m child`).
+**Phase 0 ✅ / 1 ✅ / 2 ✅ / 3 ✅.** L0–L3 all work, verified against a real
+child agent. 138 tests, 90% coverage, benchmarks published (including two we
+lost).
 
 Settled decisions:
 
 - Python + uv. One MCP server serves every host agent.
-- Kernel ↔ host bridge: **Unix socket JSONL RPC**, results inside a `result`
-  envelope (a flat merge let a handler key shadow a protocol key — it broke).
-- Line limit 8 MB on both ends (asyncio's default is 64 KiB and silently breaks).
-- Tool ceiling of 4 (`server.MAX_TOOLS`, enforced by a test). All four exist now.
+- Kernel ↔ host bridge: Unix socket JSONL RPC, results inside a `result`
+  envelope, 8 MB line limit on both ends.
+- Tool ceiling of 4, enforced by a test. All four exist.
 - Kernel transport: IPC socket, TCP fallback when the path is too long.
 - Child adapters: `claude-code` (default) and `codex`, both verified to resume.
-- One turn at a time per child (`asyncio.Lock`); children still run in parallel.
-- Children are deleted only when asked. Residency is the default.
-- Harness never decides *what* to change — no MCP `sampling` from the host.
+- One turn at a time per child; children still run in parallel.
+- Harness never decides *what* to change — the host lends us no model.
+- Harness entry ids must equal their slug (path-traversal guard), and projection
+  re-checks at the write.
 
 ## Next — finish Phase 3, then Phase 4
 
@@ -33,10 +29,27 @@ Settled decisions:
    `receiver_role="parent"`.
 2. `longrun/goal.py` — create / get / complete + budget accounting.
 3. `longrun/heartbeat.py`, `schedule.py`.
-4. `longrun/autonomous.py` — gate loop.
+4. `longrun/autonomous.py` — the gate loop.
 
-Phase 5 (evolution) depends on Phase 3 and is already scoped in
-`docs/concepts/evolution.md`.
+Phase 5 (evolution) is scoped in `docs/concepts/evolution.md`; the feasibility
+experiments are already done.
+
+## Testing gaps worth closing
+
+From a coverage audit (90% overall):
+
+- [ ] `opa_runtime` shim wrappers (53–83%) are only exercised through the bridge
+      handlers, not directly. Low risk, but the `harness.*` wrappers have no
+      direct test.
+- [ ] `server.py` `main()` and the stdio path (67%) — only covered manually.
+- [ ] No test runs across a **context compaction**, which is the case the
+      persistent kernel exists for. Hard to trigger headlessly; worth trying with
+      a long synthetic session.
+- [ ] No sub-agent benchmark at all (parallel specialists vs sequential; warm
+      child vs cold). See `bench/README.md`.
+- [ ] `codex` has no `child`-marked integration test; only `claude` does.
+- [ ] Concurrency: nothing tests two `opa_python` calls racing to boot the kernel,
+      although `Runtime.kernel()` locks for exactly that.
 
 ## To investigate
 
@@ -54,6 +67,20 @@ Phase 5 (evolution) depends on Phase 3 and is already scoped in
 | `_ref/prime-agent/AGENTS.md` | what upstream tells its own agents |
 
 ## Incident log
+
+### 2026-08-19 — path traversal through harness entry ids
+
+`harness.create(..., id="../../CLAUDE")` was accepted verbatim, and projection
+turns ids into file names (`.opa/memory/<id>.md`, `.claude/skills/<id>/`). Proved
+it wrote outside the memory directory. Reachable from any code running in the
+kernel, which means reachable by prompt injection.
+Fixed in two layers: ids must equal their slug (`validate_id`), and projection
+resolves every path and refuses to leave its directory. `tests/test_security.py`
+covers both.
+
+Audited the same class of bug elsewhere and found it clean: mailbox names are
+already sanitised, child directory names are generated (`opa-<hex>`), output
+files are index-named, and session ids are uuid4.
 
 ### 2026-08-19 — code review turned up five defects (all reproduced, then fixed)
 

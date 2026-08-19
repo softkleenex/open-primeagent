@@ -46,3 +46,8 @@ markers = [
   "child: spawns a real coding-agent CLI as a child (needs auth and token quota)",
 ]
 addopts = "-m 'not child'"   # child tests run only when asked for with -m child
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+]

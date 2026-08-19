@@ -34,3 +34,38 @@ async def test_status_before_kernel_boots(server):
     state = json.loads(result.content[0].text)
     assert state["kernel"]["alive"] is False
     assert server._opa_runtime.kernel_if_started is None
+
+
+async def test_bootstrap_reports_what_it_touched(server, config):
+    """The fourth tool, end to end through the MCP surface."""
+    target = config.workspace / "CLAUDE.md"
+    original = "# mine\n\n- a rule I wrote\n"
+    target.write_text(original, encoding="utf-8")
+    runtime = server._opa_runtime
+    runtime.harness.create("prompt", "run generate", "after migrations")
+
+    first = (await server.call_tool("opa_bootstrap", {})).content[0].text
+    assert "projected harness for: claude-code" in first
+    assert "updated:" in first
+    assert original.rstrip("\n") in target.read_text(encoding="utf-8")
+
+    second = (await server.call_tool("opa_bootstrap", {})).content[0].text
+    assert "already current" in second
+
+    removed = (await server.call_tool("opa_bootstrap", {"remove": True})).content[0].text
+    assert "removed the open-primeagent block" in removed
+    assert target.read_text(encoding="utf-8") == original
+
+
+async def test_bootstrap_on_a_clean_tree_says_nothing_to_remove(server):
+    out = (await server.call_tool("opa_bootstrap", {"remove": True})).content[0].text
+    assert "nothing to remove" in out
+
+
+async def test_status_reports_harness_counts(server):
+    runtime = server._opa_runtime
+    runtime.harness.create("memory", "ports", "api=8080")
+    state = json.loads((await server.call_tool("opa_status", {})).content[0].text)
+    assert state["harness"]["counts"]["memory"] == 1
+    assert state["subagents"] == []
+    assert state["mailbox_unread"] == 0
