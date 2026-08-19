@@ -11,6 +11,7 @@ from opa.config import Config
 def config(tmp_path: Path) -> Config:
     return Config(
         root=tmp_path / ".opa",
+        global_root=tmp_path / ".opa-global",
         workspace=tmp_path,
         max_output_chars=300,
         default_adapter="claude-code",
@@ -23,5 +24,6 @@ def config(tmp_path: Path) -> Config:
 def _isolate_env(tmp_path, monkeypatch):
     monkeypatch.setenv("OPA_WORKSPACE", str(tmp_path))
     monkeypatch.setenv("OPA_ROOT", str(tmp_path / ".opa"))
+    monkeypatch.setenv("OPA_GLOBAL_ROOT", str(tmp_path / ".opa-global"))
     monkeypatch.delenv("OPA_HOST_SOCKET", raising=False)
     yield

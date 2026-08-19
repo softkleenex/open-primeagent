@@ -16,6 +16,7 @@ ENV_ROLE = "OPA_ROLE"  # "parent" | "child"
 @dataclass(frozen=True)
 class Config:
     root: Path                 # opa 상태 루트 (기본 <cwd>/.opa)
+    global_root: Path          # 프로젝트 간 공유 상태 (기본 ~/.opa)
     workspace: Path            # 호스트 에이전트의 작업 디렉터리
     max_output_chars: int      # opa_python 응답에 실을 최대 문자 수
     default_adapter: str       # "claude-code" | "codex" | ...
@@ -27,6 +28,9 @@ class Config:
         workspace = Path(os.environ.get("OPA_WORKSPACE", os.getcwd())).resolve()
         return cls(
             root=Path(os.environ.get("OPA_ROOT", workspace / ".opa")).resolve(),
+            global_root=Path(
+                os.environ.get("OPA_GLOBAL_ROOT", Path.home() / ".opa")
+            ).expanduser().resolve(),
             workspace=workspace,
             max_output_chars=int(os.environ.get("OPA_MAX_OUTPUT_CHARS", "4000")),
             default_adapter=os.environ.get("OPA_DEFAULT_ADAPTER", "claude-code"),

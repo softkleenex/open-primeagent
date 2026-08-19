@@ -35,7 +35,7 @@ _UNIX_SOCKET_PATH_MAX = 100  # macOS sun_path 104 - 여유
 # (rlm 없이도 순수 Python 작업 메모리로는 쓸 수 있다).
 BOOTSTRAP = """\
 try:
-    from opa_runtime import agent_message, host_request, rlm  # noqa: F401
+    from opa_runtime import agent_message, harness, host_request, rlm  # noqa: F401
     _OPA_RUNTIME_OK = True
 except Exception as _opa_exc:  # pragma: no cover
     _OPA_RUNTIME_OK = False

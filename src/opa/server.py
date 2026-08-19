@@ -19,7 +19,7 @@ from . import __version__
 from .config import Config
 from .kernel.exec import store_full, strip_ansi, truncate
 from .runtime_state import Runtime
-from .tools import kernel_tool, python_tool, status_tool
+from .tools import bootstrap_tool, kernel_tool, python_tool, status_tool
 
 # 도구 표면 상한. 늘리고 싶어지면 그건 커널 안 Python 심볼로 노출해야 한다는 신호다.
 # tests/test_server.py 가 이 상한을 강제한다.
@@ -106,7 +106,7 @@ def build_server(config: Config | None = None) -> MCPServer:
             ],
             "mailbox_unread": runtime.rlm.mailbox.count(),
             "goal": {"note": "Phase 4"},
-            "harness": {"note": "Phase 3"},
+            "harness": runtime.harness.snapshot(),
         }
         return json.dumps(state, indent=2, ensure_ascii=False)
 
@@ -126,6 +126,27 @@ def build_server(config: Config | None = None) -> MCPServer:
             return "interrupt sent"
         info = kernel.info()
         return json.dumps(info.__dict__, indent=2, default=str)
+
+    @server.tool(name="opa_bootstrap", description=bootstrap_tool.DESCRIPTION)
+    async def opa_bootstrap(agent: str = "auto", remove: bool = False) -> str:
+        result = runtime.bootstrap(agent=agent, remove=remove)
+        if remove:
+            removed = result["removed"]
+            return (
+                "removed the open-primeagent block from: " + ", ".join(removed)
+                if removed
+                else "nothing to remove — no opa block was present"
+            )
+        lines = [f"projected harness for: {', '.join(result['agents'])}"]
+        for label, key in (("updated", "updated"), ("already current", "unchanged")):
+            if result[key]:
+                lines.append(f"  {label}: {', '.join(result[key])}")
+        if result["skills"]:
+            lines.append(f"  skills: {len(result['skills'])}")
+        if result["memories"]:
+            lines.append(f"  memories: {len(result['memories'])}")
+        lines.append("  (writes happen only inside the opa delimiter block)")
+        return "\n".join(lines)
 
     server._opa_runtime = runtime  # 테스트/종료 처리에서 쓴다
     return server

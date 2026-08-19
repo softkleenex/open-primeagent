@@ -16,6 +16,8 @@ from pathlib import Path
 
 from .bridge import HostBridge
 from .config import Config
+from .harness import bootstrap as bootstrap_mod
+from .harness.service import HarnessService
 from .kernel.manager import KernelManager
 from .rlm.message import PARENT
 from .rlm.spawn import RLMService
@@ -41,6 +43,9 @@ class Runtime:
         self.socket_path = self._pick_socket_path()
         self.bridge = HostBridge(self.socket_path)
         self.rlm = RLMService(config, self.paths.children, self.paths.mailbox)
+        self.harness = HarnessService(
+            self.paths.harness_state.parent, config.global_root / "harness"
+        )
         self._register_bridge_handlers()
 
         self._kernel: KernelManager | None = None
@@ -124,11 +129,99 @@ class Runtime:
             name = payload.get("name") or PARENT
             return {"messages": self.rlm.mailbox.read(name, since=since)}
 
+        # ---- harness (L3) ----
+
+        def _entry_dict(entry) -> dict:
+            from dataclasses import asdict
+
+            return asdict(entry)
+
+        async def harness_overview(payload: dict) -> dict:
+            return {"overview": self.harness.overview()}
+
+        async def harness_list(payload: dict) -> dict:
+            entries = self.harness.list(payload.get("kind"), scope=payload.get("scope") or "all")
+            return {"entries": [_entry_dict(e) for e in entries]}
+
+        async def harness_get(payload: dict) -> dict:
+            entry = self.harness.get(str(payload.get("id") or ""))
+            return {"entry": _entry_dict(entry) if entry else None}
+
+        async def harness_create(payload: dict) -> dict:
+            data = dict(payload)
+            kind = data.pop("kind", None)
+            title = data.pop("title", None)
+            content = data.pop("content", None)
+            global_ = bool(data.pop("global", False))
+            entry = self.harness.create(kind, title, content, global_=global_, **data)
+            self.record("harness.create", {"id": entry.id, "kind": entry.kind})
+            return {"entry": _entry_dict(entry)}
+
+        async def harness_update(payload: dict) -> dict:
+            data = dict(payload)
+            entry_id = data.pop("id", None)
+            if not entry_id:
+                raise ValueError("id is required")
+            return {"entry": _entry_dict(self.harness.update(str(entry_id), **data))}
+
+        async def harness_delete(payload: dict) -> dict:
+            return {"entry": _entry_dict(self.harness.delete(str(payload.get("id") or "")))}
+
+        async def harness_evidence(payload: dict) -> dict:
+            return self.harness.evidence(self.paths.trajectory)
+
+        async def harness_apply(payload: dict) -> dict:
+            event = self.harness.apply(
+                payload.get("changes") or [],
+                trigger=str(payload.get("trigger") or "agent"),
+                evidence=str(payload.get("evidence") or ""),
+            )
+            self.record("harness.apply", {"event": event.id, "changes": event.changes})
+            return {"event": _entry_dict(event)}
+
+        async def harness_rollback(payload: dict) -> dict:
+            event = self.harness.rollback(str(payload.get("event_id") or ""))
+            self.record("harness.rollback", {"event": event.id})
+            return {"event": _entry_dict(event)}
+
+        async def harness_refinements(payload: dict) -> dict:
+            events = self.harness.local.refinements + self.harness.global_.refinements
+            return {"events": [_entry_dict(e) for e in events]}
+
+        async def harness_project(payload: dict) -> dict:
+            return self.bootstrap(
+                agent=str(payload.get("agent") or "auto"), remove=bool(payload.get("remove"))
+            )
+
+        self.bridge.register("harness.overview", harness_overview)
+        self.bridge.register("harness.list", harness_list)
+        self.bridge.register("harness.get", harness_get)
+        self.bridge.register("harness.create", harness_create)
+        self.bridge.register("harness.update", harness_update)
+        self.bridge.register("harness.delete", harness_delete)
+        self.bridge.register("harness.evidence", harness_evidence)
+        self.bridge.register("harness.apply", harness_apply)
+        self.bridge.register("harness.rollback", harness_rollback)
+        self.bridge.register("harness.refinements", harness_refinements)
+        self.bridge.register("harness.project", harness_project)
+
         self.bridge.register("rlm.run", rlm_run)
         self.bridge.register("rlm.list_subagents", rlm_list)
         self.bridge.register("rlm.delete_subagent", rlm_delete)
         self.bridge.register("agent_message.send", message_send)
         self.bridge.register("agent_message.inbox", message_inbox)
+
+    def bootstrap(self, *, agent: str = "auto", remove: bool = False) -> dict:
+        """harness를 호스트가 읽는 파일로 투영한다. 델리미터 블록 안에만 쓴다."""
+        result = bootstrap_mod.run(
+            self.harness,
+            self.config.workspace,
+            self.config.root,
+            agent=agent,
+            remove=remove,
+        ).as_dict()
+        self.record("harness.project", {"agent": agent, "remove": remove, "result": result})
+        return result
 
     async def start_bridge(self) -> None:
         if not self._bridge_started:
