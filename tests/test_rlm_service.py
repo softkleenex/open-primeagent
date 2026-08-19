@@ -1,4 +1,4 @@
-"""RLM 서비스 — 가짜 어댑터로 실제 CLI 호출 없이 규약을 검증한다."""
+"""RLM service - contract verified with a fake adapter, no real CLI calls."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from opa.rlm.spawn import RLMService
 
 
 class FakeAdapter:
-    """호출 기록을 남기는 가짜 백엔드."""
+    """A fake backend that records its calls."""
 
     name = "fake"
 
@@ -50,7 +50,7 @@ def service(config, monkeypatch):
 
 
 async def drain(service):
-    """백그라운드 child 태스크가 끝날 때까지 기다린다."""
+    """Wait for the background child tasks to finish."""
     for _ in range(200):
         if not service._tasks:
             return
@@ -62,7 +62,7 @@ async def test_run_returns_immediately_with_a_handle(service):
     handle = await service.run("review the API", name="api-reviewer")
     assert handle["name"] == "api-reviewer"
     assert handle["status"] == "running"
-    # 결과를 기다리지 않았다 — 아직 어댑터가 끝나지 않았을 수 있다
+    # we did not wait for a result; the adapter may still be running
     await drain(service)
 
 
@@ -76,7 +76,7 @@ async def test_result_lands_in_the_parent_mailbox(service):
 
 
 async def test_send_resumes_instead_of_creating_a_new_session(service):
-    """child가 일회용이 아니라는 것의 구현: resume=True 로 같은 세션을 이어간다."""
+    """How "a child is not disposable" is implemented: resume=True continues one session."""
     await service.run("first", name="security")
     await drain(service)
     await service.send("now check the payment module", receiver_name="security")
@@ -140,7 +140,7 @@ async def test_registry_survives_a_restart(service, config):
 
 
 class SerialFake(FakeAdapter):
-    """동시 실행을 감지하는 어댑터."""
+    """An adapter that detects concurrent execution."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -166,7 +166,7 @@ def serial_service(config, monkeypatch):
 
 
 async def test_turns_for_one_child_never_overlap(serial_service):
-    """같은 세션 id로 CLI를 동시에 resume 하면 세션 파일이 경쟁해 컨텍스트가 깨진다."""
+    """Concurrent resumes on one session id race over the session file and corrupt it."""
     await serial_service.run("first", name="worker")
     await drain(serial_service)
     await asyncio.gather(*[serial_service.send(f"m{i}", receiver_name="worker") for i in range(3)])
@@ -177,7 +177,7 @@ async def test_turns_for_one_child_never_overlap(serial_service):
 
 
 async def test_different_children_still_run_in_parallel(serial_service):
-    """직렬화는 child 단위여야 한다. 전체가 직렬이 되면 RLM의 의미가 없다."""
+    """Serialization must be per child. Serializing everything would defeat RLM."""
     await asyncio.gather(*[serial_service.run("go", name=f"w{i}") for i in range(3)])
     await drain(serial_service)
     assert serial_service.fake.max_live == 3
@@ -193,14 +193,14 @@ async def test_deleting_a_running_child_does_not_kill_the_task(serial_service):
 
 
 async def test_unknown_kwarg_is_rejected_not_ignored(service):
-    """rlm(moodel='opus') 가 조용히 통과하면 모델이 안 바뀐 걸 아무도 모른다."""
+    """If rlm(moodel='opus') passed silently, nobody would know the model never changed."""
     with pytest.raises(TypeError, match="unexpected argument.*moodel"):
         await service.run("p", name="typo", moodel="opus")
 
 
 async def test_cwd_check_survives_symlinked_workspaces(config, tmp_path):
-    """macOS의 /tmp → /private/tmp 처럼 workspace 경로에 심링크가 끼면,
-    한쪽만 resolve 했을 때 workspace 안의 정상 경로가 거부된다."""
+    """When the workspace path contains a symlink (macOS /tmp -> /private/tmp),
+    resolving only one side rejects valid paths inside the workspace."""
     real = tmp_path / "real"
     (real / "sub").mkdir(parents=True)
     link = tmp_path / "link"

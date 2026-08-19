@@ -1,1 +1,1 @@
-"""L0 — 세션 디렉터리 규약과 trajectory 기록."""
+"""L0 - session directory layout and trajectory recording."""

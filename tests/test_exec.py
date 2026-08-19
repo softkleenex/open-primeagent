@@ -1,4 +1,4 @@
-"""출력 처리 — "모델에게 다 주지 않는다"가 실제로 지켜지는지."""
+"""Output handling - does "do not hand the model everything" actually hold?"""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def test_never_exceeds_limit(limit):
 
 
 def test_tail_survives_so_traceback_cause_is_visible():
-    """머리만 남기면 에러 출력이 가장 쓸모없는 형태로 잘린다."""
+    """A head-only cut truncates error output in the least useful way possible."""
     text = "noise\n" * 5000 + "ValueError: THE ACTUAL CAUSE"
     out, _ = truncate(text, 300)
     assert "THE ACTUAL CAUSE" in out

@@ -1,5 +1,6 @@
-"""MCP 도구 정의 — 4개로 고정한다.
+"""MCP tool definitions - capped at four.
 
-호스트 에이전트의 도구 목록을 오염시키지 않는 것이 이 프로젝트의 전제다.
-새 기능은 도구를 늘리는 게 아니라 **커널 안 Python 심볼**로 노출한다.
+Not polluting the host agent's tool list is a premise of this project. New
+capability is exposed as a **Python symbol inside the kernel**, never as another
+tool.
 """

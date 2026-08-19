@@ -1,17 +1,18 @@
-"""`harness` — 커널에서 보이는 Continual Harness API.
+"""`harness` - the Continual Harness API visible from the kernel.
 
     H = (ρ prompts, G subagents, K skills, M memory)
 
-"self-improving"은 모델 weight가 아니라 **이 상태**가 개선되는 것이다.
+"Self-improving" means **this state** improves, not the model's weights.
 
     await harness.overview()
-    await harness.create("prompt", "migration 후 generate", "pnpm prisma generate 실행")
-    await harness.evidence()          # 무엇을 바꿀지 판단할 근거
-    await harness.apply([...], trigger="...")   # 최소 CRUD delta 적용
+    await harness.create("prompt", "regenerate after a migration",
+                         "run `pnpm prisma generate` after touching a migration")
+    await harness.evidence()                    # grounds for deciding what to change
+    await harness.apply([...], trigger="...")   # apply the minimal CRUD delta
     await harness.rollback(event_id)
 
-무엇을 바꿀지 *판단*하는 것은 harness가 아니라 **당신**이다.
-호스트는 우리에게 모델을 빌려주지 않는다 (MCP sampling 미지원).
+Deciding *what* to change is **your** job, not the harness's. The host does not
+lend us its model (no MCP sampling capability).
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ KINDS = ("prompt", "memory", "skill", "subagent")
 
 class _Harness:
     async def overview(self) -> str:
-        """사람이 읽는 요약. `[local:id] title` 형태의 id를 그대로 다시 넣을 수 있다."""
+        """Human-readable summary. The `[local:id]` ids it prints can be fed straight back."""
         return (await host_request("harness.overview"))["overview"]
 
     async def list(self, kind: str | None = None, *, scope: str = "all") -> list[dict[str, Any]]:
@@ -48,21 +49,21 @@ class _Harness:
     async def delete(self, entry_id: str) -> dict[str, Any]:
         return (await host_request("harness.delete", {"id": entry_id}))["entry"]
 
-    # ---------- 개선 ----------
+    # ---------- refinement ----------
 
     async def evidence(self) -> dict[str, Any]:
-        """이번 세션 기록에서 근거를 모은다.
+        """Gather grounds from this session's record.
 
-        `repeated_errors` 만 승격 후보다. 한 번 겪은 일은 올리지 않는다.
+        Only `repeated_errors` are promotion candidates; a one-off is not a pattern.
         """
         return await host_request("harness.evidence")
 
     async def apply(
         self, changes: list[dict[str, Any]], *, trigger: str, evidence: str = ""
     ) -> dict[str, Any]:
-        """최소 CRUD delta를 적용한다. 하나라도 실패하면 통째로 되돌린다.
+        """Apply the minimal CRUD delta. If any change fails, the whole call reverts.
 
-        changes 예:
+        Example `changes`:
             [{"op": "create", "kind": "prompt", "title": "...", "content": "..."},
              {"op": "update", "id": "ports", "content": "..."},
              {"op": "delete", "id": "stale-note"}]
@@ -76,10 +77,10 @@ class _Harness:
     async def refinements(self) -> list[dict[str, Any]]:
         return (await host_request("harness.refinements"))["events"]
 
-    # ---------- 투영 ----------
+    # ---------- projection ----------
 
     async def project(self, *, agent: str = "auto", remove: bool = False) -> dict[str, Any]:
-        """harness를 호스트가 읽는 파일로 내보낸다. `opa_bootstrap` 과 같은 동작."""
+        """Export the harness into host-read files. Same behaviour as `opa_bootstrap`."""
         return await host_request("harness.project", {"agent": agent, "remove": remove})
 
 

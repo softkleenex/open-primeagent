@@ -1,4 +1,4 @@
-"""L0 — 재시작 이후에도 살아남아야 하는 것들이 실제로 디스크에 남는지."""
+"""L0 - does everything that must survive a restart actually reach the disk?"""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def test_jsonl_roundtrip_keeps_unicode(tmp_path):
 
 
 def test_jsonl_skips_corrupt_lines(tmp_path):
-    """기록은 유실보다 진행이 우선 — 깨진 줄 하나가 전체를 막으면 안 된다."""
+    """Progress beats completeness: one corrupt line must not block the rest."""
     path = tmp_path / "t.jsonl"
     jsonl.append(path, {"n": 1})
     path.open("a").write("{not json\n")

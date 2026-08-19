@@ -1,7 +1,8 @@
-"""projection 불변식 — 이 프로젝트의 전제를 강제한다.
+"""Projection invariants - the project's premise, enforced.
 
-`opa_bootstrap` 이 델리미터 블록 **밖**의 사용자 내용을 바꾸면
-"환경을 안 바꾼다"는 약속이 깨진다. 그래서 이건 문서가 아니라 테스트다.
+If `opa_bootstrap` changes user content **outside** the delimiter block, the
+promise that we do not change your environment is broken. So this lives in a
+test, not in the documentation.
 """
 
 from __future__ import annotations
@@ -11,12 +12,12 @@ from opa.harness.state import HarnessEntry
 
 USER_FILE = """# My Project
 
-프로젝트 규칙:
-- 커밋 메시지는 한국어로
-- 테스트 없이 머지 금지
+Project rules:
+- write commit messages in Korean
+- no merge without tests
 
-<!-- 사용자가 직접 쓴 주석 -->
-끝.
+<!-- a comment the user wrote themselves -->
+done.
 """
 
 
@@ -25,7 +26,7 @@ def entry(kind, id, title, content="body text"):
 
 
 def test_apply_preserves_content_outside_block(tmp_path):
-    """블록 밖 내용은 바이트 단위로 보존된다."""
+    """Content outside the block is preserved byte for byte."""
     target = tmp_path / "CLAUDE.md"
     target.write_text(USER_FILE, encoding="utf-8")
 
@@ -35,7 +36,7 @@ def test_apply_preserves_content_outside_block(tmp_path):
     assert USER_FILE.rstrip("\n") in after
     assert "first version" in after
 
-    # 두 번째 적용에서도 사용자 내용은 그대로여야 한다
+    # the user's content must survive a second application too
     projection.apply(target, "second version")
     after2 = target.read_text(encoding="utf-8")
     assert USER_FILE.rstrip("\n") in after2
@@ -44,7 +45,7 @@ def test_apply_preserves_content_outside_block(tmp_path):
 
 
 def test_remove_restores_original_file(tmp_path):
-    """remove 후 파일이 원본과 완전히 동일하다."""
+    """After remove the file is byte-identical to the original."""
     target = tmp_path / "AGENTS.md"
     target.write_text(USER_FILE, encoding="utf-8")
 
@@ -54,7 +55,7 @@ def test_remove_restores_original_file(tmp_path):
 
 
 def test_apply_is_idempotent(tmp_path):
-    """같은 내용으로 두 번 적용해도 파일이 변하지 않는다."""
+    """Applying the same body twice leaves the file unchanged."""
     target = tmp_path / "CLAUDE.md"
     target.write_text(USER_FILE, encoding="utf-8")
 
@@ -65,7 +66,7 @@ def test_apply_is_idempotent(tmp_path):
 
 
 def test_block_only_file_is_deleted_on_remove(tmp_path):
-    """우리가 만든 파일이면 흔적을 남기지 않는다."""
+    """If we created the file, leave no trace behind."""
     target = tmp_path / "CLAUDE.md"
     projection.apply(target, "body")
     assert target.exists()
@@ -81,15 +82,15 @@ def test_remove_on_untouched_file_changes_nothing(tmp_path):
 
 
 def test_render_puts_only_the_index_for_memories(tmp_path):
-    """메모리 본문은 블록에 넣지 않는다 — 컨텍스트를 창고로 쓰지 않는다."""
+    """Memory bodies never enter the block - context is not a warehouse."""
     entries = [
-        entry("prompt", "migration", "migration 후 prisma generate"),
-        entry("memory", "ports", "포트 목록", content="아주 긴 본문 " * 200),
+        entry("prompt", "migration", "run prisma generate after a migration"),
+        entry("memory", "ports", "port list", content="a very long body " * 200),
     ]
     body = projection.render(entries, memory_dir=tmp_path)
-    assert "migration 후 prisma generate" in body
+    assert "run prisma generate after a migration" in body
     assert "`.opa/memory/ports.md`" in body
-    assert "아주 긴 본문 아주 긴 본문" not in body
+    assert "a very long body a very long body" not in body
 
 
 def test_write_memories_creates_and_prunes(tmp_path):
@@ -102,7 +103,7 @@ def test_write_memories_creates_and_prunes(tmp_path):
 
 
 def test_write_skills_never_touches_user_skills(tmp_path):
-    """사용자가 직접 만든 스킬을 지우면 약속이 깨진다."""
+    """Deleting a skill the user wrote themselves would break the promise."""
     skills = tmp_path / "skills"
     user_skill = skills / "my-own"
     user_skill.mkdir(parents=True)
@@ -111,7 +112,7 @@ def test_write_skills_never_touches_user_skills(tmp_path):
     projection.write_skills(skills, [entry("skill", "opa-one", "One")])
     assert (skills / "opa-one" / "SKILL.md").exists()
 
-    projection.write_skills(skills, [])           # 우리 스킬만 사라져야 한다
+    projection.write_skills(skills, [])           # only our skill may disappear
     assert not (skills / "opa-one").exists()
     assert (user_skill / "SKILL.md").read_text() == "mine"
 
@@ -120,8 +121,8 @@ def test_write_skills_never_touches_user_skills(tmp_path):
 
 
 def test_apply_finds_a_block_written_with_a_different_marker_text(tmp_path):
-    """마커 안내문이 바뀌어도 기존 블록을 찾아 교체해야 한다.
-    못 찾으면 블록이 매번 새로 쌓인다."""
+    """A changed marker wording must still be found and replaced.
+    Otherwise a fresh block piles up on every run."""
     target = tmp_path / "CLAUDE.md"
     target.write_text(
         "keep me\n\n<!-- opa:begin (old wording) -->\nold body\n<!-- opa:end -->\n",

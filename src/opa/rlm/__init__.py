@@ -1,5 +1,5 @@
-"""L2 — RLM. 이 프로젝트의 존재 이유.
+"""L2 - RLM. The reason this project exists.
 
-`rlm(...)`은 LLM API 호출이 아니라 **독립된 에이전트 세션**을 만든다.
-그리고 그 child는 일회용이 아니다 — registry에 남아 나중에 다시 호출된다.
+`rlm(...)` is not an LLM API call; it creates an **independent agent session**.
+And that child is not disposable - it stays in the registry and gets re-tasked.
 """

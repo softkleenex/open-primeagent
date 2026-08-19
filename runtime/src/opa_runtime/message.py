@@ -1,12 +1,13 @@
-"""`agent_message` — 이전에 일했던 child에게 후속 작업을 준다.
+"""`agent_message` - hand follow-up work to a child that already did some.
 
     await agent_message.send(
-        "방금 수정한 코드까지 다시 검사해",
+        "re-check it now that I have fixed the code",
         receiver_role="child", receiver_name="api-reviewer",
     )
 
-child는 **이전 컨텍스트를 유지한 채** 이어서 일한다. 새로 만드는 것보다 항상 낫다.
-결과 수거는 pull이다 (호스트의 턴 루프를 우리가 소유하지 않기 때문):
+The child continues **with its earlier context intact**, which always beats
+creating a new one. Collection is a pull, because we do not own the host's turn
+loop:
 
     for m in await agent_message.inbox():
         print(m["sender"], m["message"][:200])
@@ -36,7 +37,7 @@ class _AgentMessage:
         )
 
     async def inbox(self, *, since: int = 0) -> list[dict[str, Any]]:
-        """부모 메일박스를 읽는다. child의 결과가 여기로 온다."""
+        """Read the parent mailbox, where child results arrive."""
         payload = await host_request("agent_message.inbox", {"since": since})
         return payload["messages"]
 

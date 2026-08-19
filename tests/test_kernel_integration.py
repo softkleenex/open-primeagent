@@ -1,6 +1,6 @@
-"""L1 — 진짜 커널을 띄운다. ROADMAP Phase 1 Exit criteria 그 자체.
+"""L1 - boots a real kernel. These are the ROADMAP Phase 1 exit criteria.
 
-느리므로 `-m "not slow"` 로 뺄 수 있게 표시한다.
+Marked slow so they can be excluded with `-m "not slow"`.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ async def test_functions_and_imports_persist(server):
 
 
 async def test_top_level_await_works(server):
-    """IPython autoawait 가 처리한다 — nest_asyncio 불필요."""
+    """IPython autoawait handles it; nest_asyncio is unnecessary."""
     out = await call(server, "opa_python", {"code": "import asyncio\nawait asyncio.sleep(0.01)\n'ok'"})
     assert "'ok'" in out
 
@@ -55,7 +55,7 @@ async def test_error_is_captured_without_ansi(server):
 
 
 async def test_rlm_symbol_is_preloaded(server):
-    """rlm 은 MCP 도구가 아니라 커널 안 심볼이다."""
+    """rlm is a kernel symbol, not an MCP tool."""
     assert "_RLM" in await call(server, "opa_python", {"code": "type(rlm).__name__"})
 
 

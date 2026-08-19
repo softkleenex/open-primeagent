@@ -1,43 +1,45 @@
-# 보안
+# Security
 
-## 한 줄
+## In one line
 
-**샌드박스가 아니다.**
+**This is not a sandbox.**
 
-IPython 커널에서 실행되는 Python과, child 에이전트가 실행하는 shell 명령은
-전부 **당신의 OS 권한**으로 돈다. 원본 Prime Agent도 커널과 worker가
-security sandbox가 아님을 명시하고 있고, 우리는 거기에 child spawn까지 얹으므로
-공격 표면이 더 넓다.
+Python executed in the kernel, and shell commands executed by child agents, run
+with **your OS permissions**. Upstream Prime Agent states the same about its
+kernel and workers; we add child spawning on top, so the blast radius is larger.
 
 ```
-호스트 에이전트 → opa MCP → persistent Python → shell → filesystem
-                          └→ child agents → shell → filesystem
+host agent → opa MCP → persistent Python → shell → filesystem
+                     └→ child agents     → shell → filesystem
 ```
 
-에이전트의 힘이 커질수록 prompt injection · 악성 레포 · 악성 skill의
-피해 반경도 같이 커진다.
+The more capable the agent, the wider the damage radius of prompt injection, a
+malicious repository, or a malicious skill.
 
-## 기본값
+## Defaults
 
-| 항목 | 기본값 | 근거 |
+| item | default | why |
 |---|---|---|
-| child 권한 모드 | `acceptEdits` | bypass는 명시적 opt-in만 |
-| `--dangerously-skip-permissions` | **비활성** | `OPA_ALLOW_DANGEROUS_CHILD=1` 필요 |
-| child `cwd` | workspace 하위로 제한 | 밖으로 못 나감 |
-| autonomous | 기본 비활성 | 감시 없이 파일을 고친다 |
+| claude child permissions | `acceptEdits` | bypass is explicit opt-in only |
+| `--dangerously-skip-permissions` | **off** | requires `OPA_ALLOW_DANGEROUS_CHILD=1` |
+| codex child sandbox | `workspace-write` | no writes outside the workspace |
+| child `cwd` | inside the workspace | cannot escape; both paths are resolved before comparison |
+| bridge socket | `0600` | another local user cannot push commands into your kernel |
+| kernel transport | IPC socket | TCP sends code and output in cleartext on localhost |
+| autonomous mode | off | it edits files without supervision |
 
-## 언제 컨테이너를 써야 하나
+## When you need a container
 
-다음 중 하나라도 해당하면 devcontainer / VM / Docker 안에서만 실행하라.
+Run inside a devcontainer / VM / Docker if **any** of these apply:
 
-- 신뢰할 수 없는 레포를 다룰 때
-- 외부에서 온 지시문(이슈 본문, PR 설명, 웹 페이지)을 에이전트가 읽을 때
-- **장시간 autonomous 모드**를 쓸 때
-- 서드파티 skill을 설치할 때
+- You are working on a repository you do not trust
+- The agent will read instructions from outside (issue bodies, PR descriptions, web pages)
+- You are enabling **long autonomous runs**
+- You are installing third-party skills
 
-## 우리가 지키는 약속
+## The promise we keep
 
-`opa_bootstrap`은 **델리미터 블록 안에만** 쓴다.
+`opa_bootstrap` writes **only inside the delimiter block**:
 
 ```markdown
 <!-- opa:begin -->
@@ -45,10 +47,23 @@ security sandbox가 아님을 명시하고 있고, 우리는 거기에 child spa
 <!-- opa:end -->
 ```
 
-블록 밖의 `CLAUDE.md` / `AGENTS.md` 내용은 바이트 단위로 보존된다.
-`opa_bootstrap(remove=True)`로 완전 원상복구된다.
-이건 문서상의 약속이 아니라 테스트로 강제된다 (`tests/test_projection.py`).
+Content outside the block in `CLAUDE.md` / `AGENTS.md` is preserved byte for
+byte, and skill directories that lack our `.opa-managed` marker are never
+touched. `opa_bootstrap(remove=True)` restores everything.
 
-## 보고
+This is not a documentation promise — `tests/test_projection.py` and
+`tests/test_bootstrap.py` enforce it.
 
-취약점을 찾으면 이슈 대신 비공개로 알려달라.
+## A note on self-modification
+
+An agent that rewrites its own operating instructions is a real risk surface.
+Our position, and the reasoning behind it, is in
+[evolution.md](evolution.md) §5. In short: the base system prompt is never
+touched, every change is reversible, changes are delivered through tool
+*descriptions* rather than tool *results*, and there is no automatic promotion
+path where nothing can be measured.
+
+## Reporting
+
+If you find a vulnerability, please report it privately rather than opening a
+public issue.

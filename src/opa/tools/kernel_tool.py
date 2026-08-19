@@ -1,6 +1,7 @@
 """opa_kernel — restart | interrupt | info.
 
-restart는 사용자 변수를 날린다. child registry·harness·goal은 디스크에 있으므로 남는다.
+restart clears user variables. The child registry, harness and goal live on disk
+and survive.
 """
 
 DESCRIPTION = """\

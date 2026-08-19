@@ -1,8 +1,8 @@
-"""서버 프로세스가 들고 있는 상태 — 세션, 브릿지, RLM 서비스, 커널.
+"""State held by the server process: session, bridge, RLM service, kernel.
 
-커널은 **지연 부팅**한다. 호스트가 MCP 서버를 띄웠다는 이유만으로 커널을
-올릴 필요는 없다. 첫 `opa_python` 호출에서 올린다.
-브릿지는 커널보다 **먼저** 떠 있어야 한다 (커널이 소켓을 물고 시작하므로).
+The kernel boots **lazily**. The host starting the MCP server is not a reason to
+start a kernel; the first `opa_python` call is. The bridge must be up **before**
+the kernel, since the kernel starts holding the socket path.
 """
 
 from __future__ import annotations
@@ -24,8 +24,9 @@ from .rlm.spawn import RLMService
 from .session import jsonl
 from .session.paths import SessionPaths
 
-# unix 소켓 경로는 macOS에서 104바이트 제한이 있다. 세션 디렉터리는 workspace
-# 아래라 쉽게 넘어가므로, 소켓만 짧은 tempdir에 두고 경로를 세션에 기록한다.
+# Unix socket paths are capped at 104 bytes on macOS. Session directories live
+# under the workspace and blow past that easily, so the socket goes in a short
+# temp dir and the session records where it is.
 _UNIX_SOCKET_PATH_MAX = 100
 
 
@@ -74,7 +75,7 @@ class Runtime:
     # ---------- bridge ----------
 
     def _register_bridge_handlers(self) -> None:
-        """타입 이름은 원본 Prime Agent와 맞춘다 (문서/스킬 재사용)."""
+        """Request type names match upstream Prime Agent, so its docs and skills apply."""
 
         async def rlm_run(payload: dict) -> dict:
             prompt = payload.get("prompt")
@@ -212,7 +213,7 @@ class Runtime:
         self.bridge.register("agent_message.inbox", message_inbox)
 
     def bootstrap(self, *, agent: str = "auto", remove: bool = False) -> dict:
-        """harness를 호스트가 읽는 파일로 투영한다. 델리미터 블록 안에만 쓴다."""
+        """Project the harness into host-read files, writing only inside the delimiters."""
         result = bootstrap_mod.run(
             self.harness,
             self.config.workspace,
@@ -231,7 +232,7 @@ class Runtime:
     # ---------- kernel ----------
 
     async def kernel(self) -> KernelManager:
-        """첫 호출에서 브릿지와 커널을 부팅한다. 동시 호출은 한 번만 부팅되게 잠근다."""
+        """Boot the bridge and kernel on first call; the lock keeps it to one boot."""
         async with self._lock:
             if self._kernel is None:
                 await self.start_bridge()
@@ -250,7 +251,7 @@ class Runtime:
         return self._kernel
 
     def record(self, event: str, data: dict) -> None:
-        """trajectory 기록. /refine의 입력이 된다."""
+        """Record to the trajectory, which is the input to refinement."""
         jsonl.append(self.paths.trajectory, {"at": _now(), "event": event, **data})
 
     async def shutdown(self) -> None:

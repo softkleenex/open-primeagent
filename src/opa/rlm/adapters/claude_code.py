@@ -1,15 +1,15 @@
-"""Claude Code 어댑터 (기본값).
+"""Claude Code adapter (the default).
 
     spawn :  claude -p <PROMPT> --session-id <UUID> --output-format json
     resume:  claude -p <PROMPT> --resume <UUID>     --output-format json
 
-세션 UUID를 **우리가 발급**할 수 있는 게 크다 — registry id와 native session id를
-1:1로 묶어둘 수 있어 복구 로직이 단순해진다.
+Being able to **issue the session UUID ourselves** matters: the registry id and
+the native session id map 1:1, which keeps recovery trivial.
 
-실측 확인 (2026-08-19): `--resume`한 턴이 직전 턴의 내용을 기억한다.
-이게 "child가 일회용이 아니다"의 근거다.
+Measured 2026-08-19: a `--resume`d turn remembers the turn before it. That is
+the basis for "a child is not disposable".
 
-보안: `--dangerously-skip-permissions`는 Config.allow_dangerous_child 일 때만.
+Security: `--dangerously-skip-permissions` only when Config.allow_dangerous_child.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ class ClaudeCodeAdapter:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             cwd=str(request.cwd),
-            # stdin은 닫는다 — 파이프로 열려 있으면 CLI가 그걸 추가 입력으로 읽는다.
+            # Close stdin - left open as a pipe, the CLI reads it as extra input.
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

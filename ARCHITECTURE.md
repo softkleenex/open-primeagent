@@ -1,51 +1,52 @@
 # ARCHITECTURE
 
-> `open-primeagent` (패키지명 `opa`) — Prime Agent의 RLM 아키텍처를,
-> 사용자가 **쓰던 코딩 에이전트를 그대로 둔 채** 붙일 수 있는 형태로 옮긴 것.
+> `open-primeagent` (package `opa`) — Prime Agent's RLM architecture, rebuilt so
+> it attaches to the coding agent you already run instead of replacing it.
 
 ---
 
-## 0. 설계 제약
+## 0. The one constraint
 
-이 프로젝트를 규정하는 단 하나의 제약:
+Everything below follows from a single rule:
 
-> **호스트 에이전트를 대체하지 않는다.**
-> Claude Code / Codex / opencode 사용자가 자기 환경·인증·설정·스킬을 유지한 채,
-> MCP 서버 한 줄 등록만으로 RLM을 얻는다.
+> **We do not replace the host agent.**
+> A Claude Code / Codex / opencode user keeps their environment, auth, settings
+> and skills, and gets RLM by registering one MCP server.
 
-여기서 따라 나오는 결론들:
+Consequences:
 
 | | Prime Agent | open-primeagent |
 |---|---|---|
-| 호스트 | 자체 TS harness (117k LOC) | **사용자가 이미 쓰는 에이전트** |
-| 시스템 프롬프트 | 소유함 | 소유 못 함 → *투영(projection)*으로 우회 |
-| 커널 브릿지 | Jupyter comm → TS 호스트 | Unix socket → MCP 서버 |
-| child 세션 | 자체 세션 매니저 | 호스트 CLI의 `--session-id` / `resume` |
-| 모델 선택 | 자체 provider 레이어 | 호스트 CLI에 위임 (`--model`) |
+| host | its own TS harness (117k LOC) | **the agent you already run** |
+| system prompt | owns it | cannot touch it → works around it via *projection* |
+| kernel bridge | Jupyter comm → TS host | Unix socket → MCP server |
+| child sessions | its own session manager | the host CLI's `--session-id` / `resume` |
+| model selection | its own provider layer | delegated to the host CLI (`--model`) |
 
-우리가 실제로 새로 만드는 것은 **RLM 런타임뿐**이고, 그 외 전부는 호스트에 위임한다.
+The only thing we actually build is the **RLM runtime**. Everything else is
+delegated.
 
-### 원본 분석에서 얻은 근거
+### Evidence from the upstream repo
 
-`_ref/prime-agent` 실측:
+Measured on `_ref/prime-agent`:
 
 ```
-packages/coding-agent   117,690 LOC (TS)   호스트 harness / 세션 / TUI / CLI
-packages/ai              35,332 LOC (TS)   provider + OAuth + MCP
-packages/tui             14,635 LOC (TS)   터미널 UI
-prime-agent-runtime       1,536 LOC (Py)   ← rlm 커널 shim (전부)
+packages/coding-agent   117,690 LOC (TS)   host harness / sessions / TUI / CLI
+packages/ai              35,332 LOC (TS)   providers + OAuth + MCP
+packages/tui             14,635 LOC (TS)   terminal UI
+prime-agent-runtime       1,536 LOC (Py)   ← the rlm kernel shim, in full
 ```
 
-`prime-agent-runtime/src/rlm/__init__.py`는 348줄이고 내용은 전부
-`await host_request("rlm.run", ...)` 형태의 얇은 RPC 래퍼다.
-`harness.py`(820줄)는 `harness_state.json`에 대한 CRUD 스토어일 뿐이다.
+`prime-agent-runtime/src/rlm/__init__.py` is 348 lines and is almost entirely
+thin `await host_request("rlm.run", ...)` RPC wrappers. `harness.py` (820 lines)
+is a CRUD store over `harness_state.json`.
 
-**즉 RLM의 개념적 핵심은 1.5k LOC 안에 있고, 나머지는 harness 구현 세부사항이다.**
-호스트를 위임하면 이 프로젝트는 현실적인 규모가 된다.
+**The conceptual core of RLM fits in 1.5k lines; the rest is one harness
+implementation.** Delegating the harness makes this project a realistic size.
 
 ---
 
-## 1. 레이어
+## 1. Layers
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -53,32 +54,32 @@ prime-agent-runtime       1,536 LOC (Py)   ← rlm 커널 shim (전부)
 ├──────────────────────────────────────────────────────────────┤
 │  L3  Continual Harness   H = (ρ prompts, G subagents,        │
 │                               K skills,   M memory)          │
-│                          + projection → 호스트가 읽는 파일    │
+│                          + projection into host-read files   │
 ├──────────────────────────────────────────────────────────────┤
-│  L2  RLM          persistent subagents + A2A messaging       │
-│                   ├ registry (재시작 후에도 복구)             │
+│  L2  RLM          persistent sub-agents + A2A messaging      │
+│                   ├ registry (survives restarts)             │
 │                   └ adapters: claude-code / codex / opencode │
 ├──────────────────────────────────────────────────────────────┤
-│  L1  Persistent Python   IPython 커널 + 외부 작업 메모리      │
+│  L1  Persistent Python   IPython kernel as working memory    │
 ├──────────────────────────────────────────────────────────────┤
 │  L0  Session & Store     session dir / JSONL trajectory      │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-의존 방향은 위→아래 단방향. L1 없이 L2 없고, L2 없이 L3의 `G`가 의미 없다.
-구현 순서도 동일하다 (ROADMAP 참조).
+Dependencies point downward only. There is no L2 without L1, and `G` in L3 is
+meaningless without L2. Implementation order follows the same line.
 
 ---
 
-## 2. 런타임 토폴로지
+## 2. Runtime topology
 
 ```
-        사용자가 쓰던 코딩 에이전트 (Claude Code / Codex / opencode …)
+        the coding agent you already run (Claude Code / Codex / opencode …)
                               │
                               │  MCP (stdio)
                               ▼
         ┌───────────────────────────────────────────┐
-        │            opa MCP 서버 (호스트)           │
+        │            opa MCP server (host)          │
         │                                           │
         │   tools:  opa_python  opa_status          │
         │           opa_kernel  opa_bootstrap       │
@@ -94,240 +95,292 @@ prime-agent-runtime       1,536 LOC (Py)   ← rlm 커널 shim (전부)
         ┌───────────────────────────────────────────┐
         │        persistent IPython kernel          │
         │                                           │
-        │   preloaded:  rlm  harness  goal          │
+        │   preloaded:  rlm  harness                │
         │               agent_message               │
-        │   user state: files, results, dfs, …      │
+        │   user state: files, results, graphs, …   │
         └───────────────────────────────────────────┘
-                   │ adapter가 subprocess spawn
+                   │ adapters spawn subprocesses
                    ▼
         ┌──────────┬──────────┬──────────┬──────────┐
-        │ backend  │ frontend │ test     │ security │  ← child 에이전트
-        │ (claude) │ (claude) │ (codex)  │ (claude) │    각자 native session id
+        │ backend  │ frontend │ test     │ security │  ← child agents
+        │ (claude) │ (claude) │ (codex)  │ (claude) │    each with its own session
         └──────────┴──────────┴──────────┴──────────┘
 ```
 
-### 왜 Jupyter comm이 아니라 Unix socket인가
+### Why a Unix socket instead of a Jupyter comm
 
-원본은 커널이 `Comm(target_name="host.request")`로 TS 호스트를 부른다.
-이 방식은 `execute_request` 처리 중 comm 응답을 받기 위해
-커널의 `control_handlers`를 런타임 패치해야 한다 (`__init__.py:_install_control_comm_handlers`).
+Upstream has the kernel call `Comm(target_name="host.request")` into the TS
+host. That requires runtime-patching the kernel's `control_handlers` so comm
+replies can arrive during an `execute_request`
+(`__init__.py:_install_control_comm_handlers`).
 
-우리는 socket을 택한다:
+We use a socket instead:
 
-- 커널 재시작과 **독립적**이다. 브릿지가 커널 채널에 묶여 있지 않다.
-- 커널이 아닌 **skill 서브프로세스**도 호스트를 호출할 수 있다 (K 레이어에 필요).
-- 커널 없이 브릿지 단독 테스트가 가능하다.
-- child 프로세스에 `OPA_HOST_SOCKET` + `OPA_ROLE=child`만 주면
-  **child도 부모 호스트에 메시지를 보낼 수 있다** (A2A 양방향의 전제).
+- It is **independent of kernel restarts** — the bridge is not tied to a kernel
+  channel.
+- Processes that are not the kernel (skill subprocesses, child agents) can call
+  the host through the same door — required for L3 and for child → parent push.
+- The bridge is testable on its own, with no kernel running.
+- Give a child `OPA_HOST_SOCKET` + `OPA_ROLE=child` and it can message its
+  parent. That is the precondition for two-way A2A.
 
-프로토콜: 연결당 요청 1개, 한 줄 = 하나의 JSON.
+Protocol: one request per connection, one line of JSON.
+
 ```
 → {"id":"1","type":"rlm.run","payload":{...}}
 ← {"id":"1","status":"ok","result":{"rlm_child_id":"opa-a1b2","name":"api-reviewer",...}}
 ← {"id":"1","status":"error","error":"..."}
 ```
 
-핸들러 결과는 `result` 안에 **감싼다**. 평탄하게 병합하면 핸들러의 키가 프로토콜
-키를 덮어쓴다 — 실제로 `rlm.run`이 돌려준 `status: "running"`이 프로토콜의
-`status: "ok"`를 덮어써서 클라이언트가 터졌다. 이름 규칙으로 막으면 언젠가 또
-깨지므로 구조로 막는다.
-타입 이름은 원본과 동일하게 유지한다 (`rlm.run`, `rlm.list_subagents`,
-`rlm.delete_subagent`, `rlm.find_models`). 원본 스킬/문서를 그대로 참조 가능하도록.
+Handler results are **wrapped in `result`**. Merging them flat lets a handler
+key shadow a protocol key — and it did: `rlm.run` returned `status: "running"`,
+which overwrote the protocol's `status: "ok"` and broke the client. A naming
+convention would break again later, so the envelope makes it structurally
+impossible.
+
+Request type names match upstream (`rlm.run`, `rlm.list_subagents`,
+`rlm.delete_subagent`, `rlm.find_models`) so upstream docs and skills still
+apply.
+
+Line size limit is 8 MB, set explicitly on **both** ends. `asyncio`'s
+`StreamReader` defaults to 64 KiB, which silently breaks large prompts and any
+inbox holding a few child reports.
 
 ---
 
-## 3. MCP 도구 표면 — 의도적으로 작게
+## 3. The MCP tool surface is deliberately tiny
 
-Prime Agent의 철학은 *"LLM에게 도구 20개를 주지 말고 Python을 줘라"* 이다.
-호스트의 도구 목록을 오염시키면 그 철학과 정반대가 되고, 사용자의 기존
-에이전트 성능에도 영향을 준다. 그래서 노출 도구는 **4개로 고정**한다.
+Prime Agent's thesis is *don't give the LLM twenty tools, give it Python*.
+Polluting the host's tool list would contradict that thesis and degrade the
+agent the user already has. So the surface is capped at **four**.
 
-| 도구 | 역할 |
+| tool | role |
 |---|---|
-| `opa_python(code, timeout=…)` | 유일한 작업 도구. persistent 커널에서 실행 |
-| `opa_status()` | 커널 / child / goal / harness 요약 한 장 |
+| `opa_python(code, timeout=…)` | the only work tool; runs in the persistent kernel |
+| `opa_status()` | one page: kernel / children / goal / harness |
 | `opa_kernel(action)` | `restart` \| `interrupt` \| `info` |
-| `opa_bootstrap(agent=…)` | 현재 호스트에 harness projection·스킬 설치/갱신 |
+| `opa_bootstrap(agent, remove)` | project the harness into host-read files |
 
-`rlm`, `harness`, `goal`, `agent_message`는 **MCP 도구가 아니라 커널 안의 Python 심볼**이다.
+`rlm`, `harness`, `agent_message` and `goal` are **kernel symbols, not tools**.
 
 ```python
-# 호스트 에이전트가 실제로 하는 일은 이게 전부다
+# this is all the host agent actually does
 opa_python("""
-api  = await rlm("API 보안 검토", name="api-reviewer")
-test = await rlm("테스트 커버리지 분석", name="test-reviewer")
+api  = await rlm("audit the API layer", name="api-reviewer")
+test = await rlm("map test coverage gaps", name="test-reviewer")
 """)
 ```
+
+`server.MAX_TOOLS = 4`, enforced by `tests/test_server.py`.
 
 ---
 
 ## 4. L1 — Persistent Python
 
-- `jupyter_client.AsyncKernelManager`로 IPython 커널 1개를 세션당 소유.
-- 부팅 시 `opa_runtime`을 주입해 `rlm / harness / goal / agent_message` 심볼을 노출.
-- top-level `await`는 IPython autoawait가 네이티브로 처리한다.
-  원본은 `nest_asyncio`를 쓰지만 실측 결과 불필요해서 의존성에서 뺐다.
-- 커널 트랜스포트는 POSIX에서 **IPC 소켓**. TCP는 커널 코드/출력을 평문으로 흘린다.
-- 출력 정책: stdout/result를 **잘라서** 반환하고 전문은 세션 디렉터리에 저장,
-  경로만 알려준다. 이것이 "context를 창고로 쓰지 않는다"의 실질이다.
-  - 기본 `OPA_MAX_OUTPUT_CHARS=4000`, 초과분은 `<session>/outputs/<n>.txt`.
-- 커널 재시작 시 상태는 소실된다. 대신 **재시작 이후에도 복구되어야 하는 것**
-  (child registry, harness, goal)은 전부 호스트 측 디스크에 있다.
+- One IPython kernel per session, owned via `jupyter_client.AsyncKernelManager`.
+- The kernelspec is written by us with `argv[0] = sys.executable`. Relying on
+  the user's installed kernelspec would boot a Python without `opa_runtime`, and
+  the `rlm` symbols would silently vanish.
+- Top-level `await` is handled natively by IPython's autoawait. Upstream uses
+  `nest_asyncio`; we measured that it is unnecessary and dropped the dependency.
+- Transport is an **IPC socket** on POSIX. TCP sends kernel code and output in
+  cleartext over localhost (ipykernel warns about this itself). `jupyter_client`
+  uses `ip` as the socket path prefix for IPC, and macOS caps `sun_path` at 104
+  bytes, so we use a short temp-dir prefix and fall back to TCP if it would not
+  fit.
+- Output policy: return a truncated view, write the full text to the session
+  directory, and hand back the path. This is what "don't use context as a
+  warehouse" means concretely. Default `OPA_MAX_OUTPUT_CHARS=4000`.
+- Truncation keeps head **and tail** — the real cause of a traceback is on the
+  last line, so a head-only cut is the least useful possible cut.
+- A kernel restart clears user variables. Everything that must survive (child
+  registry, harness, goal) lives on the host's disk.
 
 ---
 
-## 5. L2 — RLM (persistent subagents)
+## 5. L2 — RLM (persistent sub-agents)
 
-### 5.1 어댑터 계약
+### 5.1 The adapter contract
 
 ```python
 class AgentAdapter(Protocol):
     name: str
     def available(self) -> bool: ...
-    async def spawn(self, spec: SpawnSpec) -> NativeSession: ...   # 최초 1턴
-    async def resume(self, sess: NativeSession, prompt: str) -> TurnResult: ...
-    def parse_stream(self, line: str) -> Event | None: ...
+    def preassign_session_id(self) -> str | None: ...
+    async def run(self, request: TurnRequest) -> TurnResult: ...
 ```
 
-실측으로 계약이 성립함을 확인했다:
+A backend qualifies if it can do exactly two things: run non-interactively from
+a prompt, and **resume by session id**. Child persistence comes entirely from
+the second one.
 
-| 어댑터 | spawn | resume | 세션 ID 출처 |
+| adapter | spawn | resume | session id origin |
 |---|---|---|---|
-| `claude-code` | `claude -p P --session-id <UUID> --output-format json` | `claude -p P --resume <UUID>` | **우리가 발급** |
-| `codex` | `codex exec P --json --skip-git-repo-check` | `codex exec resume <TID> P --json` | codex가 발급 → `thread.started`에서 파싱 |
-| `opencode` | (조사 필요) | (조사 필요) | — |
+| `claude-code` | `claude -p P --session-id <UUID> --output-format json` | `claude -p P --resume <UUID>` | **we issue it** |
+| `codex` | `codex exec P --json --skip-git-repo-check` | `codex exec resume <TID> P --json` | codex issues it → parsed from `thread.started` |
+| `opencode` | (to investigate) | (to investigate) | — |
 
-`claude`가 세션 UUID를 우리가 지정할 수 있다는 점이 크다 —
-registry의 id와 native session id를 1:1로 묶어둘 수 있어 복구가 단순해진다.
+Being able to choose the UUID for `claude` matters: the registry id and the
+native session id map 1:1, which keeps recovery trivial.
 
-**실측으로 걸린 제약** (2026-08-19):
-- 두 CLI 모두 **stdin을 닫아야 한다**. 파이프로 열려 있으면 codex는
-  `Reading additional input from stdin...` 상태로 무한 대기한다.
-- codex는 git 저장소 밖에서 `--skip-git-repo-check` 없이 거부한다.
-- 두 CLI 모두 resume이 이전 턴을 기억함을 확인했다. RLM 영속성의 근거다.
+**Constraints found by running them** (2026-08-19):
 
-codex JSONL 이벤트:
-`thread.started.thread_id` = 세션 id · `item.completed.item.text`(type=agent_message) = 최종 응답 ·
-`turn.completed.usage` = 토큰
+- Both CLIs need **stdin closed**. Left open as a pipe, `codex` blocks forever on
+  `Reading additional input from stdin...`.
+- `codex` refuses to run outside a git repository without `--skip-git-repo-check`.
+- Both resume with earlier context intact. That is the basis for RLM persistence.
 
-### 5.2 child registry
+codex JSONL events: `thread.started.thread_id` is the session id,
+`item.completed.item.text` (type `agent_message`) is the final answer,
+`turn.completed.usage` carries tokens.
 
-`rlm(...)`은 **결과를 기다리지 않는다.** 원본과 동일하게 admit 시점에 핸들을 반환한다.
+### 5.2 Child registry
+
+`rlm(...)` **does not wait for a result.** Like upstream, it returns a handle the
+moment the task is admitted.
 
 ```python
 @dataclass
 class ChildRecord:
     rlm_child_id: str        # opa-<8hex>
-    name: str                # "api-reviewer" — 재호출 시 주소
-    adapter: str             # "claude-code"
-    native_session_id: str
-    session_dir: Path
-    cwd: Path
-    model: str | None
+    name: str                # "api-reviewer" — the address for re-tasking
+    adapter: str
+    native_session_id: str | None
+    cwd: str
     status: Literal["running", "completed", "error"]
-    turns: list[TurnRef]
+    turns: int
+    tokens: int
+    cost_usd: float
 ```
 
-`<session>/children/index.json` + `<child>/turns.jsonl`에 영속화.
-→ 커널 재시작·컨텍스트 compaction·호스트 재시작 후에도
-`await rlm.list_subagents()`가 동일한 child를 되돌려준다. (원본의 핵심 요구사항)
+Persisted to `children/<id>/child.json` + `turns.jsonl`, so
+`await rlm.list_subagents()` returns the same children after a kernel restart,
+a context compaction, or a host restart.
+
+Turns for one child are **serialized by a per-child lock**. Two concurrent
+`--resume` calls on the same session id race over the same session file and
+corrupt its context. Messages are queued, never dropped, and different children
+still run in parallel.
 
 ### 5.3 A2A messaging
 
-메일박스: `<session>/mailbox/<name>.jsonl`
+Mailboxes live at `<session>/mailbox/<name>.jsonl`.
 
-- **parent → child**: `agent_message.send(..., receiver_role="child", receiver_name="api-reviewer")`
-  → 어댑터 `resume`으로 새 턴. child는 이전 컨텍스트를 그대로 가진 채 이어서 일한다.
-- **child → parent**: 두 경로
-  1. *Phase 2*: child 프로세스의 최종 출력을 어댑터가 캡처해 parent 메일박스에 적재. 항상 동작.
-  2. *Phase 3*: child에 `--mcp-config`로 opa 서버를 붙이고 `OPA_ROLE=child`를 주면
-     child가 **작업 도중에도** parent에게 push 가능. socket 브릿지를 택한 이유.
+- **parent → child**: a new turn via the adapter's resume path. The child keeps
+  its earlier context. This is what "a child is not disposable" means in code.
+- **child → parent**: today the adapter captures the child's final output into
+  the parent mailbox. Next: attach the opa MCP server to the child with
+  `OPA_ROLE=child` so it can push mid-run — the reason the bridge is a socket.
 
-### 5.4 수명
+### 5.4 Lifetime
 
-`manager ─┬─ backend  ─┐`
-`         ├─ frontend ─┤  장기 상주, 필요할 때 재호출`
-`         ├─ test     ─┤`
-`         └─ security ─┘`
+```
+manager ─┬─ backend  ─┐
+         ├─ frontend ─┤  long-lived, re-tasked when needed
+         ├─ test     ─┤
+         └─ security ─┘
+```
 
-일회성 fan-out이 아니다. `delete_subagent`는 명시적 호출로만.
+Not a one-shot fan-out. `delete_subagent` only ever runs when asked.
 
 ---
 
 ## 6. L3 — Continual Harness
 
-원본의 상태 모델을 그대로 가져온다. `H = (ρ, G, K, M)`, kind ∈
-`prompt | subagent | skill | memory`, scope ∈ `local | global`.
-`harness_state.json` 스키마도 호환되게 유지한다 (원본 세션 이식 가능성).
+`H = (ρ, G, K, M)`, kind ∈ `prompt | subagent | skill | memory`,
+scope ∈ `local | global`. The `harness_state.json` schema is kept compatible
+with upstream so sessions can move between the two.
 
-### 6.1 projection — 이 프로젝트만의 문제
+One deliberate addition: `RefinementEvent.before` holds a snapshot. Upstream
+records changes as strings only, which cannot be reverted precisely. Extra
+fields are ignored by upstream's loader, so compatibility holds both ways.
 
-원본은 시스템 프롬프트를 소유하므로 harness를 그냥 주입하면 된다.
-우리는 못 한다. 그래서 **호스트가 이미 읽는 파일로 투영한다.**
+### 6.1 Projection — the problem unique to this project
 
-| harness kind | 투영 대상 |
+Upstream owns the system prompt, so it can inject the harness directly. We
+cannot. So we **project into the files the host already reads**:
+
+| harness kind | projection target |
 |---|---|
-| `prompt` (ρ) | `CLAUDE.md` / `AGENTS.md` 내부의 델리미터 블록 |
-| `skill` (K) | `.claude/skills/<n>/SKILL.md`, python 패키지는 커널에 `uv pip install -e` |
-| `memory` (M) | `.opa/memory/*.md` + 프롬프트 블록에는 **인덱스만** |
-| `subagent` (G) | registry의 default spec (spawn 시 `--append-system-prompt`) |
+| `prompt` (ρ) | a delimiter block inside `CLAUDE.md` / `AGENTS.md` |
+| `skill` (K) | `.claude/skills/<id>/SKILL.md`, marked `.opa-managed` |
+| `memory` (M) | `.opa/memory/*.md`; the block carries **only an index** |
+| `subagent` (G) | registry default spec (`--append-system-prompt` at spawn) |
 
-**불변식**: 쓰기는 오직 델리미터 안에서만 한다.
+**Invariant: we write only inside the delimiters.**
 
 ```markdown
-<!-- opa:begin — 자동 생성. 이 블록 밖은 건드리지 않음. `opa_bootstrap()`이 갱신 -->
+<!-- opa:begin — generated. Nothing outside this block is touched. -->
 ...
 <!-- opa:end -->
 ```
 
-블록 밖 사용자 내용은 절대 수정하지 않는다. "환경을 안 바꾼다"는 약속은
-여기서 지켜지거나 깨진다. 그래서 이건 테스트로 강제한다 (`tests/test_projection.py`).
+Nothing outside the block is modified, `remove` restores the file byte for byte,
+and skill directories without our `.opa-managed` marker are never deleted. This
+is where the promise is kept or broken, so `tests/test_projection.py` and
+`tests/test_bootstrap.py` enforce it rather than the documentation.
 
-### 6.2 refine
+`opa_bootstrap(agent="auto")` writes only to prompt files that **already exist**.
+Creating files the user never had would itself be changing their environment; if
+none exist we create the single most portable one, `AGENTS.md`.
 
-`/refine`은 호스트 슬래시커맨드라 에이전트마다 다르다. 그래서 2중으로 제공한다:
+### 6.2 Refinement
 
-- 이식 가능한 코어: `await harness.refine(trajectory)` — 최소 CRUD delta 제안
-- Claude Code 전용 편의: 플러그인 `/opa:refine` 슬래시 커맨드
+The harness does **not** decide what to change. Claude Code advertises no MCP
+`sampling` capability (measured — see `docs/evolution.md` §1.1), so the host does
+not lend us its model. The split is:
 
-원본 규칙 유지: base system prompt는 수정하지 않고, refinement history를 남기며
-rollback이 가능해야 한다.
+- `harness.evidence()` — gather grounds from the trajectory. Only **repeated**
+  signals are promotion candidates; a one-off is not a pattern.
+- the caller (host agent, or a refiner child) decides the delta.
+- `harness.apply(changes, trigger=…)` — apply the minimal CRUD delta. If any
+  change fails, everything already applied is reverted; a half-applied harness
+  is the worst possible outcome.
+- `harness.rollback(event_id)` — exact revert from the `before` snapshot.
+
+Upstream's rules are kept: never modify the base system prompt, prefer the
+smallest change, keep refinement history.
 
 ---
 
 ## 7. L4 — Long-run
 
-| 기능 | 구현 |
+| feature | implementation |
 |---|---|
-| goal | `<session>/goal.json`. `opa_status()`와 커널 `goal.*` API가 노출 |
-| heartbeat | 호스트 측 스케줄러가 메일박스에 리마인더 push. 호스트 에이전트는 다음 턴에 수거 |
-| schedule | one-time / cron. 사용자용과 `rlm_heartbeat`(에이전트 자율 생성)를 분리 |
-| autonomous | max turns / token budget / wall-clock + quality gate. 실패 gate 출력은 다시 입력으로 |
+| goal | `<session>/goal.json`, exposed via `opa_status()` and the `goal.*` kernel API |
+| heartbeat | host-side scheduler pushes reminders into the mailbox |
+| schedule | one-time / cron; user-created and agent-created (`rlm_heartbeat`) kept separate |
+| autonomous | max turns / token budget / wall clock + a quality gate; a failed gate feeds its output back in |
 
-**한계를 명시한다**: 우리는 호스트의 턴 루프를 소유하지 않는다.
-따라서 "에이전트를 깨운다"는 push가 아니라 pull(다음 턴에 수거)이다.
-진짜 push가 필요하면 opa가 **직접 child를 돌리는** autonomous 모드를 쓴다
-(이 경우 부모도 어댑터 위에서 돈다).
-
----
-
-## 8. 보안
-
-원본 문서도 명시하듯 IPython 커널과 worker는 **security sandbox가 아니다.**
-모델이 만든 Python과 shell이 사용자 OS 권한으로 실행된다.
-우리는 child spawn까지 하므로 표면이 더 넓다.
-
-기본값 정책:
-- child 기본 권한은 보수적으로. `--dangerously-skip-permissions`는 **명시적 opt-in만**.
-- child `cwd`는 허용 경로 밖으로 못 나간다.
-- `_ref/` 같은 신뢰 못 하는 코드를 다루는 세션에서 autonomous 금지.
-- 장시간 autonomous는 devcontainer/VM 권장을 문서에 명시. (`docs/security.md`)
+**A stated limit**: we do not own the host's turn loop. "Waking the agent" is
+therefore a pull (collected on the next turn), not a push. Real push requires
+opa to drive the children itself in autonomous mode, where the parent also runs
+on an adapter.
 
 ---
 
-## 9. 열린 질문
+## 8. Security
 
-- opencode의 headless/resume 인터페이스 확인 필요.
-- child 토큰 사용량 회계: `claude --output-format json`의 usage 필드로 충분한가.
-- harness `global` scope를 `~/.opa/`에 둘 때 여러 프로젝트 간 충돌 처리.
-- 커널 재시작 시 사용자 변수 복구를 어디까지 시도할 것인가 (원본은 안 함).
+Upstream states plainly that its IPython kernel and workers are not a security
+sandbox. Model-generated Python and shell run with the user's OS permissions.
+We additionally spawn children, so the surface is wider.
+
+Defaults:
+
+- Conservative child permissions. `--dangerously-skip-permissions` is
+  **explicit opt-in only**; codex children run under `--sandbox workspace-write`.
+- A child's `cwd` cannot escape the workspace. Both sides of the comparison are
+  resolved, so a symlinked workspace does not produce false rejections.
+- The bridge socket is `0600`, so another local user cannot push commands into
+  the kernel.
+- Long autonomous runs belong in a devcontainer or VM (`docs/security.md`).
+
+---
+
+## 9. Open questions
+
+- opencode's headless / resume interface.
+- Recursion depth limits when the opa server is attached to a child.
+- Conflict handling for `global` scope across several projects.
+- How much of the user's kernel namespace, if any, is worth restoring after a
+  restart (upstream restores none).

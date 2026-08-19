@@ -1,17 +1,17 @@
-"""Codex 어댑터.
+"""Codex adapter.
 
     spawn :  codex exec <PROMPT> --json --skip-git-repo-check [-m MODEL]
     resume:  codex exec resume <THREAD_ID> <PROMPT> --json
 
-claude와 달리 세션 id를 우리가 정할 수 없다 — 첫 실행의 `thread.started`
-이벤트에서 파싱해 registry에 저장한다.
+Unlike claude we cannot choose the session id - it is parsed from the first
+run's `thread.started` event and stored in the registry.
 
-실측으로 확인한 제약 두 가지 (2026-08-19):
-  1. **stdin을 닫아야 한다.** 파이프로 열려 있으면 codex가
-     "Reading additional input from stdin..." 상태로 무한 대기한다.
-  2. git 저장소 밖에서는 `--skip-git-repo-check` 없이는 거부한다.
+Two constraints found by running it (2026-08-19):
+  1. **stdin must be closed.** Left open as a pipe, codex waits forever at
+     "Reading additional input from stdin...".
+  2. Outside a git repository it refuses to run without `--skip-git-repo-check`.
 
-JSONL 이벤트 스키마:
+JSONL event schema:
     {"type":"thread.started","thread_id":"..."}
     {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
     {"type":"turn.completed","usage":{"input_tokens":N,"output_tokens":N,...}}
@@ -28,7 +28,7 @@ from .base import TurnRequest, TurnResult
 
 CLI = "codex"
 
-# 기본 샌드박스. workspace 밖 쓰기와 네트워크를 막는다 (docs/security.md).
+# Default sandbox: no writes outside the workspace (docs/security.md).
 DEFAULT_SANDBOX = "workspace-write"
 
 
@@ -39,7 +39,7 @@ class CodexAdapter:
         return shutil.which(CLI) is not None
 
     def preassign_session_id(self) -> str | None:
-        return None  # codex가 발급한다
+        return None  # codex issues it
 
     def build_command(self, request: TurnRequest) -> list[str]:
         if request.resume:
@@ -63,7 +63,7 @@ class CodexAdapter:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             cwd=str(request.cwd),
-            # stdin을 반드시 닫는다 — 열려 있으면 codex가 stdin을 기다리며 멈춘다.
+            # stdin must be closed; left open, codex blocks waiting on it.
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -117,7 +117,7 @@ class CodexAdapter:
             elif kind == "item.completed":
                 item = event.get("item") or {}
                 if item.get("type") == "agent_message" and item.get("text"):
-                    text = item["text"]  # 마지막 agent_message가 최종 응답
+                    text = item["text"]  # the last agent_message is the final answer
             elif kind == "turn.completed":
                 usage = event.get("usage") or {}
                 if usage:

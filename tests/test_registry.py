@@ -1,4 +1,4 @@
-"""registry — "child는 일회용이 아니다"가 재시작을 넘어 성립하는지."""
+"""Registry - does "a child is not disposable" survive a restart?"""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def test_add_and_lookup_by_name_or_id(registry, tmp_path):
 
 
 def test_survives_a_fresh_registry_instance(registry, tmp_path):
-    """호스트/커널이 재시작해도 같은 child가 나와야 한다 — 이게 핵심 요구사항이다."""
+    """The same children must return after a host or kernel restart - the core requirement."""
     registry.add(ChildRecord.new("security", "claude-code", tmp_path, native_session_id="s-1"))
     registry.add(ChildRecord.new("backend", "codex", tmp_path))
 

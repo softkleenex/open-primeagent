@@ -7,10 +7,10 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 
 dependencies = [
-  "mcp>=1.2",           # MCP 서버 (stdio)
-  "jupyter-client>=8",  # persistent IPython 커널 제어
-  "ipykernel>=6",       # 커널 본체
-  "opa-runtime",        # 커널에 주입되는 shim (workspace member)
+  "mcp>=1.2",           # MCP server (stdio)
+  "jupyter-client>=8",  # drives the persistent IPython kernel
+  "ipykernel>=6",       # the kernel itself
+  "opa-runtime",        # kernel-side shim (workspace member)
 ]
 
 [project.optional-dependencies]
@@ -35,14 +35,14 @@ opa-runtime = { workspace = true }
 [tool.ruff]
 line-length = 100
 src = ["src", "runtime/src"]
-# _ref: 원본 클론(읽기 전용). examples: 커널 셀 코드라 top-level await를 쓴다.
+# _ref: upstream clone, read-only. examples: kernel cell code, uses top-level await.
 extend-exclude = ["_ref", "examples"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
-  "slow: 실제 IPython 커널을 띄우는 통합 테스트",
-  "child: 실제 코딩 에이전트 CLI를 child로 띄운다 (인증·토큰 쿼터 필요)",
+  "slow: integration tests that boot a real IPython kernel",
+  "child: spawns a real coding-agent CLI as a child (needs auth and token quota)",
 ]
-addopts = "-m 'not child'"   # child 테스트는 명시적으로 -m child 로만 돌린다
+addopts = "-m 'not child'"   # child tests run only when asked for with -m child

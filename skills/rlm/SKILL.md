@@ -1,43 +1,48 @@
 ---
 name: rlm
-description: persistent Python 커널에서 장기 상주 서브에이전트를 함수처럼 만들고 재호출한다. 병렬 조사, 전문가 팀 구성, 이전에 일했던 에이전트에게 후속 작업을 줄 때 사용.
+description: Create long-lived specialist sub-agents from the persistent Python kernel and re-task them later. Use for parallel investigation, standing expert teams, and follow-up work for an agent that already has the context.
 ---
 
 # RLM
 
-`opa_python` 도구 안에서 쓴다. `rlm(...)`은 LLM API 호출이 아니라
-**독립된 에이전트 세션**을 만든다.
+Used inside the `opa_python` tool. `rlm(...)` is not an LLM API call — it creates
+an **independent agent session**.
 
 ```python
-api  = await rlm("API 코드의 보안 문제를 찾아라", name="api-reviewer")
-test = await rlm("테스트 커버리지를 분석해라",     name="test-reviewer")
+api  = await rlm("audit the API layer for security problems", name="api-reviewer")
+test = await rlm("map the gaps in our test coverage",         name="test-reviewer")
 ```
 
-`rlm(...)`은 **기다리지 않는다.** 핸들만 돌아오고 child는 백그라운드에서 계속 돈다.
+`rlm(...)` **does not wait.** It returns a handle and the child keeps working in
+the background.
 
-결과는 부모 메일박스로 온다 (호스트의 턴 루프를 소유하지 않으므로 pull이다):
+Results arrive in the parent mailbox. Collection is a pull, because we do not own
+the host's turn loop:
 
 ```python
 for m in await agent_message.inbox():
     print(m["sender"], m["message"][:200])
 ```
 
-## child는 일회용이 아니다
+## A child is not disposable
 
 ```python
-children = await rlm.list_subagents()      # 커널 재시작 후에도 그대로 있다
+children = await rlm.list_subagents()      # still there after a kernel restart
 
 await agent_message.send(
-    "방금 수정한 코드까지 다시 검사해",
+    "re-check it now that I've fixed the code",
     receiver_role="child", receiver_name="api-reviewer",
-)   # 이전 컨텍스트를 유지한 채 이어서 일한다
+)   # continues with its earlier context intact
 ```
 
-새 child를 만들기 전에 **먼저 `list_subagents()`로 기존 child를 찾아라.**
-같은 영역을 이미 아는 에이전트가 있으면 그쪽에 후속 작업을 주는 게 항상 낫다.
+**Before creating a child, call `list_subagents()` and look for an existing one.**
+An agent that already knows the area is always a better target for follow-up work
+than a fresh one.
 
-## 규칙
+## Rules
 
-- `name`은 역할로 짓는다 (`backend`, `security`, `flutter`). 상주할 이름이다.
-- 일이 끝났다고 지우지 않는다. `delete_subagent`는 명시적으로 필요할 때만.
-- 다른 모델을 섞을 수 있다: `adapter="codex"`, `model=...`.
+- Name a child for its role (`backend`, `security`, `flutter`). It is meant to stay.
+- Do not delete it because a task finished. `delete_subagent` is for when you
+  genuinely mean it.
+- Mixed backends are fine: `adapter="codex"`, `model=...`.
+- Keep large intermediate data in Python variables, not in your context.

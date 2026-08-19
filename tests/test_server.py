@@ -1,4 +1,4 @@
-"""MCP 표면 — 도구 개수 상한이 이 프로젝트의 전제다."""
+"""The MCP surface - the tool ceiling is a premise of this project."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ async def server(config):
 
 
 async def test_tool_surface_stays_small(server):
-    """도구를 늘리면 "Python을 줘라"는 철학과 정반대가 된다. 상한을 테스트로 못박는다."""
+    """More tools would contradict "give it Python". Nail the ceiling down in a test."""
     tools = await server.list_tools()
     assert len(tools) <= MAX_TOOLS
     assert {t.name for t in tools} <= {"opa_python", "opa_status", "opa_kernel", "opa_bootstrap"}
@@ -29,7 +29,7 @@ async def test_every_tool_is_described(server):
 
 
 async def test_status_before_kernel_boots(server):
-    """커널은 지연 부팅한다 — status 조회만으로 커널이 뜨면 안 된다."""
+    """The kernel boots lazily; asking for status must not start one."""
     result = await server.call_tool("opa_status", {})
     state = json.loads(result.content[0].text)
     assert state["kernel"]["alive"] is False

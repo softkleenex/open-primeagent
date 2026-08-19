@@ -1,13 +1,13 @@
-"""refine — trajectory를 보고 harness에 **최소 CRUD delta**를 적용한다.
+"""Refinement helpers - see harness/service.py for the implementation.
 
-원본 규칙 유지:
-  - base system prompt는 수정하지 않는다
-  - 가능한 한 작은 변경만
-  - refinement history를 남기고 rollback 가능
+Upstream's rules are kept:
+  - never modify the base system prompt
+  - prefer the smallest possible change
+  - keep refinement history and stay reversible
 
-호스트 슬래시커맨드는 에이전트마다 다르므로 2중 제공:
-  - 이식 가능 코어: 커널에서 `await harness.refine(...)`
-  - Claude Code 편의: 플러그인 `/opa:refine`
+Host slash commands differ per agent, so this ships twice over:
+  - portable core: `await harness.apply(...)` from the kernel
+  - Claude Code convenience: an `/opa:refine` plugin command
 """
 
 from __future__ import annotations
@@ -20,4 +20,4 @@ async def refine(trajectory_path: Path, *, dry_run: bool = False) -> RefineResul
 
 
 class RefineResult:
-    """제안된 delta + 적용 여부 + rollback용 event id."""
+    """The proposed delta, whether it was applied, and the rollback event id."""

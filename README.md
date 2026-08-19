@@ -1,139 +1,205 @@
 # open-primeagent
 
-**RLM을 당신이 쓰던 코딩 에이전트에 그대로 붙인다.**
+**Bring RLM to the coding agent you already use.**
 
-[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)의 핵심 —
-persistent Python, persistent subagent, continual harness — 를
-Claude Code / Codex / opencode 위에 얹는 MCP 서버.
-**에이전트를 갈아타지 않아도 된다.**
+An MCP server that gives Claude Code / Codex / opencode three things they don't
+have: a **persistent Python kernel** as external working memory, **long-lived
+sub-agent sessions** you can re-task later, and a **continual harness** that
+accumulates what the project taught you.
+
+Ported from the architecture of
+[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent).
+**You don't switch agents. You add one MCP server.**
 
 ```bash
-claude mcp add opa -- uvx open-primeagent      # 이게 전부
-```
-
-> **상태**: Phase 2 완료 — persistent 커널과 **RLM이 실제로 동작한다.**
-> 아래 예제는 실행해서 확인한 것이다. [ROADMAP.md](ROADMAP.md) 참조.
-
-```
-✅ L1  Persistent Python      커널 · 외부 작업 메모리 · 출력 잘라내기
-✅ L2  RLM                    persistent subagents + A2A messaging
-                              adapters: claude-code · codex
-🚧 L3  Continual Harness      prompts / subagents / skills / memory
-⬜ L4  Long-run               goal / heartbeat / schedule / autonomous
+claude mcp add opa -- uvx open-primeagent
 ```
 
 ---
 
-## 무엇이 달라지나
-
-```python
-# 호스트 에이전트가 opa_python 도구로 실행하는 코드
-
-# 1) 장기 상주 전문가 팀을 함수처럼 만든다
-api  = await rlm("API 코드의 보안 문제를 찾아라", name="api-reviewer")
-test = await rlm("테스트 커버리지를 분석해라",     name="test-reviewer")
-
-# 2) child는 일회용이 아니다 — 나중에 다시 부른다
-await agent_message.send(
-    "방금 수정한 코드까지 다시 검사해",
-    receiver_role="child", receiver_name="api-reviewer",
-)   # ← 이전 컨텍스트를 유지한 채 이어서 일한다
-
-# 3) 중간 데이터는 컨텍스트가 아니라 Python에 남는다
-files   = collect(...)          # 수백 개
-graph   = build_dep_graph(files)  # 30KB
-suspect = [f for f in files if graph.fanin(f) > 20]
-suspect[:5]                     # ← 모델은 이 5개만 본다
+```
+✅ L1  Persistent Python      kernel · external working memory · output truncation
+✅ L2  RLM                    persistent sub-agents + agent-to-agent messaging
+                              adapters: claude-code · codex
+✅ L3  Continual Harness      prompts / memory / skills / sub-agent specs
+                              + projection into the files your agent already reads
+🚧 L4  Long-run               goal / heartbeat / schedule / autonomous
 ```
 
-`rlm(...)`은 LLM API 호출이 아니라 **독립된 에이전트 세션**을 만든다.
-각 child는 자기 컨텍스트·세션 디렉터리·모델을 갖고, 커널 재시작이나
-컨텍스트 compaction 이후에도 registry에서 복구된다.
+Everything marked ✅ is verified by tests that actually spawn a kernel and a real
+child agent. See [ROADMAP.md](ROADMAP.md) for the exit criteria of each phase.
 
-## 설계 한 줄
+---
 
-> LLM 컨텍스트 = **지금 판단에 필요한 것**
-> Python 환경  = **거대한 외부 작업 메모리**
+## Why this is only ~3k lines and not 170k
 
-## 왜 이게 가능한가
+Upstream Prime Agent is a full agent harness. We measured it:
 
-원본에서 RLM 커널 shim은 1,536 LOC고, 나머지 167k LOC는 자체 harness/TUI/provider다.
-우리는 harness를 **사용자가 이미 쓰는 에이전트에 위임**한다.
-그래서 새로 만들 것은 RLM 런타임뿐이다.
+| package | LOC | what it is |
+|---|---:|---|
+| `packages/coding-agent` | 117,690 | host harness, sessions, TUI, CLI |
+| `packages/ai` | 35,332 | providers + OAuth + MCP |
+| `packages/tui` | 14,635 | terminal UI |
+| `prime-agent-runtime` | **1,536** | ← the `rlm` kernel shim. All of it. |
 
-child 세션 영속성은 호스트 CLI가 이미 제공한다:
+`rlm/__init__.py` is 348 lines, and almost every line is a thin
+`await host_request("rlm.run", ...)` RPC wrapper. The concept lives there; the
+other 167k lines are one particular harness implementation.
+
+**So we delegate the harness to the agent you already run.** Sessions, auth,
+model selection, permissions, the UI — all of it stays yours. We build the RLM
+runtime and nothing else.
+
+## Persistent sub-agents actually work
+
+The hard requirement is that a child is **not disposable**: you must be able to
+come back to it later and have it remember. Both CLIs already support that, and
+we verified it:
 
 | | spawn | resume |
 |---|---|---|
 | `claude` | `-p P --session-id <UUID>` | `-p P --resume <UUID>` |
-| `codex` | `exec P --json` | `exec resume <UUID> P` |
+| `codex` | `exec P --json` | `exec resume <THREAD_ID> P` |
 
-## 노출 도구는 4개뿐
+Here is a real run, copied from the integration test:
 
-`opa_python` · `opa_status` · `opa_kernel` · `opa_bootstrap`*
-&nbsp;&nbsp;<sub>*Phase 3</sub>
-
-`rlm` / `harness` / `goal` / `agent_message`는 MCP 도구가 아니라
-**커널 안의 Python 심볼**이다. 호스트의 도구 목록을 오염시키지 않는다.
-
-상한은 `server.MAX_TOOLS = 4` 이고 테스트가 이걸 강제한다. 도구를 늘리고 싶어지면
-그건 커널 안 심볼로 노출하라는 신호다.
-
-## 지금 동작하는 것
-
-```bash
-git clone https://github.com/softkleenex/open-primeagent && cd open-primeagent
-uv sync --extra dev
-uv run pytest -q                  # 63 passed
-claude mcp add opa --scope local -- uv run --directory "$PWD" opa
-claude mcp list                   # opa: ✔ Connected
-```
-
-**외부 작업 메모리**
-```python
-opa_python("files = [f'f{i}.py' for i in range(500)]")
-opa_python("len(files)")          # → 500   (별도 호출인데 살아있다)
-opa_python("print('x' * 30000)")  # → 잘려서 오고, 전문은 outputs/00000.txt
-```
-
-**persistent subagent** — 아래는 실제 실행 결과다:
 ```python
 await rlm('Reply with exactly: ALPHA-7', name='probe', model='sonnet')
-# → <rlm child 'probe' (claude-code) running>     0.6초 만에 반환, child는 계속 돎
+# → <rlm child 'probe' (claude-code) running>      returns in 0.6s, child keeps working
 
 await agent_message.inbox()
 # → [{'sender': 'probe', 'message': 'ALPHA-7', 'ok': True, 'tokens': 11}]
 
-# ── 여기서 부모 커널을 재시작한다 ──
+# ---- now restart the parent kernel ----
+
 await rlm.list_subagents()
-# → [<subagent 'probe' (claude-code) completed turns=1 tokens=11>]   살아있다
+# → [<subagent 'probe' (claude-code) completed turns=1 tokens=11>]
 
 await agent_message.send('What token did you just say? Reply with only the token.',
                          receiver_name='probe')
 await agent_message.inbox()
 # → ... {'sender': 'probe', 'message': 'ALPHA-7'}
-#   부모 커널이 재시작됐는데도 child는 이전 대화를 기억했다
+#   the parent kernel restarted, and the child still remembered its earlier turn
 ```
 
-이종 모델 조합도 그대로 된다 — 부모는 Claude Code, child는 Codex:
+`rlm(...)` does not block. It returns a handle as soon as the task is admitted;
+results arrive in a mailbox. So these two lines really do run in parallel:
+
 ```python
-await rlm('이 모듈 리팩터링', name='refactorer', adapter='codex')
+api  = await rlm("audit the API layer for security problems", name="api-reviewer")
+test = await rlm("map the gaps in our test coverage",          name="test-reviewer")
 ```
 
-## 문서
+Mixed backends work too — parent on Claude Code, child on Codex:
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — 레이어, 브릿지 설계, projection
-- [ROADMAP.md](ROADMAP.md) — Phase별 exit criteria
-- [TODO.md](TODO.md) — 지금 할 일
-- `docs/security.md` — **sandbox가 아니다.** 읽어라.
+```python
+await rlm("refactor this module", name="refactorer", adapter="codex")
+```
 
-## ⚠️ 보안
+## Context is for deciding, not for storage
 
-IPython 커널과 child 에이전트는 **사용자 OS 권한으로 실행된다.**
-샌드박스가 아니다. 신뢰할 수 없는 레포나 장시간 autonomous 실행은
-devcontainer/VM 안에서만 하라.
+```python
+opa_python("files = [f'f{i}.py' for i in range(500)]")
+opa_python("len(files)")            # → 500     separate call, still alive
+opa_python("print('x' * 30000)")    # → truncated; full text at outputs/00000.txt
+```
 
-## 라이선스 / 관계
+Large intermediate results stay in Python variables. The model sees what it
+needs to pick the next step, not the whole warehouse. When output is truncated
+we keep the **tail** as well as the head — the actual cause of a Python
+traceback is on the last line.
 
-Prime Agent(Apache-2.0)의 아키텍처에서 출발한 **독립 재구현**이다. 포크가 아니다.
-`_ref/`의 원본 클론은 연구용이며 배포물에 포함되지 않는다.
+## A harness that learns, without touching your files
+
+`H = (prompts, sub-agent specs, skills, memory)`, with CRUD and exact rollback.
+
+We do not own the system prompt, so the harness is **projected into the files
+your agent already reads** — and only inside a delimiter block:
+
+```markdown
+<!-- opa:begin — generated. Nothing outside this block is touched. -->
+...
+<!-- opa:end -->
+```
+
+Everything outside the block is preserved byte for byte, and
+`opa_bootstrap(remove=True)` restores the file exactly. That is not a promise in
+a README; `tests/test_projection.py` and `tests/test_bootstrap.py` enforce it.
+
+Memory bodies never land in the prompt file — only an index does. Skills we
+create are marked `.opa-managed`, so skills you wrote yourself are never
+removed.
+
+## Four tools. That's the cap.
+
+`opa_python` · `opa_status` · `opa_kernel` · `opa_bootstrap`
+
+`rlm`, `agent_message` and `harness` are **not** MCP tools — they are Python
+symbols inside the kernel. The point of this architecture is *give the model a
+computer, not twenty tools*; polluting your agent's tool list would contradict
+it. `server.MAX_TOOLS = 4` and a test enforces the ceiling. When you want to add
+a tool, that is the signal to expose a kernel symbol instead.
+
+## Try it
+
+```bash
+git clone https://github.com/softkleenex/open-primeagent && cd open-primeagent
+uv sync --extra dev
+uv run pytest -q                                    # 99 passed
+claude mcp add opa --scope local -- uv run --directory "$PWD" opa
+claude mcp list                                     # opa: ✔ Connected
+```
+
+Codex, opencode and other MCP clients: see [install/](install/).
+
+## Can an agent evolve mid-session?
+
+We ran the experiment instead of guessing, with a raw JSON-RPC MCP server
+attached to Claude Code. Server-side trace:
+
+```
+tools/list   call=1  serving_version=0     ← session starts
+tools/call
+sent list_changed                          ← server rewrites its own tool description
+tools/list   call=2  serving_version=1     ← host re-fetches ✅
+--- same session, next turn ---
+tools/list   call=1  serving_version=1
+```
+
+On the next turn the model read the new description verbatim. **An MCP server
+can rewrite the instructions its host agent operates under, mid-session, and
+they take effect from the next turn.** No restart.
+
+We also learned that pushing behavioral instructions through tool *results* gets
+correctly flagged as prompt injection by a well-aligned host model, so the
+delivery channel has to be the tool *description*. And Claude Code advertises no
+`sampling` capability but does support `elicitation` — the server can ask the
+*user* for approval mid-call, which is exactly what a promotion gate needs.
+
+Full write-up with the raw data: [docs/evolution.md](docs/evolution.md).
+
+The mechanism is the easy part. The hard part is **evaluation** — without a
+measurable gate, "evolution" is just drift. We do not ship an automatic
+promotion path where nothing can be measured.
+
+## ⚠️ Not a sandbox
+
+The kernel and every child agent run **with your OS permissions**. Upstream says
+the same about its kernel; we add child spawning on top, so the blast radius is
+larger. Run untrusted repositories and long autonomous sessions inside a
+devcontainer or VM. Read [docs/security.md](docs/security.md) before you turn
+anything autonomous on.
+
+## Docs
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — layers, the host bridge, projection
+- [ROADMAP.md](ROADMAP.md) — phases with executable exit criteria
+- [docs/evolution.md](docs/evolution.md) — what self-improvement can actually reach
+- [docs/security.md](docs/security.md) — read this one
+
+## License and relationship to Prime Agent
+
+Apache-2.0. This is an **independent reimplementation** inspired by Prime
+Agent's architecture, not a fork, and it contains no copied code. The `rlm` API
+names and the harness state schema are kept compatible on purpose, so upstream's
+documentation and skills stay applicable.

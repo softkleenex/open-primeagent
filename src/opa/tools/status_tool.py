@@ -1,7 +1,7 @@
-"""opa_status — 커널 / child / goal / harness 를 한 장으로.
+"""opa_status - kernel, children, goal and harness on one page.
 
-호스트가 컨텍스트를 잃었을 때(compaction, 재시작) 이 한 번의 호출로
-"내가 어디까지 했고 누가 일하고 있는지"가 복원되어야 한다.
+After the host loses context (compaction, restart) this single call has to
+restore "how far did I get, and who is still working".
 """
 
 DESCRIPTION = """\

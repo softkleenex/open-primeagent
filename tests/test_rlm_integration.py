@@ -1,7 +1,7 @@
-"""Phase 2 Exit criteria — 진짜 child 에이전트를 띄운다.
+"""Phase 2 exit criteria - spawns a real child agent.
 
-`child` 마커가 붙어 있고 기본 실행에서 **제외**된다:
-실제 CLI 인증과 토큰 쿼터가 필요하기 때문이다. 돌리려면:
+Marked `child` and **excluded** from the default run, because it needs real CLI
+auth and token quota. To run it:
 
     uv run pytest -m child -s
 """
@@ -44,20 +44,20 @@ async def wait_for_inbox(runtime, count, timeout=180):
 async def test_rlm_is_non_blocking_and_child_survives_a_kernel_restart(server):
     runtime = server._opa_runtime
 
-    # ① rlm() 은 결과를 기다리지 않고 핸들만 돌려준다
+    # 1. rlm() returns a handle without waiting for the result
     out = await py(server, f"await rlm('Reply with exactly: {TOKEN}', name='probe', model='sonnet')")
     assert "probe" in out and "running" in out
 
-    # ② 결과는 부모 메일박스로 온다
+    # 2. the result arrives in the parent mailbox
     inbox = await wait_for_inbox(runtime, 1)
     assert TOKEN in inbox[0]["message"]
     assert inbox[0]["sender"] == "probe"
 
-    # ③ 커널을 재시작해도 child는 registry에 남아있다
+    # 3. the child stays in the registry across a kernel restart
     await server.call_tool("opa_kernel", {"action": "restart"})
     assert "probe" in await py(server, "[s.name for s in await rlm.list_subagents()]")
 
-    # ④ 이전 컨텍스트를 유지한 채 이어서 일한다 — 이 프로젝트가 동작한다는 유일한 증거
+    # 4. it continues with its earlier context - the only proof this project works
     await py(
         server,
         "await agent_message.send('What token did you just say? "

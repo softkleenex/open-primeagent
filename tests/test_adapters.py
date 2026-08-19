@@ -1,4 +1,4 @@
-"""어댑터 — CLI를 실제로 부르지 않고 커맨드 조립과 파싱만 검증한다."""
+"""Adapters - command assembly and parsing only; no CLI is actually invoked."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def request(tmp_path, **kw):
 # ---------- claude ----------
 
 def test_claude_preassigns_a_uuid():
-    """세션 id를 우리가 정할 수 있어 registry id와 1:1로 묶인다."""
+    """We choose the session id, so it maps 1:1 to the registry id."""
     sid = ClaudeCodeAdapter().preassign_session_id()
     assert sid and len(sid) == 36
 
@@ -73,7 +73,7 @@ def test_codex_cannot_preassign_a_session_id():
 
 
 def test_codex_always_skips_the_git_repo_check(tmp_path):
-    """git 저장소 밖에서는 이 플래그 없이 거부한다 (실측)."""
+    """Outside a git repository codex refuses to run without this flag (measured)."""
     assert "--skip-git-repo-check" in CodexAdapter().build_command(request(tmp_path))
 
 

@@ -1,4 +1,4 @@
-"""append-only JSONL 기록/판독. trajectory·turns·mailbox가 전부 이걸 쓴다."""
+"""Append-only JSONL read/write. Trajectory, turns and mailboxes all use this."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 
 
 def append(path: Path, record: dict[str, Any]) -> None:
-    """한 줄 추가. 부모 디렉터리는 알아서 만든다."""
+    """Append one record, creating the parent directory if needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(record, ensure_ascii=False, default=str)
     with path.open("a", encoding="utf-8") as fh:
@@ -18,7 +18,7 @@ def append(path: Path, record: dict[str, Any]) -> None:
 
 
 def read(path: Path, *, since: int = 0, limit: int | None = None) -> Iterator[dict[str, Any]]:
-    """깨진 줄은 건너뛴다 — 기록은 유실보다 진행이 우선."""
+    """Skip corrupt lines. One bad record must not block the rest of the log."""
     if not path.exists():
         return
     emitted = 0

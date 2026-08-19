@@ -1,11 +1,11 @@
-"""autonomous — gate 통과까지 스스로 다음 턴을 실행한다.
+"""Autonomous - keep running the next turn until a gate passes.
 
-정지 조건: max turns / token budget / wall-clock timeout.
-quality gate 실패 시 **그 출력을 다음 턴의 입력으로 되먹인다** — 이게
-단순 cron 기반 AI 스크립트와의 차이다.
+Stop conditions: max turns, token budget, wall-clock timeout.
+When the quality gate fails, **its output is fed back in as the next input** -
+that is the difference from a cron-driven AI script.
 
-⚠️ 이 모드는 감시 없이 파일을 고치고 명령을 실행한다.
-   devcontainer/VM 밖에서 쓰지 말 것 (docs/security.md).
+WARNING: this mode edits files and runs commands unsupervised. Do not use it
+outside a devcontainer or VM (docs/security.md).
 """
 
 from __future__ import annotations

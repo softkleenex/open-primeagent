@@ -1,4 +1,4 @@
-"""Harness — H = (prompts, subagents, skills, memory) 의 CRUD와 되돌리기."""
+"""Harness - CRUD and rollback for H = (prompts, subagents, skills, memory)."""
 
 from __future__ import annotations
 
@@ -16,12 +16,12 @@ def harness(tmp_path):
     return HarnessService(tmp_path / "local", tmp_path / "global")
 
 
-# ---------- 스토어 ----------
+# ---------- store ----------
 
 def test_file_layout_matches_the_original_schema(tmp_path):
-    """원본 prime-agent 세션을 그대로 읽을 수 있어야 한다."""
+    """An upstream prime-agent session must be readable as-is."""
     store = HarnessStore(tmp_path / STATE_FILE_NAME)
-    store.create("prompt", "migration 후 generate", "pnpm prisma generate 를 반드시 실행")
+    store.create("prompt", "regenerate after migrations", "always run pnpm prisma generate")
     data = json.loads((tmp_path / STATE_FILE_NAME).read_text())
 
     assert data["schema"] == 1
@@ -31,11 +31,11 @@ def test_file_layout_matches_the_original_schema(tmp_path):
 
 
 def test_reads_an_original_state_file(tmp_path):
-    """원본이 쓴 파일을 그대로 읽는다."""
+    """Read a state file written by upstream."""
     (tmp_path / STATE_FILE_NAME).write_text(json.dumps({
         "schema": 1,
         "entries": {"memory": {"ports": {
-            "id": "ports", "kind": "memory", "title": "포트", "content": "api=8080",
+            "id": "ports", "kind": "memory", "title": "ports", "content": "api=8080",
             "path": "general", "scope": "local", "source": "agent", "version": 3,
         }}},
         "refinements": [{"id": "ref-1", "trigger": "manual", "changes": ["x"]}],
@@ -49,7 +49,7 @@ def test_corrupt_state_file_does_not_crash(tmp_path):
     (tmp_path / STATE_FILE_NAME).write_text("{not json", encoding="utf-8")
     store = HarnessStore(tmp_path / STATE_FILE_NAME)
     assert store.list() == []
-    store.create("prompt", "t", "c")           # 다음 save가 깨끗이 다시 쓴다
+    store.create("prompt", "t", "c")           # the next save rewrites it cleanly
     assert HarnessStore(tmp_path / STATE_FILE_NAME).list()[0].title == "t"
 
 
@@ -69,7 +69,7 @@ def test_ids_are_slugged_and_unique(tmp_path):
     assert b.id != a.id and b.id.startswith("run-prisma-generate-")
 
 
-# ---------- 스코프 ----------
+# ---------- scopes ----------
 
 def test_local_and_global_are_separate_files(harness, tmp_path):
     harness.create("memory", "local note", "L")
@@ -81,13 +81,13 @@ def test_local_and_global_are_separate_files(harness, tmp_path):
 
 
 def test_overview_ids_can_be_fed_straight_back(harness):
-    """overview()가 [global:id] 로 보여주면 그 문자열이 그대로 통해야 한다."""
+    """If overview() prints [global:id], that exact string must be accepted back."""
     harness.create("prompt", "g", "content", global_=True)
     assert "[global:g]" in harness.overview()
     assert harness.update("global:g", content="updated").content == "updated"
 
 
-# ---------- 개선 적용/되돌리기 ----------
+# ---------- applying and reverting refinements ----------
 
 def test_apply_records_a_reversible_event(harness):
     event = harness.apply(
@@ -118,7 +118,7 @@ def test_rollback_restores_a_deleted_entry(harness):
 
 
 def test_a_failing_change_leaves_nothing_half_applied(harness):
-    """반쪽만 적용된 harness가 남는 게 제일 나쁘다."""
+    """A half-applied harness is the worst possible outcome."""
     with pytest.raises(KeyError):
         harness.apply(
             [
@@ -143,10 +143,10 @@ def test_unknown_op_is_rejected(harness):
         harness.apply([{"op": "mutate", "id": "x"}], trigger="t")
 
 
-# ---------- 근거 수집 ----------
+# ---------- evidence gathering ----------
 
 def test_evidence_counts_only_repeated_failures(harness, tmp_path):
-    """한 번 겪은 일은 승격하지 않는다 — 반복된 것만 올린다."""
+    """A one-off is not promoted; only what recurred is."""
     trajectory = tmp_path / "trajectory.jsonl"
     for _ in range(3):
         jsonl.append(trajectory, {"event": "python.exec", "ok": False, "code": "import missing_mod"})

@@ -1,11 +1,12 @@
-"""opa_runtime — 커널 안에서 사는 shim.
+"""opa_runtime - the shim that lives inside the kernel.
 
-원본 `prime-agent-runtime`의 `rlm` 패키지에 대응한다. 차이는 전송 계층뿐:
-원본은 Jupyter comm으로 TS 호스트를 부르고, 우리는 Unix socket으로 MCP 서버를 부른다.
-API 표면과 request type 이름은 원본과 맞춘다 (원본 문서·스킬 재사용).
+It corresponds to upstream `prime-agent-runtime`'s `rlm` package; only the
+transport differs. Upstream calls a TypeScript host over a Jupyter comm, we call
+an MCP server over a Unix socket. The API surface and request type names match
+upstream so its docs and skills still apply.
 
-커널 부팅 시 이 모듈이 `rlm` / `agent_message` / `harness` 를 노출한다.
-(`goal` 은 Phase 4)
+At kernel boot this module exposes `rlm`, `agent_message` and `harness`.
+(`goal` arrives in Phase 4.)
 """
 
 from __future__ import annotations

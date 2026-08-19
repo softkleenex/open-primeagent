@@ -1,6 +1,6 @@
-# Codex에 붙이기
+# Codex
 
-`~/.codex/config.toml`:
+In `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.opa]
@@ -8,7 +8,7 @@ command = "uvx"
 args = ["open-primeagent"]
 ```
 
-로컬 체크아웃:
+From a local checkout:
 
 ```toml
 [mcp_servers.opa]
@@ -16,11 +16,20 @@ command = "uv"
 args = ["run", "--directory", "/path/to/open_primeagent", "opa"]
 ```
 
-Codex를 **child**로도 쓸 수 있다:
+## Codex as a child
+
+Codex also works as a **child** backend, so a Claude Code parent can drive Codex
+children:
 
 ```python
-await rlm("이 모듈 리팩터링", name="refactorer", adapter="codex", model="gpt-5.4")
+await rlm("refactor this module", name="refactorer", adapter="codex", model="gpt-5.4")
 ```
 
-부모는 Claude Code, child는 Codex 같은 이종 조합이 그대로 된다.
-호스트 CLI에 모델 선택을 위임하기 때문이다.
+Model choice is delegated to the host CLI, which is why mixed setups work at all.
+
+Two things the adapter handles for you, both found by running it:
+
+- stdin is closed; left open as a pipe, `codex exec` waits on stdin forever
+- `--skip-git-repo-check` is always passed, since codex refuses to run outside a
+  git repository
+- children run under `--sandbox workspace-write` unless dangerous mode is opted into

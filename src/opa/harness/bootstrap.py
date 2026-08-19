@@ -1,14 +1,14 @@
-"""opa_bootstrap — harness를 호스트가 읽는 파일로 설치/갱신/제거한다.
+"""opa_bootstrap - install, refresh or remove the harness projection.
 
-호스트마다 읽는 파일이 다르다:
+Different hosts read different files:
 
     claude-code : CLAUDE.md   + .claude/skills/
     codex       : AGENTS.md
     opencode    : AGENTS.md
 
-기본 동작(`agent="auto"`)은 **이미 있는 파일에만** 쓰는 것이다. 없는 파일을
-새로 만들어대면 그것 자체가 "환경을 바꾸는" 짓이다. 하나도 없으면 가장
-범용적인 `AGENTS.md` 하나만 만든다.
+The default (`agent="auto"`) writes **only to files that already exist**.
+Creating files the user never had would itself be changing their environment.
+If none exist we create just one - the most portable, `AGENTS.md`.
 """
 
 from __future__ import annotations
@@ -48,13 +48,13 @@ class BootstrapResult:
 
 
 def detect(workspace: Path) -> list[str]:
-    """이미 존재하는 프롬프트 파일로 호스트를 추정한다."""
+    """Infer the host from which prompt files already exist."""
     found = [
         name
         for name, spec in HOSTS.items()
         if spec["prompt_file"] and (workspace / str(spec["prompt_file"])).exists()
     ]
-    # AGENTS.md 하나로 codex/opencode가 겹치므로 중복 타깃을 줄인다
+    # codex and opencode share AGENTS.md, so collapse duplicate targets
     seen: set[str] = set()
     unique: list[str] = []
     for name in found:
@@ -77,7 +77,7 @@ def run(
     memory_dir = opa_root / projection.MEMORY_DIR_NAME
 
     if agent == "auto":
-        agents = detect(workspace) or ["codex"]  # 없으면 AGENTS.md 하나
+        agents = detect(workspace) or ["codex"]  # nothing found -> AGENTS.md only
     else:
         if agent not in HOSTS:
             raise ValueError(f"unknown agent {agent!r}. one of: {', '.join(sorted(HOSTS))}, auto")

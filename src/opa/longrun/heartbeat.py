@@ -1,6 +1,7 @@
-"""heartbeat — 일정 간격으로 리마인더를 메일박스에 넣는다.
+"""Heartbeat - drop a reminder into the mailbox at an interval.
 
-사용자용(`/heartbeat`)과 에이전트 자율 생성(`rlm_heartbeat`)을 분리한다 (원본과 동일).
+User-created (`/heartbeat`) and agent-created (`rlm_heartbeat`) stay separate,
+as upstream keeps them.
 """
 
 from __future__ import annotations

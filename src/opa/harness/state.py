@@ -1,16 +1,18 @@
-"""Harness 상태 스토어.
+"""Harness state store.
 
-원본 `_ref/prime-agent/prime-agent-runtime/src/rlm/harness.py`의 파일 스키마와
-호환되게 유지한다 (원본 세션 이식 + 원본 문서 재사용):
+The file schema stays compatible with upstream
+(`_ref/prime-agent/prime-agent-runtime/src/rlm/harness.py`) so sessions can move
+between the two and upstream docs still apply:
 
     {"schema": 1,
      "entries": {"prompt": {id: {...}}, "memory": {...}, "skill": {...},
                  "subagent": {...}},
      "refinements": [{id, trigger, changes, evidence, outcome, created_at, ...}]}
 
-원본과의 차이 하나: RefinementEvent에 `before` 스냅샷을 더 넣는다.
-원본은 변경 내역을 문자열 리스트로만 남겨서 **정확한 rollback이 불가능**하다.
-추가 필드라 원본이 읽어도 무시할 뿐이므로 양방향 호환은 유지된다.
+One deliberate addition: RefinementEvent carries a `before` snapshot. Upstream
+records changes as a list of strings, which **cannot be reverted precisely**.
+It is an extra field that upstream's loader ignores, so compatibility holds both
+ways.
 """
 
 from __future__ import annotations
@@ -68,7 +70,7 @@ class HarnessEntry:
 
 @dataclass
 class RefinementEvent:
-    """한 번의 harness 개선 기록. `before` 가 있어야 정확한 rollback이 된다."""
+    """One harness refinement. Exact rollback requires the `before` snapshot."""
 
     id: str
     trigger: str
@@ -85,7 +87,7 @@ _EVENT_FIELDS = {f.name for f in fields(RefinementEvent)}
 
 
 class HarnessStore:
-    """스코프 하나 = 파일 하나."""
+    """One scope, one file."""
 
     def __init__(self, file_path: Path, scope: HarnessScope = "local") -> None:
         self.file_path = Path(file_path)
@@ -94,7 +96,7 @@ class HarnessStore:
         self.refinements: list[RefinementEvent] = []
         self.load()
 
-    # ---------- 영속 ----------
+    # ---------- persistence ----------
 
     def load(self) -> HarnessStore:
         self.entries = {k: {} for k in KINDS}
@@ -104,8 +106,8 @@ class HarnessStore:
         try:
             data = json.loads(self.file_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
-            # 깨진 상태 파일이 커널을 죽이거나 개선을 막으면 안 된다.
-            # 빈 것으로 취급하고 다음 save()에서 깨끗이 다시 쓴다.
+            # A corrupt state file must not crash the kernel or block refinement.
+            # Treat it as empty; the next save() rewrites it cleanly.
             return self
         if not isinstance(data, dict):
             return self
@@ -165,7 +167,7 @@ class HarnessStore:
             },
             "refinements": [asdict(e) for e in self.refinements],
         }
-        # 원자적 교체. 쓰다 죽어도 반쪽짜리 상태 파일이 남지 않는다.
+        # Atomic replace, so a crash mid-write never leaves half a state file.
         tmp = self.file_path.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, self.file_path)

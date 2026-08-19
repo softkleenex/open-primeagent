@@ -1,13 +1,13 @@
-"""opa_python — 유일한 작업 도구.
+"""opa_python - the only work tool.
 
-호스트 에이전트가 하는 일의 90%가 여기로 들어온다.
+Almost everything the host agent does goes through here.
 
     opa_python('''
-    api  = await rlm("API 보안 검토", name="api-reviewer")
-    test = await rlm("테스트 커버리지 분석", name="test-reviewer")
+    api  = await rlm("audit the API layer", name="api-reviewer")
+    test = await rlm("map test coverage gaps", name="test-reviewer")
     ''')
 
-응답은 잘려서 온다. 전문 경로가 함께 온다. 그게 요점이다.
+The reply is truncated and carries the path to the full text. That is the point.
 """
 
 DESCRIPTION = """\

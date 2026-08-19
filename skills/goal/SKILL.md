@@ -1,18 +1,22 @@
 ---
 name: goal
-description: 끝날 때까지 유지되는 persistent goal을 읽고, 사용자가 명시적으로 요청할 때 시작하고, 목표가 실제로 달성됐을 때 완료 처리한다.
+description: Read the persistent goal that survives across turns, start one when the user explicitly asks, and complete it only once the objective is genuinely achieved.
 ---
 
 # Goal
 
 ```python
 await goal.get()
-await goal.create("서비스 전체 성능을 개선하고 테스트를 통과시켜라", token_budget=200000)
+await goal.create("improve service-wide performance and get the tests green",
+                  token_budget=200000)
 await goal.complete()
 ```
 
-## 규칙
+## Rules
 
-- 사용자가 **명시적으로** 장기 목표를 요청할 때만 `create`. 평범한 작업을 goal로 만들지 않는다.
-- 목표가 **실제로 달성됐을 때만** `complete`. 예산이 떨어졌다는 이유로 완료하지 않는다.
-- "다 됐습니다"라고 말하는 것으로는 끝나지 않는다. `complete()` 호출이 와야 끝난다.
+- Only `create` when the user **explicitly** asks for a long-running goal. An
+  ordinary task is not a goal.
+- Only `complete` when the objective is **actually achieved**. Running low on
+  budget is not a reason to complete.
+- Saying "it's done" does not end it. The harness keeps re-prompting until
+  `complete()` is called.

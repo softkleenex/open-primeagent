@@ -1,10 +1,10 @@
-"""MCP 서버 엔트리포인트.
+"""MCP server entry point.
 
-노출 도구는 의도적으로 최대 4개다 (ARCHITECTURE §3):
+The exposed tool surface is deliberately capped at four (ARCHITECTURE section 3):
     opa_python / opa_status / opa_kernel / opa_bootstrap(Phase 3)
 
-rlm·harness·goal·agent_message는 도구가 아니라 커널 안의 Python 심볼이다.
-호스트 에이전트의 도구 목록을 오염시키지 않는 것이 이 프로젝트의 전제다.
+`rlm`, `harness`, `goal` and `agent_message` are Python symbols inside the
+kernel, not tools. Not polluting the host's tool list is a premise here.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from .kernel.exec import store_full, strip_ansi, truncate
 from .runtime_state import Runtime
 from .tools import bootstrap_tool, kernel_tool, python_tool, status_tool
 
-# 도구 표면 상한. 늘리고 싶어지면 그건 커널 안 Python 심볼로 노출해야 한다는 신호다.
-# tests/test_server.py 가 이 상한을 강제한다.
+# The ceiling on the tool surface. Wanting to raise it is the signal to expose a
+# kernel symbol instead. tests/test_server.py enforces it.
 MAX_TOOLS = 4
 
 INSTRUCTIONS = """\
@@ -148,12 +148,12 @@ def build_server(config: Config | None = None) -> MCPServer:
         lines.append("  (writes happen only inside the opa delimiter block)")
         return "\n".join(lines)
 
-    server._opa_runtime = runtime  # 테스트/종료 처리에서 쓴다
+    server._opa_runtime = runtime  # used by tests and by shutdown
     return server
 
 
 def main() -> None:
-    """stdio MCP 서버를 띄운다. `opa` 콘솔 스크립트의 진입점."""
+    """Run the stdio MCP server. Entry point for the `opa` console script."""
     server = build_server()
     try:
         asyncio.run(server.run_stdio_async())

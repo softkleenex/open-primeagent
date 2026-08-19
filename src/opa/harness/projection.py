@@ -1,16 +1,16 @@
-"""projection — harness 상태를 호스트가 이미 읽는 파일로 투영한다.
+"""Projection - render harness state into the files the host already reads.
 
-우리는 시스템 프롬프트를 소유하지 않는다. 이게 이 프로젝트 고유의 문제이고,
-해법은 호스트가 어차피 읽는 파일에 쓰는 것이다.
+We do not own the system prompt. That is this project's unique problem, and the
+answer is to write into files the host reads anyway.
 
-    prompt   (ρ) → CLAUDE.md / AGENTS.md 의 델리미터 블록
+    prompt   -> a delimiter block inside CLAUDE.md / AGENTS.md
     skill    (K) → .claude/skills/<n>/SKILL.md
-    memory   (M) → .opa/memory/*.md, 프롬프트 블록에는 인덱스만
-    subagent (G) → registry default spec (spawn 시 --append-system-prompt)
+    memory   -> .opa/memory/*.md; only an index goes into the prompt block
+    subagent -> registry default spec (--append-system-prompt at spawn)
 
-**불변식: 쓰기는 오직 델리미터 안에서만.**
-사용자가 쓴 내용을 한 글자라도 바꾸면 "환경을 안 바꾼다"는 약속이 깨진다.
-`tests/test_projection.py` 가 이걸 강제한다.
+**Invariant: we write only inside the delimiters.**
+Changing even one character of the user's own prose breaks the promise that we
+do not change their environment. `tests/test_projection.py` enforces it.
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ from pathlib import Path
 
 from .state import HarnessEntry
 
-BEGIN = "<!-- opa:begin — 자동 생성. 이 블록 밖은 건드리지 않음. -->"
+BEGIN = "<!-- opa:begin — generated. Nothing outside this block is touched. -->"
 END = "<!-- opa:end -->"
 
-# 마커 앞뒤 공백과 안내문이 바뀌어도 기존 블록을 찾아낸다.
+# Find an existing block even if the surrounding whitespace or wording changed.
 _BLOCK = re.compile(
     r"[ \t]*<!--\s*opa:begin.*?-->.*?<!--\s*opa:end\s*-->[ \t]*\n?",
     re.DOTALL,
@@ -33,7 +33,7 @@ MEMORY_DIR_NAME = "memory"
 
 
 def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> str:
-    """prompt 엔트리 + memory 인덱스 + skill 목록을 블록 본문으로 렌더."""
+    """Render prompt entries, the memory index and the skill list as block body."""
     prompts = [e for e in entries if e.kind == "prompt"]
     memories = [e for e in entries if e.kind == "memory"]
     skills = [e for e in entries if e.kind == "skill"]
@@ -44,16 +44,16 @@ def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> st
         return "\n".join(lines)
 
     if prompts:
-        lines.append("### 이 프로젝트에서 지킬 것")
+        lines.append("### Rules for this project")
         lines.append("")
         for entry in prompts:
             lines.append(f"- **{entry.title}** — {_one_line(entry.content)}")
         lines.append("")
 
     if memories:
-        # 본문이 아니라 **인덱스만** 넣는다. 컨텍스트를 창고로 쓰지 않는다는
-        # 이 프로젝트의 전제가 투영에도 그대로 적용된다.
-        lines.append("### 메모리 인덱스")
+        # Only the **index**, never the bodies. "Context is for deciding, not for
+        # storage" applies to the projection too.
+        lines.append("### Memory index")
         lines.append("")
         for entry in memories:
             location = f"`.opa/{MEMORY_DIR_NAME}/{entry.id}.md`" if memory_dir else f"`{entry.id}`"
@@ -61,7 +61,7 @@ def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> st
         lines.append("")
 
     if skills:
-        lines.append("### 스킬")
+        lines.append("### Skills")
         lines.append("")
         for entry in skills:
             lines.append(f"- `{entry.id}` — {_one_line(entry.content)}")
@@ -80,9 +80,10 @@ def block(body: str) -> str:
 
 
 def apply(target: Path, body: str) -> bool:
-    """target의 델리미터 블록만 교체한다. 블록이 없으면 파일 끝에 추가.
+    """Replace only the delimiter block; append one if the file has none.
 
-    블록 밖은 바이트 단위로 보존한다. 변경이 있었으면 True.
+    Everything outside the block is preserved byte for byte. Returns True if the
+    file changed.
     """
     new_block = block(body)
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
@@ -102,14 +103,14 @@ def apply(target: Path, body: str) -> bool:
 
 
 def remove(target: Path) -> bool:
-    """블록을 제거해 원상복구한다. 언인스톨 경로 — 반드시 있어야 한다."""
+    """Remove the block and restore the file. The uninstall path must exist."""
     if not target.exists():
         return False
     existing = target.read_text(encoding="utf-8")
     if not _BLOCK.search(existing):
         return False
     updated = _BLOCK.sub("", existing, count=1)
-    # 블록만 있던 파일이면 흔적을 남기지 않는다.
+    # If the file held nothing but our block, leave no trace behind.
     if not updated.strip():
         target.unlink()
         return True
@@ -118,7 +119,7 @@ def remove(target: Path) -> bool:
 
 
 def write_memories(memory_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
-    """memory 본문은 별도 파일로. 프롬프트 블록에는 인덱스만 들어간다."""
+    """Memory bodies go to their own files; only an index enters the prompt block."""
     memory_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     wanted = {e.id for e in entries if e.kind == "memory"}
@@ -135,10 +136,10 @@ def write_memories(memory_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
 
 
 def write_skills(skills_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
-    """skill 은 호스트가 이미 읽는 위치에 SKILL.md 로 떨어뜨린다.
+    """Drop skills as SKILL.md where the host already looks for them.
 
-    우리가 만든 디렉터리만 지운다 (`.opa-managed` 표식이 있는 것). 사용자가 직접
-    만든 스킬을 지우면 "환경을 안 바꾼다"는 약속이 깨진다.
+    Only directories we created (marked `.opa-managed`) are ever pruned. Deleting
+    a skill the user wrote themselves would break the promise.
     """
     written: list[Path] = []
     wanted: set[str] = set()
@@ -167,7 +168,7 @@ def write_skills(skills_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
 
 
 def remove_skills(skills_dir: Path) -> int:
-    """우리가 만든 스킬 디렉터리만 제거한다."""
+    """Remove only the skill directories we created."""
     if not skills_dir.exists():
         return 0
     removed = 0

@@ -1,7 +1,8 @@
-"""opa_bootstrap — 현재 호스트에 harness projection과 스킬을 설치/갱신.
+"""opa_bootstrap - install or refresh the harness projection for this host.
 
-델리미터 블록 안에서만 쓴다. 블록 밖 사용자 내용은 건드리지 않는다.
-`remove=True` 로 완전 원상복구가 가능해야 한다 — 이게 "환경을 안 바꾼다"의 증명이다.
+Writes only inside the delimiter block; the user's own content outside it is
+never touched. `remove=True` must restore the files exactly - that round trip is
+the proof behind "we do not change your environment".
 """
 
 DESCRIPTION = """\

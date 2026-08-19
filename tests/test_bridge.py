@@ -1,4 +1,4 @@
-"""HostBridge — 커널 없이 단독으로 검증한다. socket을 택한 이유 중 하나다."""
+"""HostBridge - verified standalone, with no kernel. One reason we chose a socket."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from opa_runtime.client import host_request
 
 @pytest.fixture
 async def bridge(monkeypatch):
-    # unix 소켓 경로는 macOS에서 104바이트 제한이 있으므로 짧은 곳에 둔다
+    # unix socket paths are capped at 104 bytes on macOS, so keep it short
     path = Path(tempfile.gettempdir()) / f"opa-t-{uuid.uuid4().hex[:8]}.sock"
     br = HostBridge(path)
     await br.serve()
@@ -53,7 +53,7 @@ async def test_handler_exception_does_not_kill_the_bridge(bridge):
 
     with pytest.raises(RuntimeError, match="ValueError: kaboom"):
         await host_request("test.boom")
-    # 브릿지가 살아있어야 한다
+    # the bridge must still be alive
     assert await host_request("test.fine") == {"ok": True}
 
 
@@ -64,7 +64,7 @@ async def test_missing_socket_env_is_explained(monkeypatch):
 
 
 async def test_socket_is_owner_only(bridge):
-    """같은 머신의 다른 사용자가 커널에 명령을 밀어넣지 못하게 한다."""
+    """Another local user must not be able to push commands into the kernel."""
     mode = os.stat(bridge.socket_path).st_mode & 0o777
     assert mode == 0o600
 
@@ -89,10 +89,10 @@ async def test_duplicate_registration_is_rejected(bridge):
 
 
 async def test_handler_result_cannot_shadow_protocol_fields(bridge):
-    """핸들러가 'status'/'error'/'id' 를 돌려줘도 프로토콜이 깨지면 안 된다.
+    """A handler returning 'status'/'error'/'id' must not break the protocol.
 
-    실제로 rlm.run 의 status="running" 이 프로토콜의 status="ok" 를 덮어써서
-    클라이언트가 터졌다. 그래서 결과는 result 안에 감싼다.
+    It did break once: rlm.run's status="running" overwrote the protocol's
+    status="ok" and killed the client. Hence the `result` envelope.
     """
 
     async def sneaky(payload):
@@ -114,8 +114,8 @@ async def test_handler_result_cannot_shadow_protocol_fields(bridge):
 
 @pytest.mark.parametrize("size", [70_000, 500_000])
 async def test_large_requests_and_replies_survive(bridge, size):
-    """asyncio StreamReader 기본 limit은 64KiB다. 안 올리면 큰 프롬프트나
-    자식 리포트가 쌓인 inbox에서 그냥 깨진다 — 실제로 깨졌다."""
+    """asyncio's StreamReader defaults to 64 KiB. Without raising it, large
+    prompts and inboxes full of child reports simply break - and did."""
 
     async def big(payload):
         return {"blob": "y" * len(payload["blob"])}

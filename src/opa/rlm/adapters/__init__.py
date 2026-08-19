@@ -1,1 +1,1 @@
-"""호스트 CLI 어댑터. 우리가 세션 관리를 재구현하지 않는 지점."""
+"""Host CLI adapters - the seam where we avoid reimplementing session management."""

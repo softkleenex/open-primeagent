@@ -1,15 +1,16 @@
 """agent-to-agent messaging.
 
-메일박스는 `<session>/mailbox/<name>.jsonl`. parent의 메일박스 이름은 "parent".
+Mailboxes live at `<session>/mailbox/<name>.jsonl`; the parent's is "parent".
 
-  parent → child : 어댑터 `resume`으로 새 턴을 연다.
-                   child는 **이전 컨텍스트를 유지한 채** 이어서 일한다.
-                   이것이 "child가 일회용이 아니다"의 실제 구현이다.
+  parent -> child : opens a new turn through the adapter's resume path.
+                    The child continues **with its earlier context intact**.
+                    This is what "a child is not disposable" means in code.
 
-  child → parent : 어댑터가 child 최종 출력을 캡처해 parent 메일박스에 적재.
-                   (Phase 3에서 child에 opa MCP를 붙이면 작업 도중에도 push 가능)
+  child -> parent : the adapter captures the child's final output into the
+                    parent mailbox. Attaching the opa MCP server to the child
+                    will let it push mid-run as well.
 
-호스트의 턴 루프를 소유하지 않으므로 수신은 push가 아니라 pull이다.
+We do not own the host's turn loop, so collection is a pull, not a push.
 """
 
 from __future__ import annotations

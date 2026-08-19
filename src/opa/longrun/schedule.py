@@ -1,4 +1,4 @@
-"""schedule — one-time 또는 cron 프롬프트 예약."""
+"""Schedule - one-time or cron prompt scheduling."""
 
 from __future__ import annotations
 

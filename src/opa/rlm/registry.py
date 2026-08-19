@@ -1,14 +1,14 @@
-"""ChildRegistry — child가 일회용이 아니게 만드는 것.
+"""ChildRegistry - what makes a child not disposable.
 
-커널 재시작, 컨텍스트 compaction, 호스트 재시작 이후에도
-`await rlm.list_subagents()` 가 같은 child를 돌려줘야 한다.
-그래서 registry는 커널 메모리가 아니라 디스크에 산다.
+After a kernel restart, a context compaction or a host restart,
+`await rlm.list_subagents()` must still return the same children. That is why
+the registry lives on disk rather than in kernel memory.
 
-레이아웃:
+Layout:
     children/
       index.json                 name -> rlm_child_id
       <rlm_child_id>/child.json  ChildRecord
-      <rlm_child_id>/turns.jsonl 턴 기록
+      <rlm_child_id>/turns.jsonl per-turn log
 """
 
 from __future__ import annotations
@@ -62,13 +62,13 @@ class ChildRegistry:
         self.dir = children_dir
         self._records: dict[str, ChildRecord] = {}
 
-    # ---------- 영속 ----------
+    # ---------- persistence ----------
 
     def child_dir(self, rlm_child_id: str) -> Path:
         return self.dir / rlm_child_id
 
     def load(self) -> ChildRegistry:
-        """디스크에서 복구. 서버 부팅 시 반드시 먼저 호출."""
+        """Recover from disk. Must be called before anything else at server boot."""
         self._records.clear()
         if not self.dir.exists():
             return self
@@ -77,7 +77,7 @@ class ChildRegistry:
                 data = json.loads(record_file.read_text(encoding="utf-8"))
                 record = ChildRecord(**data)
             except (json.JSONDecodeError, TypeError, ValueError):
-                continue  # 깨진 항목 하나가 나머지 child를 막으면 안 된다
+                continue  # one corrupt record must not hide the other children
             self._records[record.rlm_child_id] = record
         return self
 
@@ -109,7 +109,7 @@ class ChildRegistry:
         return record
 
     def get(self, selector: str) -> ChildRecord | None:
-        """rlm_child_id 또는 name으로 찾는다."""
+        """Look up by rlm_child_id or by name."""
         if selector in self._records:
             return self._records[selector]
         for record in self._records.values():
@@ -121,7 +121,7 @@ class ChildRegistry:
         return sorted(self._records.values(), key=lambda r: r.created_at)
 
     def delete(self, selector: str) -> ChildRecord:
-        """명시적 호출로만 지운다. 자동 정리는 하지 않는다 — 상주가 기본값이다."""
+        """Only ever deleted on request. Nothing is reaped automatically - residency is the default."""
         record = self.get(selector)
         if record is None:
             known = ", ".join(r.name for r in self.list()) or "(none)"
@@ -133,7 +133,7 @@ class ChildRegistry:
             (directory / "child.json").unlink(missing_ok=True)
         return record
 
-    # ---------- 턴 기록 ----------
+    # ---------- turn log ----------
 
     def record_turn(self, rlm_child_id: str, entry: dict) -> None:
         jsonl.append(self.child_dir(rlm_child_id) / "turns.jsonl", {"at": _now(), **entry})

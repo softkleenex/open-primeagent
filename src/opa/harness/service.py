@@ -1,11 +1,12 @@
-"""HarnessService — local/global 두 스코프를 묶고, 개선(refinement)을 적용한다.
+"""HarnessService - joins the local and global scopes and applies refinements.
 
-`H = (ρ prompts, G subagents, K skills, M memory)` 의 CRUD가 여기 다 있다.
+All CRUD for `H = (prompts, subagent specs, skills, memory)` lives here.
 
-**중요**: 무엇을 바꿀지 *판단*하는 것은 여기가 아니다.
-호스트는 우리에게 모델을 빌려주지 않는다 (Claude Code는 MCP `sampling` 미지원 —
-docs/evolution.md §1.1 실측). 그래서 판단은 호출자(호스트 에이전트 또는 refiner
-child)가 하고, 우리는 **근거를 모아주고(evidence) 적용·기록·되돌리기**를 한다.
+**Important**: this is not where the *judgement* happens. The host does not lend
+us its model (Claude Code advertises no MCP `sampling` - measured, see
+docs/evolution.md section 1.1). The caller decides - the host agent, or a refiner
+child - and we gather the evidence, apply the delta, record it, and make it
+reversible.
 """
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ class HarnessService:
     def store(self, global_: bool = False) -> HarnessStore:
         return self.global_ if global_ else self.local
 
-    # ---------- CRUD (스코프 라우팅) ----------
+    # ---------- CRUD (scope routing) ----------
 
     def create(self, kind: HarnessKind, title: str, content: str, *, global_=False, **kw):
         return self.store(global_).create(kind, title, content, **kw)
@@ -68,7 +69,7 @@ class HarnessService:
         return out
 
     def _split_scope(self, entry_id: str) -> tuple[str, bool]:
-        """`global:my-note` 처럼 overview()가 보여준 id를 그대로 받는다."""
+        """Accept ids exactly as overview() prints them, e.g. `global:my-note`."""
         prefix, sep, rest = str(entry_id).partition(":")
         if sep and rest and prefix in ("local", "global"):
             return rest, prefix == "global"
@@ -81,9 +82,9 @@ class HarnessService:
             return self.local
         if self.global_.get(entry_id) is not None:
             return self.global_
-        return self.local  # 없으면 local이 KeyError를 내며 known ids를 알려준다
+        return self.local  # if absent, local raises KeyError and lists the known ids
 
-    # ---------- 사람이 읽는 요약 ----------
+    # ---------- human-readable summary ----------
 
     def overview(self, *, max_per_kind: int = 20) -> str:
         lines: list[str] = []
@@ -108,10 +109,11 @@ class HarnessService:
     # ---------- refinement ----------
 
     def evidence(self, trajectory_path: Path, *, limit: int = 400) -> dict[str, Any]:
-        """trajectory에서 '무엇을 바꿀지' 판단할 근거를 모은다. 판단은 호출자가 한다.
+        """Gather grounds from the trajectory. The caller does the judging.
 
-        한 번 겪은 일은 승격하지 않는다 — **반복된 것**만 올린다. 그래서
-        반복 신호(같은 에러, 같은 코드 패턴)를 세어서 돌려준다.
+        A one-off is not a pattern; only **repeated** signals are promotion
+        candidates. So we count recurrences (same error, same code shape) and
+        return them.
         """
         records = list(jsonl.read(trajectory_path))[-limit:]
         errors: Counter[str] = Counter()
@@ -143,10 +145,10 @@ class HarnessService:
         trigger: str,
         evidence: str = "",
     ) -> RefinementEvent:
-        """CRUD delta를 적용하고, **되돌릴 수 있게** before 스냅샷과 함께 기록한다.
+        """Apply a CRUD delta and record it with a `before` snapshot so it reverts.
 
-        하나라도 실패하면 앞서 적용한 것들을 되돌리고 통째로 실패시킨다.
-        반쪽만 적용된 harness가 남는 게 제일 나쁘다.
+        If any change fails, everything already applied is rolled back and the
+        whole call fails. A half-applied harness is the worst possible outcome.
         """
         if not isinstance(changes, list) or not changes:
             raise ValueError("changes must be a non-empty list")
@@ -220,7 +222,7 @@ class HarnessService:
         return event
 
     def _undo(self, before: list[dict[str, Any]]) -> None:
-        """역순으로 되돌린다. 이미 사라진 항목은 조용히 넘긴다."""
+        """Undo in reverse order, skipping entries that are already gone."""
         for record in reversed(before):
             op = record.get("op")
             try:

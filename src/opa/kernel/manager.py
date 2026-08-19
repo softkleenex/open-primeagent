@@ -1,15 +1,16 @@
-"""세션당 IPython 커널 하나를 소유한다.
+"""Owns exactly one IPython kernel per session.
 
-부팅 시 주입하는 것:
-  - `opa_runtime` — `rlm` / `harness` / `goal` / `agent_message` 심볼
+Injected at boot:
+  - `opa_runtime` - the `rlm` / `harness` / `agent_message` symbols
   - env: OPA_HOST_SOCKET, OPA_SESSION_DIR, OPA_ROLE=parent
 
-top-level `await`는 IPython의 autoawait가 네이티브로 처리한다.
-(원본은 nest_asyncio를 쓰지만 실측 결과 불필요했다.)
+Top-level `await` is handled natively by IPython's autoawait. Upstream uses
+nest_asyncio; measuring showed it is unnecessary here.
 
-커널은 **이 서버와 같은 인터프리터**로 띄운다. 사용자 시스템의 kernelspec에
-의존하면 opa_runtime이 없는 파이썬으로 커널이 떠서 rlm 심볼이 사라진다.
-그래서 kernelspec을 세션 디렉터리에 직접 써서 argv를 sys.executable로 고정한다.
+The kernel runs under **this server's interpreter**. Relying on the user's
+installed kernelspec would boot a Python without `opa_runtime`, and the `rlm`
+symbols would silently disappear. So we write our own kernelspec into the
+session directory with argv pinned to sys.executable.
 """
 
 from __future__ import annotations
@@ -29,10 +30,10 @@ from jupyter_client.kernelspec import KernelSpecManager
 from jupyter_client.manager import AsyncKernelManager
 
 KERNEL_NAME = "opa-python"
-_UNIX_SOCKET_PATH_MAX = 100  # macOS sun_path 104 - 여유
+_UNIX_SOCKET_PATH_MAX = 100  # macOS sun_path is 104; leave headroom
 
-# 커널 부팅 직후 실행되는 셀. 실패해도 커널은 살아있어야 하므로 조용히 넘긴다
-# (rlm 없이도 순수 Python 작업 메모리로는 쓸 수 있다).
+# The cell run right after boot. It must not take the kernel down on failure -
+# even without `rlm`, a plain Python working memory is still useful.
 BOOTSTRAP = """\
 try:
     from opa_runtime import agent_message, harness, host_request, rlm  # noqa: F401
@@ -81,7 +82,7 @@ class KernelManager:
     # ---------- kernelspec ----------
 
     def _write_kernelspec(self) -> Path:
-        """argv를 sys.executable로 고정한 kernelspec을 세션 디렉터리에 쓴다."""
+        """Write a kernelspec whose argv is pinned to sys.executable."""
         spec_root = self.session_dir / "kernelspec"
         spec_dir = spec_root / KERNEL_NAME
         spec_dir.mkdir(parents=True, exist_ok=True)
@@ -105,12 +106,13 @@ class KernelManager:
         return spec_root
 
     def _transport(self) -> tuple[str, str]:
-        """(transport, ip) 를 고른다.
+        """Choose (transport, ip).
 
-        TCP는 커널 코드/출력을 로컬 평문으로 흘린다 (ipykernel 스스로 경고한다).
-        POSIX에서는 파일 권한으로 보호되는 IPC 소켓을 쓴다. 단 unix 소켓 경로는
-        macOS에서 104바이트 제한이 있고 jupyter_client는 ip를 경로 프리픽스로
-        쓰므로(`<ip>-1` ~ `<ip>-5`), 길면 TCP로 물러난다.
+        TCP sends kernel code and output in cleartext over localhost - ipykernel
+        warns about this itself. On POSIX we use an IPC socket protected by file
+        permissions. But unix socket paths are capped at 104 bytes on macOS and
+        jupyter_client uses `ip` as the path prefix (`<ip>-1` .. `<ip>-5`), so we
+        fall back to TCP when the path would not fit.
         """
         if os.name != "posix":
             return "tcp", "127.0.0.1"
@@ -129,7 +131,7 @@ class KernelManager:
     # ---------- lifecycle ----------
 
     async def start(self) -> None:
-        """커널을 띄우고 부트스트랩 셀을 실행한다."""
+        """Boot the kernel and run the bootstrap cell."""
         spec_root = self._write_kernelspec()
         ksm = KernelSpecManager()
         ksm.kernel_dirs = [str(spec_root)]
@@ -157,7 +159,7 @@ class KernelManager:
             self._km = None
 
     async def restart(self) -> None:
-        """사용자 변수는 사라진다. registry/harness/goal은 디스크에 있으므로 살아남는다."""
+        """User variables are lost. Registry, harness and goal live on disk and survive."""
         if self._km is None:
             await self.start()
             return
@@ -239,7 +241,7 @@ class KernelManager:
             stdout="".join(stdout_parts),
             result_repr=result_repr,
             error=error,
-            truncated=False,          # 잘라내기는 도구 계층에서 (Config를 아는 쪽)
+            truncated=False,          # truncation happens in the tool layer, which knows Config
             full_output_path=None,
             duration_ms=duration_ms,
         )

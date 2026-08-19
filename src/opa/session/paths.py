@@ -1,10 +1,10 @@
-"""세션 디렉터리 레이아웃.
+"""Session directory layout.
 
     .opa/
     └── sessions/<session_id>/
-        ├── session.json          세션 메타
-        ├── trajectory.jsonl      호스트↔opa 전 이벤트 (refine의 입력)
-        ├── outputs/<n>.txt       잘라내기 전 전문 출력
+        ├── session.json          session metadata
+        ├── trajectory.jsonl      every host<->opa event (input to refinement)
+        ├── outputs/<n>.txt       full output before truncation
         ├── harness/harness_state.json
         ├── goal.json
         ├── mailbox/<name>.jsonl
@@ -14,8 +14,9 @@
                 ├── child.json
                 └── turns.jsonl
 
-커널 재시작·컨텍스트 compaction·호스트 재시작 후에도 복구되어야 하는 것은
-전부 이 아래에 있다. 커널 메모리에만 있는 것은 사용자 변수뿐이다.
+Everything that must survive a kernel restart, a context compaction or a host
+restart lives under here. The only thing held solely in kernel memory is the
+user's own Python variables.
 """
 
 from __future__ import annotations
@@ -62,7 +63,7 @@ class SessionPaths:
         return self.dir / "session.json"
 
     def ensure(self) -> SessionPaths:
-        """필요한 디렉터리를 만든다."""
+        """Create every directory this session needs."""
         for directory in (self.dir, self.outputs, self.mailbox, self.children,
                           self.harness_state.parent):
             directory.mkdir(parents=True, exist_ok=True)

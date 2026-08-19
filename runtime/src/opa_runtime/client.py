@@ -1,9 +1,9 @@
-"""host_request — 커널에서 호스트로 가는 유일한 통로.
+"""host_request - the only path from the kernel to the host.
 
     reply = await host_request("rlm.run", {"prompt": ..., "kwargs": {...}})
 
-$OPA_HOST_SOCKET 을 읽는다. child 프로세스도 이 env를 상속받으므로
-같은 함수로 부모 호스트를 부를 수 있다 (A2A 양방향의 전제).
+Reads $OPA_HOST_SOCKET. Child processes inherit that env, so they can call the
+parent host through the same function - the precondition for two-way A2A.
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from typing import Any
 ENV_SOCKET = "OPA_HOST_SOCKET"
 DEFAULT_TIMEOUT = 300.0
 
-# 호스트(bridge.MAX_LINE_BYTES)와 맞춰야 한다. asyncio 기본값 64KiB를 그대로 두면
-# 큰 응답(자식 여러 개의 리포트가 쌓인 inbox)에서 ValueError로 깨진다.
+# Must match the host (bridge.MAX_LINE_BYTES). Leaving asyncio's 64 KiB default
+# breaks large replies, such as an inbox holding several child reports.
 MAX_LINE_BYTES = 8 * 1024 * 1024
 
 _ids = itertools.count(1)
@@ -30,9 +30,10 @@ async def host_request(
     *,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """호스트에 타입 있는 요청을 보내고 응답을 기다린다.
+    """Send a typed request to the host and await its reply.
 
-    호스트가 에러를 반환하거나 해당 타입의 핸들러가 없으면 RuntimeError.
+    Raises RuntimeError when the host reports an error or has no handler for the
+    type.
     """
     if not isinstance(request_type, str) or not request_type:
         raise TypeError("request_type must be a non-empty str")
@@ -67,7 +68,8 @@ async def host_request(
         reply = json.loads(raw)
         status = reply.get("status")
         if status == "ok":
-            # 핸들러 결과는 result 안에 들어온다 — 프로토콜 키와 절대 충돌하지 않게.
+            # Handler results arrive inside `result`, so they can never collide
+            # with protocol keys.
             result = reply.get("result")
             return result if isinstance(result, dict) else {}
         if status == "error":

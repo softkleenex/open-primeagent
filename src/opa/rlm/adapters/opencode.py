@@ -1,6 +1,7 @@
-"""opencode 어댑터 — TODO: headless/resume 인터페이스 조사 필요 (TODO.md 참조).
+"""opencode adapter - TODO: confirm the headless/resume interface (see TODO.md).
 
-계약(base.AgentAdapter)만 만족하면 되므로, 세션 재개 방법만 확인되면 붙는다.
+Only the base.AgentAdapter contract matters, so once session resume is confirmed
+this is a short file.
 """
 
 from __future__ import annotations

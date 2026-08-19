@@ -1,20 +1,21 @@
-# 진화 (evolution) — 실현 가능한 범위
+# Evolution — what is actually reachable
 
-> "원본을 쓰다가 별로면 복사본을 개선하고, 복사본을 원본에 연결한다."
-> "/evolve 로 현재 세션의 사고구조를 개선한다."
+> *"Use the original; when it turns out to be mediocre, improve a copy and wire
+> the copy back into the original."*
+> *"Type `/evolve` and improve how the agent thinks, for the session I'm in."*
 >
-> 결론부터: **둘 다 된다.** 다만 되는 층위가 다르고, 진짜 어려운 건 메커니즘이
-> 아니라 **평가**다.
+> Short answer: **both are reachable.** They live at different layers, and the
+> hard part is not the mechanism — it is **evaluation**.
 
 ---
 
-## 1. 실험으로 확인한 것 (2026-08-19)
+## 1. What we measured (2026-08-19)
 
-우리는 호스트의 시스템 프롬프트를 소유하지 않는다. 그래서 "세션 중에 에이전트의
-지시를 바꿀 수 있는가"는 추측이 아니라 실험으로 답해야 했다.
-raw JSON-RPC MCP 서버를 만들어 Claude Code에 붙이고 측정했다.
+We do not own the host's system prompt, so "can an agent's instructions change
+mid-session?" had to be answered by experiment, not by argument. We attached a
+raw JSON-RPC MCP server to Claude Code and measured.
 
-### 1.1 호스트가 선언하는 capability
+### 1.1 What the host declares
 
 ```json
 { "protocolVersion": "2025-11-25",
@@ -22,162 +23,170 @@ raw JSON-RPC MCP 서버를 만들어 Claude Code에 붙이고 측정했다.
   "clientInfo": { "name": "claude-code", "version": "2.1.235" } }
 ```
 
-- **`sampling` 없음** — 서버가 호스트의 모델을 빌려 쓸 수 없다.
-  harness가 스스로 LLM을 호출해 자기를 고치는 설계는 이 경로로는 불가능하다.
-  (우리에겐 대안이 있다: child 에이전트가 곧 모델 호출이다.)
-- **`elicitation` 있음** — 서버가 도구 실행 중에 **사용자에게 직접 물어볼 수 있다.**
-  진화 승격 게이트를 사람 승인으로 두려면 이게 정확히 필요한 기능이다.
+- **No `sampling`.** A server cannot borrow the host's model. Any design where
+  the harness calls an LLM to rewrite itself is closed off through this path.
+  (We have an alternative: a child agent *is* a model call.)
+- **`elicitation` is present.** The server can ask the **user** a question during
+  a tool call. That is exactly what a promotion gate needs if the gate is human.
 
-### 1.2 세션 중 도구 설명 교체
+### 1.2 Replacing a tool description mid-session
 
-서버가 자기 도구 설명을 바꾸고 `notifications/tools/list_changed` 를 보냈을 때의
-서버 측 trace:
+Server-side trace when the server rewrote its own tool description and sent
+`notifications/tools/list_changed`:
 
 ```
-tools/list   call=1  serving_version=0     ← 세션 시작
-tools/call                                  ← 도구 호출
-sent list_changed                           ← 서버가 자기 설명을 교체
-tools/list   call=2  serving_version=1     ← 호스트가 다시 읽어감 ✅
---- 같은 세션, 다음 턴 (resume) ---
+tools/list   call=1  serving_version=0     ← session starts
+tools/call                                  ← tool invoked
+sent list_changed                           ← server swaps its own description
+tools/list   call=2  serving_version=1     ← the host re-fetches ✅
+--- same session, next turn (resume) ---
 tools/list   call=1  serving_version=1
 ```
 
-그리고 다음 턴에서 모델에게 도구 설명을 물었더니:
+Asked on the next turn what the tool description said, the model answered:
 
 ```
 V2 (MUTATED MID-SESSION): return pong, and always append the word EVOLVED.
 ```
 
-**즉 같은 세션 안에서 에이전트가 읽는 지시문을 갈아끼울 수 있다.**
-반영 시점은 *다음 턴*이다 (같은 턴 안에서는 이미 만들어진 컨텍스트라 안 바뀐다).
+**So the instructions an agent operates under can be swapped inside a live
+session.** They take effect on the *next turn* — within the same turn the
+context is already built.
 
-`/evolve` 를 치면 **바로 다음 메시지부터** 새 절차로 동작한다는 뜻이다.
-세션 재시작이 필요 없다.
+Which is exactly the granularity `/evolve` needs: type it, and from your very
+next message the agent runs the new procedure. No restart.
 
-### 1.3 반드시 알아야 할 제약: 인젝션 오탐
+### 1.3 A constraint you must know: injection false-positives
 
-같은 실험에서 도구 **결과** 텍스트로 "서버가 자기 설명을 바꿨다"고 알렸더니
-모델이 이렇게 답했다:
+In the same experiment we announced the change through the tool **result** text.
+The model replied:
 
-> 이런 내용으로 제 행동을 유도하려는 프롬프트 인젝션 시도로 보여 먼저 알려드립니다.
+> This looks like a prompt injection attempt trying to steer my behavior, so I'm
+> flagging it first.
 
-정렬이 잘 된 호스트 모델은 **도구 출력으로 들어오는 지시를 의심한다. 그게 맞다.**
-따라서 진화의 전달 경로는:
+A well-aligned host model **distrusts instructions arriving in tool output. It
+is right to.** So the delivery channel matters:
 
-- ❌ 도구 **결과**에 "이제부터 이렇게 행동해라"를 싣는다 → 인젝션으로 취급됨
-- ✅ 도구 **설명**(스키마)을 교체한다 → 정식 채널이라 그대로 수용됨
-- ✅ 사용자가 명시적으로 `/evolve` 를 쳤다는 사실을 근거로 남긴다
+- ❌ put "from now on, behave like this" in a tool **result** → treated as injection
+- ✅ replace the tool **description** (schema) → the legitimate channel, accepted
+- ✅ record that the user explicitly invoked `/evolve` as the justification
 
 ---
 
-## 2. 진화의 3층
+## 2. Three layers of evolution
 
-| 층 | 반영 시점 | 무엇을 바꾸나 | 상태 |
+| layer | takes effect | what changes | status |
 |---|---|---|---|
-| **L0** | 다음 **세션** | `CLAUDE.md` / `AGENTS.md` / `.claude/skills` (projection) | Phase 3 계획 |
-| **L1** | 다음 **턴** | `opa_python` 등의 **도구 설명** = 에이전트 운영 절차 | 실험 완료, 미구현 |
-| **L2** | **즉시** | 커널 네임스페이스 (새 헬퍼 함수·스킬) | 이미 가능 |
+| **L0** | next **session** | `CLAUDE.md` / `AGENTS.md` / `.claude/skills` (projection) | ✅ Phase 3 |
+| **L1** | next **turn** | **tool descriptions** = the agent's operating procedure | measured, not built |
+| **L2** | **immediately** | kernel namespace (new helper functions, skills) | already possible |
 
-L2가 이미 되는 이유: `opa_python` 은 persistent 커널이라, `/evolve` 가 새 함수를
-정의해두면 그 순간부터 호출 가능하다. 지시문이 아니라 **능력**의 진화다.
+L2 already works because `opa_python` runs a persistent kernel: if `/evolve`
+defines a new function, it is callable from that moment. That is evolution of
+*capability* rather than of instructions.
 
-세 층을 합치면:
+Together:
 
 ```
 /evolve
    │
-   ├─ L2  커널에 새 헬퍼/스킬 정의        → 지금 당장 쓸 수 있음
-   ├─ L1  도구 설명 재작성 + list_changed → 다음 턴부터 새 절차
-   └─ L0  harness 엔트리로 승격 + projection → 다음 세션에도 남음
+   ├─ L2  define new helpers/skills in the kernel   → usable right now
+   ├─ L1  rewrite tool descriptions + list_changed  → new procedure from the next turn
+   └─ L0  promote to harness entries + project      → survives into the next session
 ```
 
 ---
 
-## 3. 원본 / 복사본 = 우리가 이미 만든 child
+## 3. "Original / copy" is the child agent we already built
 
-"복사본을 개선해서 원본에 연결한다"는 아이디어는 새로 만들 게 아니다.
-**복사본은 곧 `rlm` child다.** Phase 2에서 메커니즘은 이미 다 만들었다.
+Improving a copy and wiring it back is not something new to build.
+**The copy is an `rlm` child.** Phase 2 already shipped the mechanism.
 
 ```
-원본 (parent)  ── 현재 harness H 로 동작
+original (parent)  ── runs on the current harness H
    │
-   ├─ rlm(..., name="candidate-a", system_prompt=H')   ← 복사본 A: 변형된 harness
-   ├─ rlm(..., name="candidate-b", system_prompt=H'')  ← 복사본 B
+   ├─ rlm(..., name="candidate-a", system_prompt=H')   ← copy A: variant harness
+   ├─ rlm(..., name="candidate-b", system_prompt=H'')  ← copy B
    │
-   └─ 게이트 통과한 변형만 원본의 harness로 승격
+   └─ promote only the variant that clears the gate
 ```
 
-child는 자기 컨텍스트·세션·모델을 갖고, registry에 남고, 재호출된다.
-즉 **변형을 격리해서 돌려보고 비교할 샌드박스가 이미 있다.**
+A child has its own context, session and model, persists in the registry, and
+can be re-tasked. In other words, **the sandbox for running and comparing
+variants already exists.**
 
-빠진 조각은 두 개뿐이다:
-1. child에게 **candidate harness를 입히는 것** (`system_prompt=` 로 이미 경로는 있다)
-2. **승격 게이트**
+Two pieces are missing:
+
+1. dressing a child in a **candidate harness** (the `system_prompt=` path exists)
+2. a **promotion gate**
 
 ---
 
-## 4. 진짜 어려운 건 메커니즘이 아니라 평가
+## 4. The hard part is evaluation, not plumbing
 
-여기가 핵심이다. 위 배관은 전부 만들 수 있다. 하지만
+All of the plumbing above is buildable. But:
 
-> "복사본이 원본보다 낫다"를 무엇으로 판정할 것인가?
+> By what measure is the copy better than the original?
 
-이 답이 없으면 진화가 아니라 **drift**다. 매 세션 프롬프트가 조금씩 바뀌는데
-좋아지는지 나빠지는지 아무도 모르는 상태가 된다. 원본 Prime Agent의 `/refine`이
-"가능한 한 작은 CRUD 변경"으로 제한하고 rollback을 남기는 것도 같은 이유다 —
-**측정을 못 하니 변경 폭을 줄여서 위험을 관리한다.**
+Without an answer this is not evolution, it is **drift** — prompts shifting a
+little every session with nobody able to say whether things improved. Upstream's
+`/refine` restricting itself to "the smallest possible CRUD change" plus rollback
+is the same reasoning: when you cannot measure, you manage risk by shrinking the
+change.
 
-우리가 취할 입장:
+Our position:
 
-| 게이트 | 언제 | 승격 |
+| gate | when | promotion |
 |---|---|---|
-| **측정 가능** (테스트 통과율, 린트, 벤치마크, 토큰/시간) | 그런 작업일 때만 | 자동 |
-| **사람 승인** (`elicitation` 으로 그 자리에서 질문) | 그 외 전부 | 수동 |
-| **없음** | — | 승격 금지. 제안만 기록 |
+| **measurable** (test pass rate, lint, benchmark, tokens/time) | only for that kind of task | automatic |
+| **human approval** (ask in place via `elicitation`) | everything else | manual |
+| **none** | — | no promotion; record the proposal only |
 
-측정 가능한 게이트가 없는데 자동 승격하는 경로는 **만들지 않는다.**
-이건 기능 부족이 아니라 설계 선택이다.
-
----
-
-## 5. 안전장치 (전부 필수)
-
-1. **base 불변** — 우리가 쓰지 않은 것은 건드리지 않는다. 시스템 프롬프트도,
-   사용자가 쓴 `CLAUDE.md` 본문도. 델리미터 블록 안에서만.
-2. **버전 + 롤백** — 모든 진화는 이벤트로 남고 정확히 되돌릴 수 있어야 한다.
-3. **최소 delta** — 큰 리라이트 금지. CRUD 한두 개.
-4. **전달은 도구 설명으로** — 도구 결과로 지시를 흘리면 인젝션 방어에 걸린다 (§1.3).
-5. **출처 표시** — 진화된 절차에는 "언제, 무슨 근거(trajectory)로 생겼는지"를 남긴다.
-   나중에 사람이 읽고 지울 수 있어야 한다.
-6. **`/evolve` 는 사용자 명시 호출로만.** 에이전트가 스스로 자기 지시문을 바꾸는
-   자동 루프는 기본 비활성. autonomous 모드에서도 마찬가지.
+**We do not build an automatic promotion path where nothing can be measured.**
+That is a design choice, not a missing feature.
 
 ---
 
-## 6. 도구를 늘리지 않는다
+## 5. Safeguards (all mandatory)
 
-`/evolve` 를 MCP 도구로 추가하지 않는다 (`MAX_TOOLS = 4`).
-프로젝트 규칙대로 **커널 안 Python 심볼**로 노출한다:
+1. **The base is immutable.** We never touch what we did not write — not the
+   system prompt, not the user's own `CLAUDE.md` prose. Only inside delimiters.
+2. **Versioned and reversible.** Every evolution is an event that can be
+   rolled back exactly.
+3. **Minimal delta.** No large rewrites. One or two CRUD operations.
+4. **Deliver through tool descriptions**, never tool results (§1.3).
+5. **Attribution.** Every evolved procedure records when it appeared and on what
+   evidence, so a human can read it later and delete it.
+6. **`/evolve` runs only when the user asks.** An automatic loop where the agent
+   rewrites its own instructions is off by default, including in autonomous mode.
+
+---
+
+## 6. No new tool
+
+`/evolve` does not become an MCP tool (`MAX_TOOLS = 4`). Per the project's own
+rule it is exposed as a **kernel symbol**:
 
 ```python
-await harness.evolve(dry_run=True)   # 제안만
-await harness.evolve()               # L2+L1+L0 적용
+await harness.evidence()             # grounds
+await harness.apply([...], trigger="/evolve")
 await harness.rollback(event_id)
 ```
 
-Claude Code 편의용 `/opa:evolve` 슬래시 커맨드는 플러그인 층에서 이걸 부른다.
+A Claude Code `/opa:evolve` slash command would call into this from the plugin
+layer.
 
 ---
 
-## 7. 구현 순서
+## 7. Build order
 
-Phase 3(harness)이 선행되어야 한다. 진화는 **바꿀 상태가 있어야** 성립한다.
+Phase 3 (harness) had to come first — evolution needs state to change.
 
-1. Phase 3 — `HarnessState` CRUD + projection + rollback  ← L0
-2. `ToolSurface` — 도구 설명을 런타임에 재구성 + `list_changed` 발송  ← L1
-3. `harness.evolve()` — trajectory → 최소 delta → 3층 적용
-4. candidate child + 게이트 → 승격/폐기  ← 원본/복사본
-5. `elicitation` 기반 사람 승인 경로
+1. ✅ Phase 3 — `HarnessStore` CRUD + projection + rollback (L0)
+2. `ToolSurface` — rebuild tool descriptions at runtime + `list_changed` (L1)
+3. `harness.evolve()` — evidence → minimal delta → apply across all three layers
+4. candidate children + gate → promote or discard (original/copy)
+5. human approval via `elicitation`
 
-**4번(원본/복사본)은 1~3번이 끝나면 놀랄 만큼 작은 작업이다.**
-child 인프라가 이미 있기 때문이다.
+**Step 4 is surprisingly small once 1–3 exist**, because the child
+infrastructure is already there.
