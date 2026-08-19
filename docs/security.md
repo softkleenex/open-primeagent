@@ -58,7 +58,7 @@ This is not a documentation promise — `tests/test_projection.py` and
 
 An agent that rewrites its own operating instructions is a real risk surface.
 Our position, and the reasoning behind it, is in
-[evolution.md](evolution.md) §5. In short: the base system prompt is never
+[concepts/evolution.md](concepts/evolution.md) §5. In short: the base system prompt is never
 touched, every change is reversible, changes are delivered through tool
 *descriptions* rather than tool *results*, and there is no automatic promotion
 path where nothing can be measured.

@@ -8,8 +8,9 @@ already runs**, without replacing it.
 ## Read first
 
 1. `TODO.md` — where things stand and what is next
-2. `ARCHITECTURE.md` — why it is built this way
-3. `ROADMAP.md` — the current phase's exit criteria
+2. `docs/architecture.md` — why it is built this way
+3. `docs/roadmap.md` — the current phase's exit criteria
+4. `CONTRIBUTING.md` — the four rules that do not bend
 
 ## Never break these
 

@@ -123,7 +123,7 @@ with no human in the loop.
 ## Phase 5 — Evolution
 
 Depends on Phase 3. Feasibility already established experimentally
-([docs/evolution.md](docs/evolution.md)).
+([concepts/evolution.md](concepts/evolution.md)).
 
 - [ ] `ToolSurface` — rebuild tool descriptions at runtime + `tools/list_changed`
 - [ ] `harness.evolve()` — evidence → minimal delta → apply across all three layers

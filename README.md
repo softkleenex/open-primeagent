@@ -15,6 +15,14 @@ Ported from the architecture of
 claude mcp add opa -- uvx open-primeagent
 ```
 
+[Install](#install) · [Why this is small](#why-this-is-only-3k-lines-and-not-170k) ·
+[Sub-agents](#persistent-sub-agents-actually-work) ·
+[External memory](#context-is-for-deciding-not-for-storage) ·
+[Harness](#a-harness-that-learns-without-touching-your-files) ·
+[Benchmarks](#benchmarks--including-the-ones-we-lost) ·
+[Evolution](#can-an-agent-evolve-mid-session) ·
+[Security](#-not-a-sandbox) · [Docs](docs/)
+
 ---
 
 ```
@@ -27,7 +35,7 @@ claude mcp add opa -- uvx open-primeagent
 ```
 
 Everything marked ✅ is verified by tests that actually spawn a kernel and a real
-child agent. See [ROADMAP.md](ROADMAP.md) for the exit criteria of each phase.
+child agent. See [the roadmap](docs/roadmap.md) for the exit criteria of each phase.
 
 ---
 
@@ -140,17 +148,49 @@ computer, not twenty tools*; polluting your agent's tool list would contradict
 it. `server.MAX_TOOLS = 4` and a test enforces the ceiling. When you want to add
 a tool, that is the signal to expose a kernel symbol instead.
 
-## Try it
+## Install
+
+<details open>
+<summary><b>Claude Code</b></summary>
+
+```bash
+claude mcp add opa -- uvx open-primeagent
+claude mcp list                     # opa: ✔ Connected
+```
+</details>
+
+<details>
+<summary><b>Codex</b></summary>
+
+In `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.opa]
+command = "uvx"
+args = ["open-primeagent"]
+```
+</details>
+
+<details>
+<summary><b>opencode / any MCP client</b></summary>
+
+Register `uvx open-primeagent` as a stdio MCP server. Using opencode as a
+*child* backend is still [under investigation](docs/install/opencode.md).
+</details>
+
+<details>
+<summary><b>From a checkout (for development)</b></summary>
 
 ```bash
 git clone https://github.com/softkleenex/open-primeagent && cd open-primeagent
 uv sync --extra dev
 uv run pytest -q                                    # 99 passed
 claude mcp add opa --scope local -- uv run --directory "$PWD" opa
-claude mcp list                                     # opa: ✔ Connected
 ```
+</details>
 
-Codex, opencode and other MCP clients: see [install/](install/).
+Full per-host notes and every environment variable:
+[docs/install/](docs/install/) · [docs/reference/configuration.md](docs/reference/configuration.md).
 
 ## Benchmarks — including the ones we lost
 
@@ -215,7 +255,7 @@ delivery channel has to be the tool *description*. And Claude Code advertises no
 `sampling` capability but does support `elicitation` — the server can ask the
 *user* for approval mid-call, which is exactly what a promotion gate needs.
 
-Full write-up with the raw data: [docs/evolution.md](docs/evolution.md).
+Full write-up with the raw data: [docs/concepts/evolution.md](docs/concepts/evolution.md).
 
 The mechanism is the easy part. The hard part is **evaluation** — without a
 measurable gate, "evolution" is just drift. We do not ship an automatic
@@ -231,10 +271,16 @@ anything autonomous on.
 
 ## Docs
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — layers, the host bridge, projection
-- [ROADMAP.md](ROADMAP.md) — phases with executable exit criteria
-- [docs/evolution.md](docs/evolution.md) — what self-improvement can actually reach
-- [docs/security.md](docs/security.md) — read this one
+Start at **[docs/](docs/)**, or jump straight to:
+
+| | |
+|---|---|
+| [Quickstart](docs/quickstart.md) | running in two minutes |
+| [Persistent Python](docs/concepts/persistent-python.md) · [RLM](docs/concepts/rlm.md) · [Harness](docs/concepts/harness.md) | the three concepts |
+| [MCP tools](docs/reference/tools.md) · [Kernel API](docs/reference/kernel-api.md) · [Configuration](docs/reference/configuration.md) | reference |
+| [Architecture](docs/architecture.md) · [Roadmap](docs/roadmap.md) | how and what next |
+| [Benchmarks](bench/README.md) | measured, including the losses |
+| [Security](docs/security.md) | **read this one** |
 
 ## License and relationship to Prime Agent
 

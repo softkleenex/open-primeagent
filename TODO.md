@@ -36,7 +36,7 @@ Settled decisions:
 4. `longrun/autonomous.py` — gate loop.
 
 Phase 5 (evolution) depends on Phase 3 and is already scoped in
-`docs/evolution.md`.
+`docs/concepts/evolution.md`.
 
 ## To investigate
 
