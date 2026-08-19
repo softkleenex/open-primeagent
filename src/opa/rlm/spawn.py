@@ -25,6 +25,11 @@ ADAPTERS: dict[str, type] = {
     CodexAdapter.name: CodexAdapter,
 }
 
+# rlm(...) 이 받는 인자. 모르는 인자는 **조용히 무시하지 않고** 거절한다.
+# `rlm(prompt, name="x", moodel="opus")` 가 그냥 통과하면 모델이 안 바뀐 것을
+# 아무도 모른 채 진행하게 된다.
+SPAWN_KWARGS = frozenset({"adapter", "cwd", "model", "system_prompt"})
+
 
 class RLMService:
     def __init__(self, config: Config, children_dir: Path, mailbox_dir: Path) -> None:
@@ -33,6 +38,9 @@ class RLMService:
         self.mailbox = Mailbox(mailbox_dir)
         self._tasks: set[asyncio.Task] = set()
         self._adapters: dict[str, AgentAdapter] = {}
+        # child 하나당 턴 하나. 같은 세션 id로 CLI를 동시에 두 번 resume 하면
+        # 세션 파일이 경쟁해 컨텍스트가 깨진다. 메시지는 버리지 않고 줄을 세운다.
+        self._turn_locks: dict[str, asyncio.Lock] = {}
 
     # ---------- 어댑터 ----------
 
@@ -54,6 +62,12 @@ class RLMService:
 
     async def run(self, prompt: str, name: str, **kwargs) -> dict:
         """child를 띄우고 **즉시** 핸들을 반환한다. 결과는 메일박스로 온다."""
+        unknown = sorted(set(kwargs) - SPAWN_KWARGS)
+        if unknown:
+            raise TypeError(
+                f"unexpected argument(s) {', '.join(unknown)}. "
+                f"rlm() accepts: name, {', '.join(sorted(SPAWN_KWARGS))}"
+            )
         adapter = self.adapter(kwargs.get("adapter"))
         cwd = self._resolve_cwd(kwargs.get("cwd"))
 
@@ -101,11 +115,16 @@ class RLMService:
     # ---------- 내부 ----------
 
     def _resolve_cwd(self, raw: str | None) -> Path:
-        """child의 cwd는 workspace 밖으로 나가지 못한다 (docs/security.md)."""
-        workspace = self.config.workspace
+        """child의 cwd는 workspace 밖으로 나가지 못한다 (docs/security.md).
+
+        양쪽 다 resolve() 한 뒤 비교한다. workspace가 심볼릭 링크를 낀 경로면
+        (macOS의 /tmp → /private/tmp) 한쪽만 풀었을 때 정상 경로가 거부된다.
+        """
+        workspace = self.config.workspace.resolve()
         if raw is None:
             return workspace
-        candidate = (workspace / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
+        raw_path = Path(raw)
+        candidate = (raw_path if raw_path.is_absolute() else workspace / raw_path).resolve()
         if candidate != workspace and workspace not in candidate.parents:
             raise ValueError(f"cwd {candidate} is outside the workspace {workspace}")
         return candidate
@@ -113,11 +132,31 @@ class RLMService:
     def _launch(self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool) -> None:
         task = asyncio.create_task(self._run_turn(record, prompt, adapter, resume=resume))
         self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        task.add_done_callback(self._on_task_done)
+
+    def _on_task_done(self, task: asyncio.Task) -> None:
+        self._tasks.discard(task)
+        if not task.cancelled():
+            task.exception()  # 회수하지 않으면 "never retrieved" 경고만 남고 조용히 사라진다
 
     async def _run_turn(
         self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool
     ) -> None:
+        lock = self._turn_locks.setdefault(record.rlm_child_id, asyncio.Lock())
+        async with lock:
+            await self._run_turn_locked(record, prompt, adapter, resume=resume)
+
+    async def _run_turn_locked(
+        self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool
+    ) -> None:
+        if self.registry.get(record.rlm_child_id) is None:
+            # 줄을 서 있는 동안 삭제됐다. 조용히 실패하지 말고 부모에게 알린다.
+            self.mailbox.deliver(
+                to=PARENT, sender=record.name,
+                message=f"[dropped] {record.name!r} was deleted before this turn ran",
+                rlm_child_id=record.rlm_child_id, ok=False,
+            )
+            return
         request = TurnRequest(
             prompt=prompt,
             cwd=Path(record.cwd),
@@ -132,7 +171,7 @@ class RLMService:
         try:
             result = await adapter.run(request)
         except Exception as exc:  # noqa: BLE001 — child 실패가 호스트를 죽이면 안 된다
-            self.registry.update(
+            self._safe_update(
                 record.rlm_child_id, status="error", last_error=f"{type(exc).__name__}: {exc}"
             )
             self.mailbox.deliver(
@@ -141,7 +180,7 @@ class RLMService:
             )
             return
 
-        self.registry.update(
+        self._safe_update(
             record.rlm_child_id,
             status="completed" if result.ok else "error",
             native_session_id=result.session_id or record.native_session_id,
@@ -170,6 +209,11 @@ class RLMService:
             ok=result.ok,
             tokens=result.tokens,
         )
+
+    def _safe_update(self, rlm_child_id: str, **changes) -> None:
+        """턴이 도는 동안 child가 삭제됐을 수 있다. 그때 태스크가 죽으면 안 된다."""
+        if self.registry.get(rlm_child_id) is not None:
+            self.registry.update(rlm_child_id, **changes)
 
     async def shutdown(self) -> None:
         for task in list(self._tasks):

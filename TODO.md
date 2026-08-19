@@ -49,6 +49,23 @@ Phase 0 커밋 2개가 `heyeun9858@gmail.com`(Claude 계정 이메일) author로
 push 전이라 `git rebase --root --exec 'git commit --amend --no-edit --reset-author'`
 로 정정. 이후 `~/.gitconfig` 값(`softkleenex1217@gmail.com`)만 사용한다.
 
+### 2026-08-19 — 코드리뷰에서 나온 결함 5건 (전부 재현 후 수정)
+
+1. **브릿지가 64KB에서 깨짐.** `MAX_LINE_BYTES = 4MB` 는 죽은 코드였고 실제로는
+   asyncio StreamReader의 기본 64KiB가 걸렸다. 70KB 요청은 `RuntimeError`,
+   200KB는 `BrokenPipeError`. 응답도 같아서 자식 리포트가 쌓인 inbox가 터진다.
+   → `start_unix_server(limit=)` / `open_unix_connection(limit=)` 양쪽에 지정.
+2. **같은 child에 동시 resume.** 메시지 3개를 동시에 보내면 같은 세션 id로
+   CLI 프로세스 3개가 동시에 떴다 (세션 파일 경쟁 → 컨텍스트 손상).
+   → child별 `asyncio.Lock`. 메시지는 버리지 않고 줄을 세운다. child 간 병렬은 유지.
+3. **실행 중 child 삭제 → 백그라운드 태스크가 `KeyError`로 사망**, 부모는 결과도
+   실패도 못 받음. → `_safe_update` + 삭제 감지 시 `[dropped]` 메시지 전달.
+   `add_done_callback`에서 예외를 회수하도록 수정.
+4. **모르는 인자를 조용히 무시.** `rlm(prompt, name='x', moodel='opus')` 가 예외
+   없이 통과하고 모델은 기본값으로 돌았다. → `SPAWN_KWARGS` 화이트리스트로 거절.
+5. **cwd 가드가 심링크에서 오작동.** workspace 한쪽만 resolve 해서 `/tmp` 처럼
+   심링크를 낀 workspace 안의 정상 경로가 거부됐다. → 양쪽 resolve.
+
 ### 2026-08-19 — 브릿지 프로토콜 키 shadowing
 `rlm.run` 핸들러가 돌려준 `status: "running"` 이 응답에 평탄 병합되면서
 프로토콜의 `status: "ok"` 를 덮어써, 클라이언트가

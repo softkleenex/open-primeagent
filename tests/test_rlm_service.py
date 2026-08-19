@@ -137,3 +137,78 @@ async def test_registry_survives_a_restart(service, config):
     revived = RLMService(config, config.root / "children", config.root / "mailbox")
     assert [r.name for r in revived.registry.list()] == ["persistent"]
     assert revived.registry.get("persistent").native_session_id == "fake-session-1"
+
+
+class SerialFake(FakeAdapter):
+    """동시 실행을 감지하는 어댑터."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.live = 0
+        self.max_live = 0
+
+    async def run(self, request: TurnRequest) -> TurnResult:
+        self.live += 1
+        self.max_live = max(self.max_live, self.live)
+        await asyncio.sleep(0.05)
+        self.live -= 1
+        return await super().run(request)
+
+
+@pytest.fixture
+def serial_service(config, monkeypatch):
+    fake = SerialFake()
+    monkeypatch.setitem(spawn_module.ADAPTERS, "fake", lambda: fake)
+    svc = RLMService(config, config.root / "children", config.root / "mailbox")
+    svc.config = config.__class__(**{**config.__dict__, "default_adapter": "fake"})
+    svc.fake = fake
+    return svc
+
+
+async def test_turns_for_one_child_never_overlap(serial_service):
+    """같은 세션 id로 CLI를 동시에 resume 하면 세션 파일이 경쟁해 컨텍스트가 깨진다."""
+    await serial_service.run("first", name="worker")
+    await drain(serial_service)
+    await asyncio.gather(*[serial_service.send(f"m{i}", receiver_name="worker") for i in range(3)])
+    await drain(serial_service)
+
+    assert serial_service.fake.max_live == 1, "same child ran concurrent turns"
+    assert serial_service.registry.get("worker").turns == 4
+
+
+async def test_different_children_still_run_in_parallel(serial_service):
+    """직렬화는 child 단위여야 한다. 전체가 직렬이 되면 RLM의 의미가 없다."""
+    await asyncio.gather(*[serial_service.run("go", name=f"w{i}") for i in range(3)])
+    await drain(serial_service)
+    assert serial_service.fake.max_live == 3
+
+
+async def test_deleting_a_running_child_does_not_kill_the_task(serial_service):
+    await serial_service.run("x", name="doomed")
+    await asyncio.sleep(0)
+    serial_service.registry.delete("doomed")
+    tasks = list(serial_service._tasks)
+    await drain(serial_service)
+    assert all(t.exception() is None for t in tasks if not t.cancelled())
+
+
+async def test_unknown_kwarg_is_rejected_not_ignored(service):
+    """rlm(moodel='opus') 가 조용히 통과하면 모델이 안 바뀐 걸 아무도 모른다."""
+    with pytest.raises(TypeError, match="unexpected argument.*moodel"):
+        await service.run("p", name="typo", moodel="opus")
+
+
+async def test_cwd_check_survives_symlinked_workspaces(config, tmp_path):
+    """macOS의 /tmp → /private/tmp 처럼 workspace 경로에 심링크가 끼면,
+    한쪽만 resolve 했을 때 workspace 안의 정상 경로가 거부된다."""
+    real = tmp_path / "real"
+    (real / "sub").mkdir(parents=True)
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+
+    linked_config = config.__class__(**{**config.__dict__, "workspace": link})
+    svc = RLMService(linked_config, config.root / "children", config.root / "mailbox")
+
+    assert svc._resolve_cwd("sub") == (real / "sub").resolve()
+    with pytest.raises(ValueError, match="outside the workspace"):
+        svc._resolve_cwd(str(tmp_path / "elsewhere"))

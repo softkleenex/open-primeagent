@@ -110,3 +110,16 @@ async def test_handler_result_cannot_shadow_protocol_fields(bridge):
     assert wire["status"] == "ok"
     assert wire["id"] == "1"
     assert wire["result"]["status"] == "running"
+
+
+@pytest.mark.parametrize("size", [70_000, 500_000])
+async def test_large_requests_and_replies_survive(bridge, size):
+    """asyncio StreamReader 기본 limit은 64KiB다. 안 올리면 큰 프롬프트나
+    자식 리포트가 쌓인 inbox에서 그냥 깨진다 — 실제로 깨졌다."""
+
+    async def big(payload):
+        return {"blob": "y" * len(payload["blob"])}
+
+    bridge.register(f"test.big{size}", big)
+    reply = await host_request(f"test.big{size}", {"blob": "x" * size})
+    assert len(reply["blob"]) == size

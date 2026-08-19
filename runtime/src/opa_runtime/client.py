@@ -17,6 +17,10 @@ from typing import Any
 ENV_SOCKET = "OPA_HOST_SOCKET"
 DEFAULT_TIMEOUT = 300.0
 
+# 호스트(bridge.MAX_LINE_BYTES)와 맞춰야 한다. asyncio 기본값 64KiB를 그대로 두면
+# 큰 응답(자식 여러 개의 리포트가 쌓인 inbox)에서 ValueError로 깨진다.
+MAX_LINE_BYTES = 8 * 1024 * 1024
+
 _ids = itertools.count(1)
 
 
@@ -45,7 +49,7 @@ async def host_request(
     request = {"id": str(next(_ids)), "type": request_type, "payload": payload or {}}
 
     async def _roundtrip() -> dict[str, Any]:
-        reader, writer = await asyncio.open_unix_connection(socket_path)
+        reader, writer = await asyncio.open_unix_connection(socket_path, limit=MAX_LINE_BYTES)
         try:
             writer.write(json.dumps(request, ensure_ascii=False, default=str).encode() + b"\n")
             await writer.drain()
@@ -59,6 +63,7 @@ async def host_request(
 
         if not raw:
             raise RuntimeError(f"host closed the connection without replying to {request_type}")
+
         reply = json.loads(raw)
         status = reply.get("status")
         if status == "ok":

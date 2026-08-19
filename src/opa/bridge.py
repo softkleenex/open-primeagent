@@ -29,8 +29,12 @@ from typing import Any
 
 Handler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
-# 요청 한 줄의 상한. 커널이 거대한 payload를 밀어넣어 호스트를 죽이지 못하게 한다.
-MAX_LINE_BYTES = 4 * 1024 * 1024
+# 한 줄의 상한. 커널이 거대한 payload를 밀어넣어 호스트를 죽이지 못하게 한다.
+#
+# asyncio StreamReader의 기본 limit은 64KiB다. 이걸 안 올리면 64KB 넘는 프롬프트
+# (diff를 낀 리뷰 요청)나 64KB 넘는 inbox(자식 여러 개의 리포트)에서 그냥 깨진다.
+# 서버·클라이언트 **양쪽** 모두 이 값을 넘겨야 한다.
+MAX_LINE_BYTES = 8 * 1024 * 1024
 
 
 class HostBridge:
@@ -56,7 +60,9 @@ class HostBridge:
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
         if self.socket_path.exists():
             self.socket_path.unlink()
-        self._server = await asyncio.start_unix_server(self._handle, path=str(self.socket_path))
+        self._server = await asyncio.start_unix_server(
+            self._handle, path=str(self.socket_path), limit=MAX_LINE_BYTES
+        )
         # 같은 머신의 다른 사용자가 커널에 명령을 밀어넣지 못하게 한다.
         os.chmod(self.socket_path, 0o600)
 
@@ -76,11 +82,11 @@ class HostBridge:
             try:
                 raw = await reader.readline()
             except ValueError:
-                return await self._reply(writer, None, error="request line exceeds limit")
+                return await self._reply(
+                    writer, None, error=f"request exceeds the {MAX_LINE_BYTES:,}-byte limit"
+                )
             if not raw:
                 return
-            if len(raw) > MAX_LINE_BYTES:
-                return await self._reply(writer, None, error="request line exceeds limit")
 
             try:
                 request = json.loads(raw)
