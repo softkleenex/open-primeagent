@@ -1,0 +1,11 @@
+open-primeagent
+Copyright 2026 softkleenex
+
+This project is an independent reimplementation inspired by the architecture of
+Prime Agent (https://github.com/PrimeIntellect-ai/prime-agent), Copyright
+Prime Intellect, licensed under the Apache License, Version 2.0.
+
+It is not a fork and contains no code copied from that project. The RLM API
+surface names (rlm.run, rlm.list_subagents, rlm.delete_subagent,
+rlm.find_models) and the harness state schema are kept compatible on purpose,
+so that Prime Agent's documentation and skills remain applicable.
