@@ -1,0 +1,20 @@
+# reference clone (study only, not part of this project)
+_ref/
+
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+dist/
+build/
+*.egg-info/
+
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# local runtime state
+.opa/
+*.sock
+
+.DS_Store

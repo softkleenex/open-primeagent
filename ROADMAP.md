@@ -1,0 +1,104 @@
+# ROADMAP
+
+의존 순서가 곧 구현 순서다: **Persistent REPL → Persistent Subagents → Continual Harness → Long-run.**
+아래로 갈수록 위 단계가 없으면 의미가 없다.
+
+각 Phase는 **직접 실행해서 확인한 Exit criteria**를 통과해야 다음으로 간다.
+
+---
+
+## Phase 0 — 골격 · 결정 확정  ✅ 진행중
+
+- [x] 원본 레포 실측 분석 (`_ref/prime-agent`)
+- [x] 호스트 CLI 어댑터 계약 검증 (claude / codex의 session-id · resume · json)
+- [x] ARCHITECTURE / ROADMAP / TODO
+- [ ] `uv sync` 통과, `opa` 엔트리포인트가 MCP handshake 응답
+
+**Exit**: `claude mcp add opa -- uv run --directory <repo> opa` 후 `/mcp`에 도구 4개가 뜬다.
+
+---
+
+## Phase 1 — Persistent Python  (L1)
+
+핵심 가치 하나: *LLM 컨텍스트를 창고로 쓰지 않는다.*
+
+- [ ] `KernelManager` — 세션당 IPython 커널 1개, 부팅/재시작/인터럽트
+- [ ] `opa_python` 도구 — 실행 · 출력 캡처 · **잘라내기 + 전문 파일 저장**
+- [ ] `nest_asyncio` 주입, 셀 최상단 `await` 동작
+- [ ] 세션 디렉터리 규약 + JSONL trajectory 기록
+- [ ] `opa_status` / `opa_kernel`
+
+**Exit**:
+1. 셀 A에서 `files = glob(...)` (수백 개) → 셀 B에서 `len(files)`가 살아있다.
+2. 30KB 출력이 컨텍스트에 4KB만 들어오고 전문은 파일로 남는다.
+3. 커널 재시작 후 변수는 사라지지만 세션 기록은 남는다.
+
+---
+
+## Phase 2 — RLM: persistent subagents  (L2)
+
+이 프로젝트의 존재 이유.
+
+- [ ] `HostBridge` — Unix socket JSONL RPC (커널 없이 단독 테스트 가능)
+- [ ] `opa_runtime` shim — 커널 안 `rlm` 심볼 (`rlm(...)`, `list_subagents`, `delete_subagent`)
+- [ ] `AgentAdapter` 프로토콜 + `claude-code` 어댑터
+- [ ] `ChildRegistry` — 디스크 영속, 커널/호스트 재시작 후 복구
+- [ ] `agent_message` — 메일박스, parent→child 재개(resume)
+- [ ] `codex` 어댑터
+
+**Exit**:
+1. `api = await rlm("...", name="api-reviewer")`가 **블록하지 않고** 핸들 반환.
+2. 커널 재시작 → `await rlm.list_subagents()`에 `api-reviewer`가 그대로 있다.
+3. `agent_message.send("방금 고친 코드까지 다시 봐", receiver_name="api-reviewer")`
+   → child가 **이전 대화 맥락을 유지한 채** 이어서 답한다. (일회용이 아님의 증명)
+4. child 하나는 claude, 하나는 codex로 동시에 돌아간다.
+
+---
+
+## Phase 3 — Continual Harness  (L3)
+
+- [ ] `HarnessState` CRUD (원본 `harness_state.json` 스키마 호환)
+- [ ] local / global scope
+- [ ] **projection** — 델리미터 블록으로만 `CLAUDE.md` / `AGENTS.md` 갱신
+- [ ] skill 설치: `SKILL.md` 배포 + python 패키지 `uv pip install -e` → 커널
+- [ ] `harness.refine(trajectory)` — 최소 CRUD delta + history + rollback
+- [ ] `opa_bootstrap()` — 호스트별 설치/갱신
+- [ ] child → parent push (child에 opa MCP 부착, `OPA_ROLE=child`)
+
+**Exit**:
+1. 새 노하우가 `prompt` 엔트리로 승격되고, 다음 세션에서 호스트가 그걸 읽는다.
+2. projection이 델리미터 **밖** 사용자 내용을 한 글자도 바꾸지 않는다 (테스트로 강제).
+3. refine 결과를 rollback하면 이전 상태로 정확히 되돌아간다.
+
+---
+
+## Phase 4 — Long-run  (L4)
+
+- [ ] `goal` — create / get / complete, token budget 회계
+- [ ] `heartbeat` — 사용자용 / `rlm_heartbeat`(에이전트 자율) 분리
+- [ ] `schedule` — one-time · cron
+- [ ] autonomous: max turns / token budget / wall-clock + quality gate
+- [ ] gate 실패 출력을 다음 입력으로 되먹임
+
+**Exit**: 목표 하나를 주면 gate 통과까지 사람 개입 없이 여러 child를 오가며 수렴한다.
+
+---
+
+## Phase 5 — 배포
+
+- [ ] `uvx open-primeagent` 원샷 실행
+- [ ] `install/claude-code.md` · `codex.md` · `opencode.md`
+- [ ] Claude Code 플러그인 (`/opa:refine`, `/opa:goal`, `/opa:status`)
+- [ ] `docs/security.md` — sandbox 아님 명시, devcontainer 권장
+- [ ] 예제: 4-specialist 상주 팀 시나리오
+
+---
+
+## 비목표 (Non-goals)
+
+명시적으로 **안 하는 것**:
+
+- 자체 TUI / 세션 UI — 호스트가 이미 있다
+- 자체 모델 provider 레이어 / OAuth — 호스트 CLI에 위임
+- 모델 fine-tuning — "self-improving"은 harness의 개선이지 weight가 아니다
+- prime-agent와의 기능 1:1 패리티 — 우리는 **이식 가능한 RLM 코어**만 목표

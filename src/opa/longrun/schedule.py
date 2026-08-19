@@ -1,0 +1,9 @@
+"""schedule — one-time 또는 cron 프롬프트 예약."""
+
+from __future__ import annotations
+
+
+class Schedule:
+    async def create(self, prompt: str, *, at: str | None = None, cron: str | None = None) -> dict: ...
+    async def list(self) -> list[dict]: ...
+    async def delete(self, id: str) -> dict: ...

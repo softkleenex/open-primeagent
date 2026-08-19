@@ -1,0 +1,44 @@
+[project]
+name = "open-primeagent"
+version = "0.0.1"
+description = "RLM (persistent Python + persistent subagents + continual harness) for the coding agent you already use"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+
+dependencies = [
+  "mcp>=1.2",           # MCP 서버 (stdio)
+  "jupyter-client>=8",  # persistent IPython 커널 제어
+  "ipykernel>=6",       # 커널 본체
+  "nest-asyncio>=1.6",  # 셀 최상단 await
+  "opa-runtime",        # 커널에 주입되는 shim (workspace member)
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.6"]
+
+[project.scripts]
+opa = "opa.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opa"]
+
+[tool.uv.workspace]
+members = ["runtime"]
+
+[tool.uv.sources]
+opa-runtime = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+src = ["src", "runtime/src"]
+# _ref: 원본 클론(읽기 전용). examples: 커널 셀 코드라 top-level await를 쓴다.
+extend-exclude = ["_ref", "examples"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
