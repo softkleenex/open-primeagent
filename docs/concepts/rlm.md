@@ -113,10 +113,13 @@ Practically, that means:
 Parallelism does not rescue it either — four cold sessions still have to boot,
 so the wall clock got worse, not better.
 
-Where children earn their cost is **reuse**: a child that has already loaded a
-subsystem and gets re-tasked later, rather than a fresh child per question. That
-is what the registry exists for, and it is the case this project is actually
-built around.
+Where children earn their cost is **reuse**, and that is measured too. Asking a
+follow-up of a child that had already read the file cost
+[**81% less than spawning a fresh one**](../../bench/README.md#0b-warm-child-vs-cold-child--reuse-wins-by-5x)
+for the same question — 1,987 tokens against 23,058.
+
+Same fact, both directions: spawning is expensive, keeping is nearly free. So
+the registry is not a convenience, it is where the value is.
 
 ## Rules that are enforced, not suggested
 

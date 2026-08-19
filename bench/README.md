@@ -22,7 +22,7 @@ raw JSON and excluded here, since they are billed at a fraction of the rate).
 
 ```
 uv run python bench/subagents.py --experiment parallel --repeat 3
-uv run python bench/subagents.py --experiment warm --repeat 3
+uv run python bench/warm.py --repeat 4
 ```
 
 ---
@@ -75,6 +75,54 @@ We have not yet measured the case where it should win: a codebase large enough
 that the parent could not hold the material at all. Until we do, **there is no
 measured evidence that sub-agent fan-out is worth it**, and
 [the docs say so where people will read them](../docs/concepts/rlm.md#when-not-to-fan-out).
+
+## 0b. Warm child vs cold child  ✅ reuse wins by 5x
+
+`bench/warm.py`
+
+A sub-agent has already read `api/auth.py` and reported on it. Now it gets a
+follow-up: *which problem would you fix first, and what would the fixed code
+look like?*
+
+- **cold** — a new `rlm()` child that must read the file itself
+- **warm** — `agent_message.send` to the child that already read it
+
+Only the follow-up turn is measured; both arms pay for the same setup child.
+
+| metric | cold | warm | delta |
+|---|---|---|---|
+| billed tokens | 23,058 | 1,987 | **-91%** |
+| cost (USD) | $0.176 | $0.034 | **-81%** |
+| wall clock | 21,551 ms | 13,282 ms | **-38%** |
+| n | 4 | 4 | |
+
+Variance is tiny — every cold run landed near 23k tokens and every warm run near
+2k.
+
+**The first version of this benchmark was invalid, and it is worth saying why.**
+It drove both arms through `claude -p` and asked the host agent to re-task the
+existing sub-agent. Instrumenting `child_turns` showed that on 2 of 3 runs the
+child never ran at all: the parent answered from the report already sitting in
+its own context. The experiment was measuring the parent's discretion, not warm
+versus cold. Those results are kept in
+`results/subagents-warm-INVALID-host-driven.json`.
+
+The rewrite removes the host agent entirely and drives the opa server in-process
+with a fixed snippet, and asserts `turns` advanced by exactly one on the child
+being measured. Every run in the table above passed that check.
+
+### What 0 and 0b are together
+
+They are the same fact seen from both sides:
+
+> A child costs roughly **36k tokens of session startup**. Spawning is
+> expensive; keeping one is nearly free.
+
+Fanning out to four fresh specialists cost 8.8x. Re-tasking one that was already
+warm cost **one fifth** of starting a new one. So the value in sub-agents is not
+parallelism — it is that **the child persists**, which is exactly what the
+registry exists for and what "a child is not disposable" was always supposed to
+mean.
 
 ## 1. Evolution — hard variant  ✅ the harness pays
 
@@ -170,7 +218,8 @@ tokens**, and the README does not claim there is.
 - No claim that opa reduces tokens in general. Benchmarks 0 and 3 show the
   opposite.
 - No claim that sub-agent fan-out is worth its cost on a codebase of any size we
-  have actually measured.
+  have actually measured. Reuse is measured and wins; fan-out is measured and
+  loses.
 - n is small (3–7) and single-machine. Treat these as directional.
 - Only Sonnet. A weaker model would likely struggle more with rediscovery, which
   should *widen* benchmark 1's gap and shrink benchmark 2's; untested.
@@ -182,6 +231,7 @@ tokens**, and the README does not claim there is.
   the persistent kernel.
 - A run across a context compaction, where kernel state survives and context does
   not — the case opa is actually designed for.
-- Sub-agent benchmarks: parallel specialists versus sequential analysis, and
-  re-tasking a warm child versus starting a cold one.
+- The case fan-out should win: a codebase large enough that the parent cannot
+  hold the material at all. Benchmark 0 only shows that fan-out loses when the
+  work fits in one context, which is not the interesting case.
 - A weaker/cheaper model, where the rediscovery penalty should be larger.

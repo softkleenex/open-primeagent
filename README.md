@@ -197,6 +197,23 @@ Full per-host notes and every environment variable:
 Measured with `claude -p --output-format json`, reading its own `usage` and
 `total_cost_usd`. Raw data and methodology: [bench/](bench/).
 
+**Sub-agents: spawning is expensive, keeping one is nearly free.** A child costs
+roughly 36k tokens of session startup. That one fact runs both ways:
+
+| | | |
+|---|---|---|
+| fan out to 4 fresh specialists vs one agent doing it all | **+777% cost** | ❌ |
+| re-task a warm child vs starting a cold one for the same question | **-81% cost** | ✅ |
+
+Fanning out on a 12-file service produced the same findings for 8.8x the price,
+because spawning one child cost more than the entire job. Re-tasking a child
+that had already read the file cost **one fifth** of a fresh one (23,058 → 1,987
+tokens, n=4, tiny variance).
+
+So the value in sub-agents is not parallelism — it is that **the child
+persists**. Which is what the registry is for, and what "a child is not
+disposable" was always supposed to mean.
+
 **Where a learned harness entry pays** — a project whose test suite depends on a
 generator hidden among 16 scripts in `tools/`, with 15 plausible decoys. Arm A
 discovers the rule by failing; arm B starts with one harness entry naming it:
@@ -223,13 +240,23 @@ That third result is a fair hit, and the benchmark is the thing at fault: a
 shell is *already* an external computer, so a task solvable by one-liners gives
 the persistent kernel nothing to persist. **We therefore have no measured
 evidence yet that the kernel saves tokens, and this README does not claim it
-does.** What is measured is narrower and more useful:
+does.**
 
+One of the sub-agent benchmarks was also invalid on the first attempt — the host
+agent kept answering from context instead of re-tasking the child, so it was
+measuring the wrong thing. That is
+[written up too](bench/README.md#0b-warm-child-vs-cold-child--reuse-wins-by-5x),
+along with the instrumentation that caught it.
+
+What survives is narrower and more useful than "opa makes things faster":
+
+> Spawning a sub-agent is expensive; keeping one is nearly free.
+>
 > A harness entry pays for itself in proportion to how expensive the knowledge
-> is to rediscover. Promote what the model can re-derive at a glance and you
-> make things worse.
+> is to rediscover.
 
-Which is the empirical case for only promoting signals that **recurred**.
+Both are arguments for **persistence over creation** — which is the thesis this
+project inherited, now with numbers on it.
 
 ## Can an agent evolve mid-session?
 

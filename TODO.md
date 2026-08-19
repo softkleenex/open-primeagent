@@ -34,6 +34,27 @@ Settled decisions:
 Phase 5 (evolution) is scoped in `docs/concepts/evolution.md`; the feasibility
 experiments are already done.
 
+## What the benchmarks changed about our understanding
+
+Measured value so far is concentrated in **the harness**, not in RLM:
+
+| claim | measured |
+|---|---|
+| harness entry, knowledge expensive to rediscover | ✅ -34% turns, -35% cost, -57% wall clock |
+| harness entry, knowledge one glance away | ❌ +26% turns |
+| persistent kernel on shell-friendly work | ❌ +42% turns, +33% cost |
+| sub-agent fan-out on a small codebase | ❌ +454% tokens, +777% cost |
+| warm child re-tasking vs a cold child | (re-running with `child_turns` instrumentation) |
+
+The fan-out number has a clean mechanism: ~36k tokens of session startup per
+child, which on a 12-file project exceeds the entire task. This does not
+invalidate sub-agents, but it does mean **fan-out is the wrong default** and
+reuse is the case worth building around. That matches the project's own thesis
+("a child is not disposable") better than fan-out ever did.
+
+Open question this raises: should `rlm()` refuse or warn when the workspace is
+small? Right now the guidance lives only in the tool description and docs.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):
@@ -45,8 +66,11 @@ From a coverage audit (90% overall):
 - [ ] No test runs across a **context compaction**, which is the case the
       persistent kernel exists for. Hard to trigger headlessly; worth trying with
       a long synthetic session.
-- [ ] No sub-agent benchmark at all (parallel specialists vs sequential; warm
-      child vs cold). See `bench/README.md`.
+- [x] Sub-agent benchmarks now exist (`bench/subagents.py`): fan-out measured,
+      warm-vs-cold re-running.
+- [ ] No benchmark on a codebase large enough that the parent *cannot* hold the
+      material — the only case where fan-out should win. This is the missing
+      experiment that would settle whether sub-agents earn their cost.
 - [ ] `codex` has no `child`-marked integration test; only `claude` does.
 - [ ] Concurrency: nothing tests two `opa_python` calls racing to boot the kernel,
       although `Runtime.kernel()` locks for exactly that.

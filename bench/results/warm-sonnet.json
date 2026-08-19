@@ -1,0 +1,66 @@
+[
+  {
+    "arm": "cold",
+    "child_tokens": 22871,
+    "child_cost": 0.170464,
+    "duration_ms": 18046,
+    "answer_chars": 832,
+    "ok": true
+  },
+  {
+    "arm": "warm",
+    "child_tokens": 2051,
+    "child_cost": 0.034853,
+    "duration_ms": 13034,
+    "answer_chars": 665,
+    "ok": true
+  },
+  {
+    "arm": "cold",
+    "child_tokens": 23042,
+    "child_cost": 0.172507,
+    "duration_ms": 20046,
+    "answer_chars": 839,
+    "ok": true
+  },
+  {
+    "arm": "warm",
+    "child_tokens": 1745,
+    "child_cost": 0.030958,
+    "duration_ms": 12033,
+    "answer_chars": 618,
+    "ok": true
+  },
+  {
+    "arm": "cold",
+    "child_tokens": 23204,
+    "child_cost": 0.174927,
+    "duration_ms": 25058,
+    "answer_chars": 954,
+    "ok": true
+  },
+  {
+    "arm": "warm",
+    "child_tokens": 2091,
+    "child_cost": 0.0359,
+    "duration_ms": 15032,
+    "answer_chars": 612,
+    "ok": true
+  },
+  {
+    "arm": "cold",
+    "child_tokens": 23116,
+    "child_cost": 0.187628,
+    "duration_ms": 23055,
+    "answer_chars": 735,
+    "ok": true
+  },
+  {
+    "arm": "warm",
+    "child_tokens": 2061,
+    "child_cost": 0.03415,
+    "duration_ms": 13030,
+    "answer_chars": 525,
+    "ok": true
+  }
+]

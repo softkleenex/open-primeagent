@@ -63,8 +63,19 @@ def main() -> None:
         print(table(summarize(rows, "round"), ["A-no-harness", "B-with-harness"]))
         print()
 
-    for experiment, order in (("parallel", ["baseline", "opa"]),
-                              ("warm", ["cold", "warm"])):
+    warm = RESULTS / "warm-sonnet.json"
+    if warm.exists():
+        rows = json.loads(warm.read_text(encoding="utf-8"))
+        for row in rows:
+            row["agent_turns"] = 1
+            row["billed_tokens"] = row["child_tokens"]
+            row["cost_usd"] = row["child_cost"]
+            row["tests_pass"] = row["ok"]
+        print("## Sub-agents — warm child vs cold child\n")
+        print(table(summarize(rows, "arm"), ["cold", "warm"]))
+        print()
+
+    for experiment, order in (("parallel", ["baseline", "opa"]),):
         path = RESULTS / f"subagents-{experiment}-sonnet.json"
         if not path.exists():
             continue
