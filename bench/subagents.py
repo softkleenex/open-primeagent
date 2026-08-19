@@ -83,6 +83,7 @@ class Usage:
     child_tokens: int = 0
     child_cost: float = 0.0
     children: int = 0
+    child_turns: int = 0
     agent_turns: int = 0
     duration_ms: int = 0
     found: list[str] = field(default_factory=list)
@@ -118,19 +119,33 @@ def write_mcp_config(workspace: Path) -> None:
     )
 
 
-def child_usage(workspace: Path) -> tuple[int, float, int]:
-    """Sum every child's tokens and cost. Ignoring these would flatter opa."""
-    tokens = cost = 0.0
-    count = 0
+@dataclass
+class ChildTotals:
+    tokens: int = 0
+    cost: float = 0.0
+    children: int = 0
+    turns: int = 0
+
+
+def child_usage(workspace: Path) -> ChildTotals:
+    """Sum every child's tokens, cost and turns from the registry.
+
+    `turns` matters for the warm experiment: if it does not go up, the parent
+    answered from the earlier report instead of actually re-tasking the child,
+    and the comparison is measuring the wrong thing.
+    """
+    totals = ChildTotals()
     for record in (workspace / ".opa").rglob("children/*/child.json"):
         try:
             data = json.loads(record.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        tokens += data.get("tokens") or 0
-        cost += data.get("cost_usd") or 0.0
-        count += 1
-    return int(tokens), round(cost, 6), count
+        totals.tokens += int(data.get("tokens") or 0)
+        totals.cost += float(data.get("cost_usd") or 0.0)
+        totals.turns += int(data.get("turns") or 0)
+        totals.children += 1
+    totals.cost = round(totals.cost, 6)
+    return totals
 
 
 def grade(text: str) -> list[str]:
@@ -190,14 +205,15 @@ def run_parallel(arm: str, model: str, timeout: float) -> Usage:
     opa = arm == "opa"
     workspace = workspace_for(arm, opa=opa)
     payload, elapsed = claude(REVIEW_TASK, workspace, model, timeout, opa=opa)
-    tokens, cost, count = child_usage(workspace) if opa else (0, 0.0, 0)
+    totals = child_usage(workspace) if opa else ChildTotals()
     answer = (payload.get("result") or "").strip()
     return Usage(
         parent_tokens=billed(payload),
         parent_cost=float(payload.get("total_cost_usd") or 0.0),
-        child_tokens=tokens,
-        child_cost=cost,
-        children=count,
+        child_tokens=totals.tokens,
+        child_cost=totals.cost,
+        children=totals.children,
+        child_turns=totals.turns,
         agent_turns=int(payload.get("num_turns") or 0),
         duration_ms=elapsed,
         found=grade(answer),
@@ -213,20 +229,21 @@ def run_warm(arm: str, model: str, timeout: float) -> Usage:
     session_id = str(uuid.uuid4())
 
     claude(WARM_SETUP, workspace, model, timeout, opa=True, session_id=session_id)
-    before_tokens, before_cost, _ = child_usage(workspace)
+    before = child_usage(workspace)
 
     prompt = WARM_FOLLOWUP if arm == "warm" else COLD_FOLLOWUP
     payload, elapsed = claude(
         prompt, workspace, model, timeout, opa=True, session_id=session_id, resume=True
     )
-    after_tokens, after_cost, count = child_usage(workspace)
+    after = child_usage(workspace)
     answer = (payload.get("result") or "").strip()
     return Usage(
         parent_tokens=billed(payload),
         parent_cost=float(payload.get("total_cost_usd") or 0.0),
-        child_tokens=after_tokens - before_tokens,
-        child_cost=round(after_cost - before_cost, 6),
-        children=count,
+        child_tokens=after.tokens - before.tokens,
+        child_cost=round(after.cost - before.cost, 6),
+        children=after.children,
+        child_turns=after.turns - before.turns,
         agent_turns=int(payload.get("num_turns") or 0),
         duration_ms=elapsed,
         answer=answer[:400],
@@ -257,7 +274,8 @@ def main() -> None:
             print(
                 f"    parent={usage.parent_tokens} child={usage.child_tokens} "
                 f"total={usage.total_tokens} cost=${usage.total_cost} "
-                f"children={usage.children} turns={usage.agent_turns} "
+                f"children={usage.children} child_turns={usage.child_turns} "
+                f"turns={usage.agent_turns} "
                 f"found={usage.found} ({usage.duration_ms}ms)"
             )
             rows.append(

@@ -25,4 +25,9 @@ Preloaded symbols — use these instead of asking for more tools:
 Keep large intermediate data (file lists, search results, graphs) in Python
 variables rather than in your context. Print only what you need to decide on.
 Output is truncated; the full text is written to a file whose path is returned.
+
+Spawning a sub-agent is expensive: each one is a full coding-agent session and
+costs roughly 36k tokens before it reads any of your code. Hand work to a child
+only when that work would cost you more than that in your own context, and
+prefer re-tasking an existing child over creating a new one.
 """

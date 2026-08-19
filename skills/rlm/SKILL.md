@@ -39,6 +39,23 @@ await agent_message.send(
 An agent that already knows the area is always a better target for follow-up work
 than a fresh one.
 
+## Sub-agents are expensive — measure before you fan out
+
+Each child is a full coding-agent session that pays for its own system prompt
+and tool schemas first: about **36k tokens before it reads any of your code**.
+
+In our benchmark, reviewing an entire 12-file service cost a plain agent 34k
+tokens, while fanning out to four specialists produced the same findings for
+**8.8x the cost and 3.4x the wall clock**. One child cost more than the whole
+job.
+
+> Hand work to a sub-agent only when that work would cost you more than ~36k
+> tokens of your own context.
+
+Don't spawn a child for something you could grep, or one per file. Do use one
+per *subsystem* when the material genuinely will not fit — and above all,
+**re-task an existing child** rather than creating a new one.
+
 ## Rules
 
 - Name a child for its role (`backend`, `security`, `flutter`). It is meant to stay.

@@ -18,6 +18,13 @@ await rlm(prompt, *, name, model=None, adapter=None, cwd=None, system_prompt=Non
 Create an independent agent session and return **as soon as it is admitted** —
 this does not wait for the child to finish.
 
+> **Cost.** A child is a full coding-agent session and costs roughly 36k tokens
+> before it reads any of your code
+> ([measured](../../bench/README.md#0-sub-agent-fan-out--opa-loses-badly)).
+> Spawn one only when the work would cost the parent more than that, and prefer
+> `agent_message.send` to an existing child over a new one. See
+> [when not to fan out](../concepts/rlm.md#when-not-to-fan-out).
+
 | argument | meaning |
 |---|---|
 | `name` | **required.** The child's address for re-tasking later. Name it for its role (`backend`, `security`), because it is meant to stay. |
