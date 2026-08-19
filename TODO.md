@@ -13,19 +13,25 @@ Phase 0 진행중. 설계 확정 + 리포 골격 완료. **코드는 전부 스�
 - 커널↔호스트 브릿지: Jupyter comm ❌ → **Unix socket JSONL RPC** ✅
 - MCP 도구 4개로 고정, 나머지는 커널 안 Python 심볼
 
+검증 완료 (실행해서 확인함):
+- `uv sync --extra dev` 통과, 워크스페이스 멤버 `opa-runtime` 연결됨
+- 전 모듈 import 통과, `ruff check` 통과, `pytest` 수집 통과 (3 skip = Phase 3 자리)
+- `.python-version` = 3.12 로 고정 (uv가 3.12.11 선택)
+
 ## 다음 할 일 (우선순위 순)
 
-1. `pyproject.toml` 의존성 확정 후 `uv sync` → `opa` 엔트리포인트 MCP handshake 확인
-2. `src/opa/kernel/manager.py` 구현 — 커널 부팅/실행/재시작
-3. `opa_python` 도구 — 출력 잘라내기 + 전문 파일 저장
+1. `src/opa/server.py` — MCP handshake. **Phase 0 Exit의 마지막 항목.**
+   현재 `main()`은 의도적으로 `NotImplementedError`.
+2. `src/opa/kernel/manager.py` — 커널 부팅/실행/재시작
+3. `opa_python` 도구 — 출력 잘라내기 + 전문 파일 저장 (`kernel/exec.py:truncate`)
 4. Phase 1 Exit criteria 3개 실제로 돌려서 확인
 
 ## 조사 필요
 
 - [ ] **opencode** headless/resume 인터페이스 (`opencode run`? 세션 재개 방식?)
 - [ ] `claude --output-format json`의 usage 필드로 child 토큰 회계가 되는가
-- [ ] `nest_asyncio` + Python 3.14 조합 동작 확인 (로컬은 3.14.6)
 - [ ] child에 `--mcp-config`로 opa를 붙일 때 재귀 spawn 깊이 제한 방법
+- [ ] `nest_asyncio`가 실제 IPython 커널에서 top-level await를 물어주는지 (3.12 기준)
 
 ## 참고 파일
 
