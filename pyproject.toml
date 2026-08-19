@@ -41,4 +41,8 @@ extend-exclude = ["_ref", "examples"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-markers = ["slow: 실제 IPython 커널을 띄우는 통합 테스트"]
+markers = [
+  "slow: 실제 IPython 커널을 띄우는 통합 테스트",
+  "child: 실제 코딩 에이전트 CLI를 child로 띄운다 (인증·토큰 쿼터 필요)",
+]
+addopts = "-m 'not child'"   # child 테스트는 명시적으로 -m child 로만 돌린다

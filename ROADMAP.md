@@ -44,24 +44,28 @@
 
 ---
 
-## Phase 2 — RLM: persistent subagents  (L2)
+## Phase 2 — RLM: persistent subagents  (L2)  ✅ 완료
 
 이 프로젝트의 존재 이유.
 
-- [ ] `HostBridge` — Unix socket JSONL RPC (커널 없이 단독 테스트 가능)
-      ※ 커널에 `OPA_HOST_SOCKET` 주입은 이미 되어 있다 (KernelManager._env)
-- [ ] `opa_runtime` shim — 커널 안 `rlm` 심볼 (`rlm(...)`, `list_subagents`, `delete_subagent`)
-- [ ] `AgentAdapter` 프로토콜 + `claude-code` 어댑터
-- [ ] `ChildRegistry` — 디스크 영속, 커널/호스트 재시작 후 복구
-- [ ] `agent_message` — 메일박스, parent→child 재개(resume)
-- [ ] `codex` 어댑터
+- [x] `HostBridge` — Unix socket JSONL RPC (커널 없이 단독 테스트 가능)
+- [x] `opa_runtime` shim — 커널 안 `rlm` 심볼 (`rlm(...)`, `list_subagents`, `delete_subagent`)
+- [x] `AgentAdapter` 프로토콜 + `claude-code` 어댑터
+- [x] `ChildRegistry` — 디스크 영속, 커널/호스트 재시작 후 복구
+- [x] `agent_message` — 메일박스, parent→child 재개(resume)
+- [x] `codex` 어댑터
 
-**Exit**:
-1. `api = await rlm("...", name="api-reviewer")`가 **블록하지 않고** 핸들 반환.
-2. 커널 재시작 → `await rlm.list_subagents()`에 `api-reviewer`가 그대로 있다.
-3. `agent_message.send("방금 고친 코드까지 다시 봐", receiver_name="api-reviewer")`
-   → child가 **이전 대화 맥락을 유지한 채** 이어서 답한다. (일회용이 아님의 증명)
-4. child 하나는 claude, 하나는 codex로 동시에 돌아간다.
+**Exit ✅** (`tests/test_rlm_integration.py`, 실제 claude child로 확인):
+1. ✅ `await rlm(...)`가 0.6초에 핸들 반환 — child는 백그라운드에서 계속 돈다
+2. ✅ 커널 재시작 후에도 `list_subagents()`에 그대로 남아있다
+3. ✅ `agent_message.send(...)` → child가 **재시작 이전 턴의 토큰을 기억하고** 답했다
+4. ✅ claude / codex 두 어댑터 모두 resume 동작 확인 (BETA-9 재현)
+
+발견해서 고친 것:
+- **프로토콜 키 shadowing**: 핸들러의 `status:"running"`이 프로토콜 `status:"ok"`를
+  덮어써서 클라이언트가 터졌다 → 결과를 `result` 봉투 안에 넣어 구조로 차단
+- 두 CLI 모두 **stdin을 닫아야** 한다 (codex는 열려 있으면 무한 대기)
+- codex는 git 저장소 밖에서 `--skip-git-repo-check` 필요
 
 ---
 

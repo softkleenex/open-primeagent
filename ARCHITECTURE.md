@@ -120,12 +120,17 @@ prime-agent-runtime       1,536 LOC (Py)   ← rlm 커널 shim (전부)
 - child 프로세스에 `OPA_HOST_SOCKET` + `OPA_ROLE=child`만 주면
   **child도 부모 호스트에 메시지를 보낼 수 있다** (A2A 양방향의 전제).
 
-프로토콜: 한 줄 = 하나의 JSON.
+프로토콜: 연결당 요청 1개, 한 줄 = 하나의 JSON.
 ```
 → {"id":"1","type":"rlm.run","payload":{...}}
-← {"id":"1","status":"ok","rlm_child_id":"opa-a1b2","name":"api-reviewer",...}
+← {"id":"1","status":"ok","result":{"rlm_child_id":"opa-a1b2","name":"api-reviewer",...}}
 ← {"id":"1","status":"error","error":"..."}
 ```
+
+핸들러 결과는 `result` 안에 **감싼다**. 평탄하게 병합하면 핸들러의 키가 프로토콜
+키를 덮어쓴다 — 실제로 `rlm.run`이 돌려준 `status: "running"`이 프로토콜의
+`status: "ok"`를 덮어써서 클라이언트가 터졌다. 이름 규칙으로 막으면 언젠가 또
+깨지므로 구조로 막는다.
 타입 이름은 원본과 동일하게 유지한다 (`rlm.run`, `rlm.list_subagents`,
 `rlm.delete_subagent`, `rlm.find_models`). 원본 스킬/문서를 그대로 참조 가능하도록.
 
@@ -186,14 +191,24 @@ class AgentAdapter(Protocol):
 
 실측으로 계약이 성립함을 확인했다:
 
-| 어댑터 | spawn | resume | 구조화 출력 | 세션 ID 출처 |
-|---|---|---|---|---|
-| `claude-code` | `claude -p P --session-id <UUID> --output-format stream-json` | `claude -p P --resume <UUID>` | stream-json | **우리가 발급** |
-| `codex` | `codex exec P --json` | `codex exec resume <UUID> P --json` | JSONL | codex가 발급 → 파싱 |
-| `opencode` | (조사 필요) | (조사 필요) | — | — |
+| 어댑터 | spawn | resume | 세션 ID 출처 |
+|---|---|---|---|
+| `claude-code` | `claude -p P --session-id <UUID> --output-format json` | `claude -p P --resume <UUID>` | **우리가 발급** |
+| `codex` | `codex exec P --json --skip-git-repo-check` | `codex exec resume <TID> P --json` | codex가 발급 → `thread.started`에서 파싱 |
+| `opencode` | (조사 필요) | (조사 필요) | — |
 
 `claude`가 세션 UUID를 우리가 지정할 수 있다는 점이 크다 —
 registry의 id와 native session id를 1:1로 묶어둘 수 있어 복구가 단순해진다.
+
+**실측으로 걸린 제약** (2026-08-19):
+- 두 CLI 모두 **stdin을 닫아야 한다**. 파이프로 열려 있으면 codex는
+  `Reading additional input from stdin...` 상태로 무한 대기한다.
+- codex는 git 저장소 밖에서 `--skip-git-repo-check` 없이 거부한다.
+- 두 CLI 모두 resume이 이전 턴을 기억함을 확인했다. RLM 영속성의 근거다.
+
+codex JSONL 이벤트:
+`thread.started.thread_id` = 세션 id · `item.completed.item.text`(type=agent_message) = 최종 응답 ·
+`turn.completed.usage` = 토큰
 
 ### 5.2 child registry
 

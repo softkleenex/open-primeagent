@@ -4,36 +4,33 @@
 
 ## 현재 상황 (2026-08-19)
 
-**Phase 0 ✅ / Phase 1 ✅ 완료.** L0(세션/JSONL) · L1(persistent 커널) 동작한다.
-Claude Code에 실제로 붙여서 `opa: ✔ Connected` 확인했고, 테스트 25개가 통과한다.
+**Phase 0 ✅ / Phase 1 ✅ / Phase 2 ✅.** RLM이 실제로 동작한다.
+실제 claude child로 확인: `rlm()`이 논블로킹으로 핸들 반환 → 결과가 메일박스로
+도착 → **부모 커널 재시작 후에도** child가 registry에 남아있고, `agent_message.send`로
+재호출하면 재시작 이전 턴을 기억한 채 답한다. 테스트 63 passed (+ child 1).
 
 확정된 결정:
-- 언어: Python + uv (커널이 IPython이라 shim을 in-process로 두는 게 유일하게 깔끔)
-- 전달: MCP 서버 1개 = 모든 에이전트 (claude code / codex / opencode)
-- child 백엔드: claude-code 우선, 어댑터로 확장
-- 커널↔호스트 브릿지: Jupyter comm ❌ → **Unix socket JSONL RPC** ✅
-- MCP 도구 4개 상한 (`server.MAX_TOOLS`, 테스트로 강제). 현재 3개 구현,
-  `opa_bootstrap`은 Phase 3에서 추가
+- 언어: Python + uv / 전달: MCP 서버 1개 = 모든 에이전트
+- 커널↔호스트 브릿지: **Unix socket JSONL RPC**, 결과는 `result` 봉투 안에
+  (평탄 병합하면 핸들러 키가 프로토콜 키를 덮어쓴다 — 실제로 터졌다)
+- MCP 도구 4개 상한 (`server.MAX_TOOLS`, 테스트로 강제). 현재 3개
 - 커널 트랜스포트: IPC 소켓 (경로 길이 초과 시 TCP 폴백)
-- `nest_asyncio` **불필요** — IPython autoawait가 top-level await를 네이티브 처리
+- child 어댑터: `claude-code`(기본) · `codex`. 둘 다 resume 실측 확인
+- child는 **명시적으로만** 삭제한다. 상주가 기본값
 
-## 다음 할 일 — Phase 2 (RLM)
+## 다음 할 일 — Phase 3 (Continual Harness)
 
-1. `src/opa/bridge.py` `HostBridge` — Unix socket JSONL RPC 서버.
-   커널 없이 단독으로 테스트 가능하게 먼저 만든다.
-2. `runtime/src/opa_runtime/client.py` `host_request` — 소켓 클라이언트 쪽.
-3. `rlm/adapters/claude_code.py` — spawn/resume. UUID를 우리가 발급한다.
-4. `rlm/registry.py` — 디스크 영속. **커널 재시작 후 복구**가 핵심.
-5. `rlm/spawn.py` — 논블로킹. 핸들만 반환하고 child는 백그라운드.
-6. `rlm/message.py` — 메일박스 + parent→child resume.
-
-Phase 2 Exit criteria는 ROADMAP 참조. 특히 3번(이전 컨텍스트를 유지한 채 이어서
-답한다)이 이 프로젝트가 실제로 동작하는지의 유일한 증거다.
+1. `harness/state.py` — HarnessEntry CRUD, local/global scope,
+   원본 `harness_state.json` 스키마 호환
+2. `harness/projection.py` — **델리미터 블록 안에만 쓴다.**
+   `tests/test_projection.py`의 skip 3개가 이걸 기다리고 있다
+3. `opa_bootstrap` 도구 — 설치/갱신/제거(원상복구). 4번째이자 마지막 도구
+4. `harness/refine.py` — trajectory → 최소 CRUD delta + history + rollback
+5. child → parent push: child에 `--mcp-config`로 opa 부착 + `OPA_ROLE=child`
 
 ## 조사 필요
 
 - [ ] **opencode** headless/resume 인터페이스 (`opencode run`? 세션 재개 방식?)
-- [ ] `claude --output-format json`의 usage 필드로 child 토큰 회계가 되는가
 - [ ] child에 `--mcp-config`로 opa를 붙일 때 재귀 spawn 깊이 제한 방법
 
 ## 참고 파일
@@ -51,6 +48,19 @@ Phase 2 Exit criteria는 ROADMAP 참조. 특히 3번(이전 컨텍스트를 유�
 Phase 0 커밋 2개가 `heyeun9858@gmail.com`(Claude 계정 이메일) author로 생성됨.
 push 전이라 `git rebase --root --exec 'git commit --amend --no-edit --reset-author'`
 로 정정. 이후 `~/.gitconfig` 값(`softkleenex1217@gmail.com`)만 사용한다.
+
+### 2026-08-19 — 브릿지 프로토콜 키 shadowing
+`rlm.run` 핸들러가 돌려준 `status: "running"` 이 응답에 평탄 병합되면서
+프로토콜의 `status: "ok"` 를 덮어써, 클라이언트가
+`unexpected status: 'running'` 으로 터졌다.
+해결: 핸들러 결과를 `result` 봉투에 감싼다. 이름 규칙(예약어 금지)으로 막으면
+언젠가 또 깨지므로 구조로 막았다. `tests/test_bridge.py`가 회귀를 잡는다.
+
+### 2026-08-19 — codex가 stdin을 기다리며 멈춤
+`codex exec ... --json` 을 파이프로 실행하면 `Reading additional input from
+stdin...` 상태로 무한 대기. 원인: stdin이 TTY가 아니면 추가 입력으로 읽으려 한다.
+해결: 어댑터에서 `stdin=DEVNULL`. claude 어댑터에도 같은 이유로 적용.
+추가로 codex는 git 저장소 밖에서 `--skip-git-repo-check` 없이는 거부한다.
 
 ### 2026-08-19 — IPC 트랜스포트가 커널 부팅 실패
 `AsyncKernelManager(transport="ipc", ip="")` 로 하면 60초 타임아웃.

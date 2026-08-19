@@ -19,4 +19,4 @@ jobs:
       - name: unit tests
         run: uv run pytest -q -m "not slow"
       - name: integration tests (real IPython kernel)
-        run: uv run pytest -q -m slow
+        run: uv run pytest -q -m "slow and not child"

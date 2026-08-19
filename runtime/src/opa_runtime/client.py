@@ -8,13 +8,24 @@ $OPA_HOST_SOCKET 을 읽는다. child 프로세스도 이 env를 상속받으므
 
 from __future__ import annotations
 
+import asyncio
+import itertools
+import json
 import os
 from typing import Any
 
 ENV_SOCKET = "OPA_HOST_SOCKET"
+DEFAULT_TIMEOUT = 300.0
+
+_ids = itertools.count(1)
 
 
-async def host_request(request_type: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+async def host_request(
+    request_type: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
     """호스트에 타입 있는 요청을 보내고 응답을 기다린다.
 
     호스트가 에러를 반환하거나 해당 타입의 핸들러가 없으면 RuntimeError.
@@ -23,9 +34,46 @@ async def host_request(request_type: str, payload: dict[str, Any] | None = None)
         raise TypeError("request_type must be a non-empty str")
     if payload is not None and not isinstance(payload, dict):
         raise TypeError(f"payload must be a dict or None, got {type(payload).__name__}")
-    if not os.environ.get(ENV_SOCKET):
+
+    socket_path = os.environ.get(ENV_SOCKET)
+    if not socket_path:
         raise RuntimeError(
             "open-primeagent host bridge is unavailable "
             f"({ENV_SOCKET} is unset). This kernel was not started by the opa MCP server."
         )
-    raise NotImplementedError
+
+    request = {"id": str(next(_ids)), "type": request_type, "payload": payload or {}}
+
+    async def _roundtrip() -> dict[str, Any]:
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        try:
+            writer.write(json.dumps(request, ensure_ascii=False, default=str).encode() + b"\n")
+            await writer.drain()
+            raw = await reader.readline()
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+        if not raw:
+            raise RuntimeError(f"host closed the connection without replying to {request_type}")
+        reply = json.loads(raw)
+        status = reply.get("status")
+        if status == "ok":
+            # 핸들러 결과는 result 안에 들어온다 — 프로토콜 키와 절대 충돌하지 않게.
+            result = reply.get("result")
+            return result if isinstance(result, dict) else {}
+        if status == "error":
+            raise RuntimeError(reply.get("error") or f"host request {request_type} failed")
+        raise RuntimeError(f"host request {request_type} returned unexpected status: {status!r}")
+
+    try:
+        return await asyncio.wait_for(_roundtrip(), timeout=timeout)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"host bridge socket is gone ({socket_path}). The opa MCP server may have restarted."
+        ) from exc
+    except TimeoutError as exc:
+        raise RuntimeError(f"host request {request_type} timed out after {timeout}s") from exc

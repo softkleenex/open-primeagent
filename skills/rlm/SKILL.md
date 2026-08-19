@@ -15,6 +15,13 @@ test = await rlm("테스트 커버리지를 분석해라",     name="test-review
 
 `rlm(...)`은 **기다리지 않는다.** 핸들만 돌아오고 child는 백그라운드에서 계속 돈다.
 
+결과는 부모 메일박스로 온다 (호스트의 턴 루프를 소유하지 않으므로 pull이다):
+
+```python
+for m in await agent_message.inbox():
+    print(m["sender"], m["message"][:200])
+```
+
 ## child는 일회용이 아니다
 
 ```python

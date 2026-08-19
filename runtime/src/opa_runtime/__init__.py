@@ -4,12 +4,20 @@
 원본은 Jupyter comm으로 TS 호스트를 부르고, 우리는 Unix socket으로 MCP 서버를 부른다.
 API 표면과 request type 이름은 원본과 맞춘다 (원본 문서·스킬 재사용).
 
-커널 부팅 시 이 모듈이 `rlm` / `harness` / `goal` / `agent_message` 를 노출한다.
+커널 부팅 시 이 모듈이 `rlm` / `agent_message` 를 노출한다.
+(`harness` / `goal` 은 Phase 3~4)
 """
 
 from __future__ import annotations
 
 from .client import host_request
+from .message import agent_message
 from .rlm import RLMSpawnHandle, RLMSubagent, rlm
 
-__all__ = ["RLMSpawnHandle", "RLMSubagent", "host_request", "rlm"]
+__all__ = [
+    "RLMSpawnHandle",
+    "RLMSubagent",
+    "agent_message",
+    "host_request",
+    "rlm",
+]

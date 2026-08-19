@@ -11,13 +11,14 @@ Claude Code / Codex / opencode 위에 얹는 MCP 서버.
 claude mcp add opa -- uvx open-primeagent      # 이게 전부
 ```
 
-> **상태**: Phase 1 완료 — persistent Python 커널이 동작한다.
-> RLM(persistent subagents)은 Phase 2 작업중. [ROADMAP.md](ROADMAP.md) 참조.
+> **상태**: Phase 2 완료 — persistent 커널과 **RLM이 실제로 동작한다.**
+> 아래 예제는 실행해서 확인한 것이다. [ROADMAP.md](ROADMAP.md) 참조.
 
 ```
 ✅ L1  Persistent Python      커널 · 외부 작업 메모리 · 출력 잘라내기
-🚧 L2  RLM                    persistent subagents + A2A messaging
-⬜ L3  Continual Harness      prompts / subagents / skills / memory
+✅ L2  RLM                    persistent subagents + A2A messaging
+                              adapters: claude-code · codex
+🚧 L3  Continual Harness      prompts / subagents / skills / memory
 ⬜ L4  Long-run               goal / heartbeat / schedule / autonomous
 ```
 
@@ -83,15 +84,40 @@ child 세션 영속성은 호스트 CLI가 이미 제공한다:
 ```bash
 git clone https://github.com/softkleenex/open-primeagent && cd open-primeagent
 uv sync --extra dev
-uv run pytest -q                  # 25 passed
+uv run pytest -q                  # 63 passed
 claude mcp add opa --scope local -- uv run --directory "$PWD" opa
 claude mcp list                   # opa: ✔ Connected
 ```
 
+**외부 작업 메모리**
 ```python
 opa_python("files = [f'f{i}.py' for i in range(500)]")
 opa_python("len(files)")          # → 500   (별도 호출인데 살아있다)
 opa_python("print('x' * 30000)")  # → 잘려서 오고, 전문은 outputs/00000.txt
+```
+
+**persistent subagent** — 아래는 실제 실행 결과다:
+```python
+await rlm('Reply with exactly: ALPHA-7', name='probe', model='sonnet')
+# → <rlm child 'probe' (claude-code) running>     0.6초 만에 반환, child는 계속 돎
+
+await agent_message.inbox()
+# → [{'sender': 'probe', 'message': 'ALPHA-7', 'ok': True, 'tokens': 11}]
+
+# ── 여기서 부모 커널을 재시작한다 ──
+await rlm.list_subagents()
+# → [<subagent 'probe' (claude-code) completed turns=1 tokens=11>]   살아있다
+
+await agent_message.send('What token did you just say? Reply with only the token.',
+                         receiver_name='probe')
+await agent_message.inbox()
+# → ... {'sender': 'probe', 'message': 'ALPHA-7'}
+#   부모 커널이 재시작됐는데도 child는 이전 대화를 기억했다
+```
+
+이종 모델 조합도 그대로 된다 — 부모는 Claude Code, child는 Codex:
+```python
+await rlm('이 모듈 리팩터링', name='refactorer', adapter='codex')
 ```
 
 ## 문서
