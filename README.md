@@ -152,6 +152,45 @@ claude mcp list                                     # opa: ✔ Connected
 
 Codex, opencode and other MCP clients: see [install/](install/).
 
+## Benchmarks — including the ones we lost
+
+Measured with `claude -p --output-format json`, reading its own `usage` and
+`total_cost_usd`. Raw data and methodology: [bench/](bench/).
+
+**Where a learned harness entry pays** — a project whose test suite depends on a
+generator hidden among 16 scripts in `tools/`, with 15 plausible decoys. Arm A
+discovers the rule by failing; arm B starts with one harness entry naming it:
+
+| metric | no harness | with harness | delta |
+|---|---|---|---|
+| turns | 15.6 | 10.3 | **-34%** |
+| billed tokens | 25,278 | 19,693 | **-22%** |
+| cost | $0.355 | $0.232 | **-35%** |
+| wall clock | 58.2s | 25.3s | **-57%** |
+| worst-case turns | 24 | 11 | **-54%** |
+
+n=7 each, both arms always passed. The mean understates it: without the harness
+the worst run burned 24 turns and 145 seconds hunting through `tools/`, while
+every harness run landed in 9–11. **Variance collapsed**, which matters more in
+practice than the mean.
+
+**Where it does not.** Same benchmark with the generator sitting in the project
+root, one glance away: the harness entry becomes pure overhead, **+26% turns**.
+And on a three-turn corpus analysis that a `grep -c | sort` one-liner solves,
+attaching opa cost **+42% turns and +33% cost** versus plain Claude Code.
+
+That third result is a fair hit, and the benchmark is the thing at fault: a
+shell is *already* an external computer, so a task solvable by one-liners gives
+the persistent kernel nothing to persist. **We therefore have no measured
+evidence yet that the kernel saves tokens, and this README does not claim it
+does.** What is measured is narrower and more useful:
+
+> A harness entry pays for itself in proportion to how expensive the knowledge
+> is to rediscover. Promote what the model can re-derive at a glance and you
+> make things worse.
+
+Which is the empirical case for only promoting signals that **recurred**.
+
 ## Can an agent evolve mid-session?
 
 We ran the experiment instead of guessing, with a raw JSON-RPC MCP server

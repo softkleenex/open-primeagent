@@ -1,0 +1,386 @@
+[
+  {
+    "arm": "baseline",
+    "model": "sonnet",
+    "turns": [
+      {
+        "turn": 1,
+        "answer": "168",
+        "input_tokens": 4,
+        "output_tokens": 100,
+        "cache_read": 67540,
+        "cache_write": 15635,
+        "cost_usd": 0.115584,
+        "num_turns": 2,
+        "duration_ms": 6480
+      },
+      {
+        "turn": 2,
+        "answer": "53",
+        "input_tokens": 4,
+        "output_tokens": 91,
+        "cache_read": 83392,
+        "cache_write": 209,
+        "cost_usd": 0.027648600000000002,
+        "num_turns": 2,
+        "duration_ms": 6553
+      },
+      {
+        "turn": 3,
+        "answer": "corpus/mod_180.py, corpus/mod_241.py, corpus/mod_026.py",
+        "input_tokens": 4,
+        "output_tokens": 135,
+        "cache_read": 83821,
+        "cache_write": 278,
+        "cost_usd": 0.0288513,
+        "num_turns": 2,
+        "duration_ms": 7802
+      }
+    ],
+    "correct": [
+      true,
+      true,
+      true
+    ],
+    "totals": {
+      "input_tokens": 12,
+      "output_tokens": 326,
+      "cache_read": 234753,
+      "cache_write": 16122,
+      "billed_tokens": 16460,
+      "cost_usd": 0.172084,
+      "agent_turns": 6,
+      "duration_ms": 20835,
+      "correct": 3
+    },
+    "truth": {
+      "files_with_todo": 168,
+      "todo_and_os": 53,
+      "top3_by_lines": [
+        "mod_180.py",
+        "mod_241.py",
+        "mod_026.py"
+      ]
+    }
+  },
+  {
+    "arm": "opa",
+    "model": "sonnet",
+    "turns": [
+      {
+        "turn": 1,
+        "answer": "168",
+        "input_tokens": 6,
+        "output_tokens": 343,
+        "cache_read": 110625,
+        "cache_write": 17007,
+        "cost_usd": 0.1403925,
+        "num_turns": 3,
+        "duration_ms": 10846
+      },
+      {
+        "turn": 2,
+        "answer": "53",
+        "input_tokens": 6,
+        "output_tokens": 425,
+        "cache_read": 129578,
+        "cache_write": 768,
+        "cost_usd": 0.04987439999999999,
+        "num_turns": 3,
+        "duration_ms": 10701
+      },
+      {
+        "turn": 3,
+        "answer": "mod_180.py, mod_241.py, mod_026.py",
+        "input_tokens": 6,
+        "output_tokens": 549,
+        "cache_read": 131966,
+        "cache_write": 927,
+        "cost_usd": 0.0534048,
+        "num_turns": 3,
+        "duration_ms": 12432
+      }
+    ],
+    "correct": [
+      true,
+      true,
+      true
+    ],
+    "totals": {
+      "input_tokens": 18,
+      "output_tokens": 1317,
+      "cache_read": 372169,
+      "cache_write": 18702,
+      "billed_tokens": 20037,
+      "cost_usd": 0.243672,
+      "agent_turns": 9,
+      "duration_ms": 33979,
+      "correct": 3
+    },
+    "truth": {
+      "files_with_todo": 168,
+      "todo_and_os": 53,
+      "top3_by_lines": [
+        "mod_180.py",
+        "mod_241.py",
+        "mod_026.py"
+      ]
+    }
+  },
+  {
+    "arm": "baseline",
+    "model": "sonnet",
+    "turns": [
+      {
+        "turn": 1,
+        "answer": "168",
+        "input_tokens": 4,
+        "output_tokens": 113,
+        "cache_read": 67542,
+        "cache_write": 15651,
+        "cost_usd": 0.11587560000000001,
+        "num_turns": 2,
+        "duration_ms": 7172
+      },
+      {
+        "turn": 2,
+        "answer": "53",
+        "input_tokens": 4,
+        "output_tokens": 107,
+        "cache_read": 83424,
+        "cache_write": 225,
+        "cost_usd": 0.027994199999999997,
+        "num_turns": 2,
+        "duration_ms": 6888
+      },
+      {
+        "turn": 3,
+        "answer": "corpus/mod_180.py, corpus/mod_241.py, corpus/mod_026.py",
+        "input_tokens": 4,
+        "output_tokens": 151,
+        "cache_read": 83885,
+        "cache_write": 294,
+        "cost_usd": 0.029206500000000003,
+        "num_turns": 2,
+        "duration_ms": 7190
+      }
+    ],
+    "correct": [
+      true,
+      true,
+      true
+    ],
+    "totals": {
+      "input_tokens": 12,
+      "output_tokens": 371,
+      "cache_read": 234851,
+      "cache_write": 16170,
+      "billed_tokens": 16553,
+      "cost_usd": 0.173076,
+      "agent_turns": 6,
+      "duration_ms": 21250,
+      "correct": 3
+    },
+    "truth": {
+      "files_with_todo": 168,
+      "todo_and_os": 53,
+      "top3_by_lines": [
+        "mod_180.py",
+        "mod_241.py",
+        "mod_026.py"
+      ]
+    }
+  },
+  {
+    "arm": "opa",
+    "model": "sonnet",
+    "turns": [
+      {
+        "turn": 1,
+        "answer": "168",
+        "input_tokens": 6,
+        "output_tokens": 282,
+        "cache_read": 110294,
+        "cache_write": 16644,
+        "cost_usd": 0.1372002,
+        "num_turns": 3,
+        "duration_ms": 10444
+      },
+      {
+        "turn": 2,
+        "answer": "53",
+        "input_tokens": 6,
+        "output_tokens": 370,
+        "cache_read": 128500,
+        "cache_write": 701,
+        "cost_usd": 0.048324000000000006,
+        "num_turns": 3,
+        "duration_ms": 12435
+      },
+      {
+        "turn": 3,
+        "answer": "corpus/mod_180.py, corpus/mod_241.py, corpus/mod_026.py",
+        "input_tokens": 6,
+        "output_tokens": 521,
+        "cache_read": 130666,
+        "cache_write": 875,
+        "cost_usd": 0.052282800000000004,
+        "num_turns": 3,
+        "duration_ms": 12020
+      }
+    ],
+    "correct": [
+      true,
+      true,
+      true
+    ],
+    "totals": {
+      "input_tokens": 18,
+      "output_tokens": 1173,
+      "cache_read": 369460,
+      "cache_write": 18220,
+      "billed_tokens": 19411,
+      "cost_usd": 0.237807,
+      "agent_turns": 9,
+      "duration_ms": 34899,
+      "correct": 3
+    },
+    "truth": {
+      "files_with_todo": 168,
+      "todo_and_os": 53,
+      "top3_by_lines": [
+        "mod_180.py",
+        "mod_241.py",
+        "mod_026.py"
+      ]
+    }
+  },
+  {
+    "arm": "baseline",
+    "model": "sonnet",
+    "turns": [
+      {
+        "turn": 1,
+        "answer": "168",
+        "input_tokens": 6,
+        "output_tokens": 272,
+        "cache_read": 109265,
+        "cache_write": 17726,
+        "cost_usd": 0.1432335,
+        "num_turns": 3,
+        "duration_ms": 10432
+      },
+      {
+        "turn": 2,
+        "answer": "53",
+        "input_tokens": 4,
+        "output_tokens": 157,
+        "cache_read": 87574,
+        "cache_write": 274,
+        "cost_usd": 0.0302832,
+        "num_turns": 2,
+        "duration_ms": 7389
+      },
+      {
+        "turn": 3,
+        "answer": "mod_180.py, mod_241.py, mod_026.py",
+        "input_tokens": 4,
+        "output_tokens": 156,
+        "cache_read": 88133,
+        "cache_write": 325,
+        "cost_usd": 0.030741900000000003,
+        "num_turns": 2,
+        "duration_ms": 7607
+      }
+    ],
+    "correct": [
+      true,
+      true,
+      true
+    ],
+    "totals": {
+      "input_tokens": 14,
+      "output_tokens": 585,
+      "cache_read": 284972,
+      "cache_write": 18325,
+      "billed_tokens": 18924,
+      "cost_usd": 0.204259,
+      "agent_turns": 7,
+      "duration_ms": 25428,
+      "correct": 3
+    },
+    "truth": {
+      "files_with_todo": 168,
+      "todo_and_os": 53,
+      "top3_by_lines": [
+        "mod_180.py",
+        "mod_241.py",
+        "mod_026.py"
+      ]
+    }
+  },
+  {
+    "arm": "opa",
+    "model": "sonnet",
+    "turns": [
+      {
+        "turn": 1,
+        "answer": "168",
+        "input_tokens": 6,
+        "output_tokens": 350,
+        "cache_read": 110796,
+        "cache_write": 17170,
+        "cost_usd": 0.1415268,
+        "num_turns": 3,
+        "duration_ms": 17263
+      },
+      {
+        "turn": 2,
+        "answer": "53",
+        "input_tokens": 6,
+        "output_tokens": 425,
+        "cache_read": 130062,
+        "cache_write": 770,
+        "cost_usd": 0.0500316,
+        "num_turns": 3,
+        "duration_ms": 11632
+      },
+      {
+        "turn": 3,
+        "answer": "mod_180.py, mod_241.py, mod_026.py",
+        "input_tokens": 6,
+        "output_tokens": 719,
+        "cache_read": 132529,
+        "cache_write": 1125,
+        "cost_usd": 0.05731169999999999,
+        "num_turns": 3,
+        "duration_ms": 13508
+      }
+    ],
+    "correct": [
+      true,
+      true,
+      true
+    ],
+    "totals": {
+      "input_tokens": 18,
+      "output_tokens": 1494,
+      "cache_read": 373387,
+      "cache_write": 19065,
+      "billed_tokens": 20577,
+      "cost_usd": 0.24887,
+      "agent_turns": 9,
+      "duration_ms": 42403,
+      "correct": 3
+    },
+    "truth": {
+      "files_with_todo": 168,
+      "todo_and_os": 53,
+      "top3_by_lines": [
+        "mod_180.py",
+        "mod_241.py",
+        "mod_026.py"
+      ]
+    }
+  }
+]
