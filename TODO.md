@@ -21,18 +21,19 @@ Settled decisions:
 - Harness entry ids must equal their slug (path-traversal guard), and projection
   re-checks at the write.
 
-## Next — finish Phase 3, then Phase 4
+## Next
 
-1. **child → parent push**: a thin `opa-child` MCP entry point that talks to
-   `$OPA_HOST_SOCKET` with `OPA_ROLE=child`, so a child can message the parent
-   mid-run instead of only at the end. Needs `agent_message.send` to accept
-   `receiver_role="parent"`.
-2. `longrun/goal.py` — create / get / complete + budget accounting.
-3. `longrun/heartbeat.py`, `schedule.py`.
-4. `longrun/autonomous.py` — the gate loop.
+Phases 0-4 are done. What is left:
 
-Phase 5 (evolution) is scoped in `docs/concepts/evolution.md`; the feasibility
-experiments are already done.
+1. **child → parent push** (the last Phase 3 item): a thin `opa-child` MCP entry
+   point talking to `$OPA_HOST_SOCKET` with `OPA_ROLE=child`, so a child can
+   message the parent mid-run instead of only at the end. Needs
+   `agent_message.send` to accept `receiver_role="parent"`.
+2. **Phase 5 — evolution.** Scoped in `docs/concepts/evolution.md`; the
+   feasibility experiments are already done. `ToolSurface` (rebuild tool
+   descriptions at runtime + `tools/list_changed`) is the first piece.
+3. **Distribution**: publish to PyPI so `uvx open-primeagent` works, and a
+   Claude Code plugin for the slash commands.
 
 ## What the benchmarks changed about our understanding
 

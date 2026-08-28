@@ -105,7 +105,12 @@ def build_server(config: Config | None = None) -> MCPServer:
                 for r in runtime.rlm.registry.list()
             ],
             "mailbox_unread": runtime.rlm.mailbox.count(),
-            "goal": {"note": "Phase 4"},
+            "goal": runtime.goals.get(),
+            "schedule": {
+                "entries": len(runtime.schedule.list()),
+                "due_now": len(runtime.schedule.due(collect=False)),
+            },
+            "autonomous": runtime.autonomous.status(),
             "harness": runtime.harness.snapshot(),
         }
         return json.dumps(state, indent=2, ensure_ascii=False)

@@ -1,7 +1,8 @@
 """Owns exactly one IPython kernel per session.
 
 Injected at boot:
-  - `opa_runtime` - the `rlm` / `harness` / `agent_message` symbols
+  - `opa_runtime` - `rlm` / `harness` / `agent_message` / `goal` / `schedule` /
+    `autonomous`
   - env: OPA_HOST_SOCKET, OPA_SESSION_DIR, OPA_ROLE=parent
 
 Top-level `await` is handled natively by IPython's autoawait. Upstream uses
@@ -36,7 +37,15 @@ _UNIX_SOCKET_PATH_MAX = 100  # macOS sun_path is 104; leave headroom
 # even without `rlm`, a plain Python working memory is still useful.
 BOOTSTRAP = """\
 try:
-    from opa_runtime import agent_message, harness, host_request, rlm  # noqa: F401
+    from opa_runtime import (  # noqa: F401
+        agent_message,
+        autonomous,
+        goal,
+        harness,
+        host_request,
+        rlm,
+        schedule,
+    )
     _OPA_RUNTIME_OK = True
 except Exception as _opa_exc:  # pragma: no cover
     _OPA_RUNTIME_OK = False

@@ -107,16 +107,27 @@ Also settled here:
 
 ---
 
-## Phase 4 — Long-run  (L4)
+## Phase 4 — Long-run  (L4)  ✅ done
 
-- [ ] `goal` — create / get / complete, token budget accounting
-- [ ] `heartbeat` — user-created and agent-created (`rlm_heartbeat`) kept separate
-- [ ] `schedule` — one-time and cron
-- [ ] autonomous: max turns / token budget / wall clock + quality gate
-- [ ] feed a failed gate's output back in as the next input
+- [x] `goal` — create / get / complete, token budget accounting
+- [x] ~~a separate `heartbeat` module~~ → an interval entry in `schedule`, with
+      `source` keeping user-created and agent-created apart
+- [x] `schedule` — one-time and cron
+- [x] autonomous: max turns / token budget / wall clock + quality gate
+- [x] feed a failed gate's output back in as the next input
 
-**Exit**: given one goal, converge across several children until the gate passes,
-with no human in the loop.
+**Exit ✅**: `autonomous.start(...)` drives a child until its gate exits 0,
+feeding the gate's own failure output back in as the next prompt, and stops on
+whichever of max turns / token budget / wall clock comes first.
+
+Also settled here:
+
+- The gate runs **off the event loop**. Inline it froze the bridge and every
+  child callback for the gate's whole duration — a test suite is minutes.
+- Exhausting a budget is not completion. `budget_exhausted` is its own status
+  and `completed_at` stays empty.
+- No cron expressions. `at` / `in_seconds` / `every_seconds` cover a coding
+  session, and a cron parser is a dependency and a bug class nobody asked for.
 
 ---
 

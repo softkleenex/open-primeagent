@@ -69,3 +69,18 @@ async def test_status_reports_harness_counts(server):
     assert state["harness"]["counts"]["memory"] == 1
     assert state["subagents"] == []
     assert state["mailbox_unread"] == 0
+
+
+async def test_status_surfaces_the_long_run_layer(server):
+    """After a compaction this one call has to say what was being pursued."""
+    runtime = server._opa_runtime
+    runtime.goals.create("keep the suite green", token_budget=1000)
+    runtime.schedule.create("check the deploy", in_seconds=0)
+
+    state = json.loads((await server.call_tool("opa_status", {})).content[0].text)
+    assert state["goal"]["goal"]["objective"] == "keep the suite green"
+    assert state["schedule"] == {"entries": 1, "due_now": 1}
+    assert state["autonomous"]["running"] is False
+
+    # looking at status must not consume what is due
+    assert len(runtime.schedule.due(collect=False)) == 1

@@ -19,6 +19,9 @@ from .config import Config
 from .harness import bootstrap as bootstrap_mod
 from .harness.service import HarnessService
 from .kernel.manager import KernelManager
+from .longrun.autonomous import AutonomousRunner
+from .longrun.goal import GoalStore
+from .longrun.schedule import ScheduleStore
 from .rlm.message import PARENT
 from .rlm.spawn import RLMService
 from .session import jsonl
@@ -47,6 +50,9 @@ class Runtime:
         self.harness = HarnessService(
             self.paths.harness_state.parent, config.global_root / "harness"
         )
+        self.goals = GoalStore(self.paths.goal)
+        self.schedule = ScheduleStore(self.paths.dir / "schedule.jsonl")
+        self.autonomous = AutonomousRunner(self.rlm, self.goals)
         self._register_bridge_handlers()
 
         self._kernel: KernelManager | None = None
@@ -130,12 +136,67 @@ class Runtime:
             name = payload.get("name") or PARENT
             return {"messages": self.rlm.mailbox.read(name, since=since)}
 
+        # ---- long-run (L4) ----
+
+        async def goal_get(payload: dict) -> dict:
+            return self.goals.get()
+
+        async def goal_create(payload: dict) -> dict:
+            budget = payload.get("token_budget")
+            goal = self.goals.create(
+                str(payload.get("objective") or ""),
+                token_budget=int(budget) if budget is not None else None,
+            )
+            self.record("goal.create", {"objective": goal.objective})
+            return {"goal": _entry_dict(goal)}
+
+        async def goal_complete(payload: dict) -> dict:
+            result = self.goals.complete()
+            self.record("goal.complete", {})
+            return result
+
+        async def goal_abandon(payload: dict) -> dict:
+            return self.goals.abandon(str(payload.get("note") or ""))
+
+        async def schedule_create(payload: dict) -> dict:
+            entry = self.schedule.create(
+                str(payload.get("prompt") or ""),
+                in_seconds=payload.get("in_seconds"),
+                at=payload.get("at"),
+                every_seconds=payload.get("every_seconds"),
+                source=payload.get("source") or "agent",
+            )
+            return {"entry": _entry_dict(entry)}
+
+        async def schedule_list(payload: dict) -> dict:
+            source = payload.get("source")
+            return {"entries": [_entry_dict(e) for e in self.schedule.list(source=source)]}
+
+        async def schedule_delete(payload: dict) -> dict:
+            return {"entry": _entry_dict(self.schedule.delete(str(payload.get("id") or "")))}
+
+        async def schedule_due(payload: dict) -> dict:
+            collect = payload.get("collect", True)
+            return {"entries": [_entry_dict(e) for e in self.schedule.due(collect=bool(collect))]}
+
+        async def autonomous_start(payload: dict) -> dict:
+            data = dict(payload)
+            objective = str(data.pop("objective", ""))
+            child_name = str(data.pop("child_name", "") or "autonomous")
+            self.record("autonomous.start", {"objective": objective[:200]})
+            result = await self.autonomous.start(objective, child_name=child_name, **data)
+            self.record("autonomous.finish", {"outcome": result.get("outcome")})
+            return result
+
+        async def autonomous_status(payload: dict) -> dict:
+            return self.autonomous.status()
+
         # ---- harness (L3) ----
 
         def _entry_dict(entry) -> dict:
-            from dataclasses import asdict
+            from dataclasses import asdict, is_dataclass
 
-            return asdict(entry)
+            return asdict(entry) if is_dataclass(entry) else dict(entry)
 
         async def harness_overview(payload: dict) -> dict:
             return {"overview": self.harness.overview()}
@@ -193,6 +254,17 @@ class Runtime:
             return self.bootstrap(
                 agent=str(payload.get("agent") or "auto"), remove=bool(payload.get("remove"))
             )
+
+        self.bridge.register("goal.get", goal_get)
+        self.bridge.register("goal.create", goal_create)
+        self.bridge.register("goal.complete", goal_complete)
+        self.bridge.register("goal.abandon", goal_abandon)
+        self.bridge.register("schedule.create", schedule_create)
+        self.bridge.register("schedule.list", schedule_list)
+        self.bridge.register("schedule.delete", schedule_delete)
+        self.bridge.register("schedule.due", schedule_due)
+        self.bridge.register("autonomous.start", autonomous_start)
+        self.bridge.register("autonomous.status", autonomous_status)
 
         self.bridge.register("harness.overview", harness_overview)
         self.bridge.register("harness.list", harness_list)

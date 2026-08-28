@@ -1,0 +1,95 @@
+[
+  {
+    "arm": "single",
+    "parent_tokens": 0,
+    "parent_cost": 0.0,
+    "child_tokens": 44018,
+    "child_cost": 0.265395,
+    "children": 1,
+    "child_turns": 1,
+    "duration_ms": 70783,
+    "found": [
+      "auth",
+      "catalog"
+    ],
+    "answers": {
+      "reviewer": "The `*_mod_NN.py` files in each subsystem are boilerplate templates (identical except for names/numbers) \u2014 the real logic lives in one distinctively-named file per subsystem, which I reviewed:\n\n- `auth/session_store.py:8` \u2014 a hardcoded HMAC signing key (`SIGNING_KEY`) is committed in source (with a "
+    },
+    "ok": true,
+    "total_tokens": 44018,
+    "total_cost": 0.265395,
+    "found_count": 2
+  },
+  {
+    "arm": "fanout",
+    "parent_tokens": 0,
+    "parent_cost": 0.0,
+    "child_tokens": 157045,
+    "child_cost": 1.089429,
+    "children": 4,
+    "child_turns": 4,
+    "duration_ms": 108828,
+    "found": [
+      "auth",
+      "billing",
+      "catalog"
+    ],
+    "answers": {
+      "catalog": "Found it immediately \u2014 SQL injection via string concatenation.\n\n`catalog/search_index.py` \u2014 the `search()` and `suggest()` functions build SQL queries via raw string concatenation of user-supplied `term`/`category`/`prefix` instead of parameterized queries, allowing SQL injection.",
+      "auth": "This is the real defect \u2014 the other 110 `auth_mod_*.py` files are generic boilerplate noise with no auth logic.\n\n`auth/session_store.py:8` \u2014 a hardcoded, hardcoded-in-source HMAC signing key (`SIGNING_KEY`) is committed to the repo, letting anyone who reads the source forge valid session tokens for ",
+      "billing": "Confirmed \u2014 these `billing_mod_NN.py` files are just generic decoy boilerplate. `refund_engine.py` is the real logic file, and it has a genuine bug.\n\n**billing/refund_engine.py** \u2014 `is_fully_refunded` compares `charged - refunded == 0.0` using exact floating-point equality, so after the accumulated ",
+      "delivery": "I created two scratch files while diffing (`delivery/_diffcheck.py`, `delivery/_diffcheck.sh`) but couldn't get `trash` approved in this session to remove them \u2014 you may want to clean those up.\n\n**Finding:** `delivery/route_planner.py` (line 7, used throughout `plan()`/`total_distance()`) \u2014 `distanc"
+    },
+    "ok": true,
+    "total_tokens": 157045,
+    "total_cost": 1.089429,
+    "found_count": 3
+  },
+  {
+    "arm": "single",
+    "parent_tokens": 0,
+    "parent_cost": 0.0,
+    "child_tokens": 39952,
+    "child_cost": 0.21557,
+    "children": 1,
+    "child_turns": 1,
+    "duration_ms": 28427,
+    "found": [
+      "auth",
+      "billing",
+      "catalog"
+    ],
+    "answers": {
+      "reviewer": "Confirmed \u2014 each subsystem has ~110 generic filler modules plus one real file carrying the actual logic (and the bug). Findings:\n\n- `auth/session_store.py:8` \u2014 session tokens are HMAC-signed with a hardcoded, source-committed key (`SIGNING_KEY = b\"s3cr3t-signing-key-do-not-ship-2019\"`), so anyone wi"
+    },
+    "ok": true,
+    "total_tokens": 39952,
+    "total_cost": 0.21557,
+    "found_count": 3
+  },
+  {
+    "arm": "fanout",
+    "parent_tokens": 0,
+    "parent_cost": 0.0,
+    "child_tokens": 144597,
+    "child_cost": 0.932132,
+    "children": 4,
+    "child_turns": 4,
+    "duration_ms": 116781,
+    "found": [
+      "auth",
+      "billing",
+      "catalog"
+    ],
+    "answers": {
+      "catalog": "Found it immediately \u2014 a clear SQL injection vulnerability.\n\n`catalog/search_index.py` \u2014 the `search` and `suggest` functions build SQL queries via raw string concatenation of unsanitized `term`, `category`, and `prefix` parameters, allowing SQL injection.",
+      "billing": "Confirmed these are boilerplate filler files \u2014 the real logic lives only in `refund_engine.py`.\n\n**File:** `billing/refund_engine.py:23`\n**Defect:** `is_fully_refunded` compares floating-point values with exact equality (`charged - refunded == 0.0`), so due to floating-point rounding it will incorre",
+      "auth": "Confirmed: the `auth_mod_*.py` files are generic filler boilerplate with no real auth logic; `session_store.py` is the actual implementation.\n\n**auth/session_store.py** \u2014 session tokens are signed with a hardcoded, hardcoded-in-source HMAC key (`SIGNING_KEY = b\"s3cr3t-signing-key-do-not-ship-2019\"`,",
+      "delivery": "I created two scratch files (`delivery/_diffcheck.py`, `delivery/_repro.py`) while investigating but couldn't clean them up (trash needs approval) \u2014 flagging so you can remove them if unwanted.\n\n**Finding:**\n\n`delivery/route_planner.py:6-7` \u2014 `distance()` computes Euclidean distance directly on raw "
+    },
+    "ok": true,
+    "total_tokens": 144597,
+    "total_cost": 0.932132,
+    "found_count": 3
+  }
+]

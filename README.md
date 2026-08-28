@@ -31,7 +31,7 @@ claude mcp add opa -- uvx open-primeagent
                               adapters: claude-code · codex
 ✅ L3  Continual Harness      prompts / memory / skills / sub-agent specs
                               + projection into the files your agent already reads
-🚧 L4  Long-run               goal / heartbeat / schedule / autonomous
+✅ L4  Long-run               goal / schedule / autonomous gate loop
 ```
 
 Everything marked ✅ is verified by tests that actually spawn a kernel and a real
@@ -303,7 +303,7 @@ Start at **[docs/](docs/)**, or jump straight to:
 | | |
 |---|---|
 | [Quickstart](docs/quickstart.md) | running in two minutes |
-| [Persistent Python](docs/concepts/persistent-python.md) · [RLM](docs/concepts/rlm.md) · [Harness](docs/concepts/harness.md) | the three concepts |
+| [Persistent Python](docs/concepts/persistent-python.md) · [RLM](docs/concepts/rlm.md) · [Harness](docs/concepts/harness.md) · [Long-run](docs/concepts/long-run.md) | the concepts |
 | [MCP tools](docs/reference/tools.md) · [Kernel API](docs/reference/kernel-api.md) · [Configuration](docs/reference/configuration.md) | reference |
 | [Architecture](docs/architecture.md) · [Roadmap](docs/roadmap.md) | how and what next |
 | [Benchmarks](bench/README.md) | measured, including the losses |

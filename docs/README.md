@@ -21,6 +21,7 @@ Read in this order; each layer depends on the one before it.
 | [Persistent Python](concepts/persistent-python.md) | the kernel as external working memory |
 | [RLM](concepts/rlm.md) | sub-agent sessions that are not disposable |
 | [Continual harness](concepts/harness.md) | prompts, memory, skills, and how they reach your agent |
+| [Long-running work](concepts/long-run.md) | goal, schedule, and the autonomous gate loop |
 | [Evolution](concepts/evolution.md) | what self-improvement can actually reach, measured |
 
 ## Reference

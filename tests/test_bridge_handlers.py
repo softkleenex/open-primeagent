@@ -28,6 +28,16 @@ async def test_every_documented_type_is_registered(runtime):
     assert set(runtime.bridge.types) == {
         "agent_message.inbox",
         "agent_message.send",
+        "autonomous.start",
+        "autonomous.status",
+        "goal.abandon",
+        "goal.complete",
+        "goal.create",
+        "goal.get",
+        "schedule.create",
+        "schedule.delete",
+        "schedule.due",
+        "schedule.list",
         "harness.apply",
         "harness.create",
         "harness.delete",
@@ -164,3 +174,52 @@ async def test_project_writes_only_inside_the_block(runtime, config):
 
     await host_request("harness.project", {"remove": True})
     assert target.read_text(encoding="utf-8") == original
+
+
+# ---------- long-run (L4) ----------
+
+async def test_goal_lifecycle_over_the_bridge(runtime):
+    assert (await host_request("goal.get"))["goal"] is None
+
+    await host_request("goal.create", {"objective": "ship it", "token_budget": 500})
+    state = await host_request("goal.get")
+    assert state["goal"]["objective"] == "ship it"
+    assert state["remaining_tokens"] == 500
+
+    with pytest.raises(RuntimeError, match="still active"):
+        await host_request("goal.create", {"objective": "something else"})
+
+    report = (await host_request("goal.complete"))["budget_report"]
+    assert report["token_budget"] == 500
+
+
+async def test_goal_create_rejects_an_empty_objective(runtime):
+    with pytest.raises(RuntimeError, match="objective must be a non-empty string"):
+        await host_request("goal.create", {"objective": "  "})
+
+
+async def test_schedule_due_is_a_pull(runtime):
+    """Nothing is pushed to the host; due items wait to be collected."""
+    await host_request("schedule.create", {"prompt": "check the deploy", "in_seconds": 0})
+    await host_request("schedule.create", {"prompt": "later", "in_seconds": 3600})
+
+    assert len((await host_request("schedule.list"))["entries"]) == 2
+    due = (await host_request("schedule.due"))["entries"]
+    assert [e["prompt"] for e in due] == ["check the deploy"]
+    assert (await host_request("schedule.due"))["entries"] == []
+
+
+async def test_schedule_separates_user_and_agent_entries(runtime):
+    await host_request("schedule.create", {"prompt": "mine", "in_seconds": 60, "source": "user"})
+    await host_request("schedule.create", {"prompt": "its own", "in_seconds": 60})
+    agent = (await host_request("schedule.list", {"source": "agent"}))["entries"]
+    assert [e["prompt"] for e in agent] == ["its own"]
+
+
+async def test_schedule_rejects_ambiguous_timing_over_the_bridge(runtime):
+    with pytest.raises(RuntimeError, match="exactly one of"):
+        await host_request("schedule.create", {"prompt": "x"})
+
+
+async def test_autonomous_reports_idle_before_anything_runs(runtime):
+    assert (await host_request("autonomous.status"))["running"] is False

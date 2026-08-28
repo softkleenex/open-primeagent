@@ -123,3 +123,27 @@ record, and make it reversible.
 ```python
 await harness.project(agent="auto", remove=False)   # same as opa_bootstrap
 ```
+
+## `goal`, `schedule`, `autonomous`
+
+```python
+await goal.create(objective, token_budget=None)   # one active goal at a time
+await goal.get()
+await goal.complete()                             # only when actually achieved
+await goal.abandon(note="")                       # stopping without claiming success
+
+await schedule.create(prompt, in_seconds=…)       # or at=… (ISO-8601), every_seconds=…
+await schedule.list(source=None)                  # "user" | "agent"
+await schedule.due(collect=True)                  # collect=False looks without consuming
+await schedule.delete(entry_id)
+
+await autonomous.start(objective, child_name=…, gate="pytest -q",
+                       max_turns=5, token_budget=None, wall_clock_seconds=None)
+await autonomous.status()
+```
+
+A goal cannot re-prompt you and a schedule cannot wake you — we do not own your
+turn loop, so due items are collected on your next turn. `autonomous` is the
+exception: it drives child processes itself, and **edits files and runs your
+gate command unsupervised**. Full semantics and the safety notes are in
+[long-running work](../concepts/long-run.md).
