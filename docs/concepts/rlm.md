@@ -167,3 +167,9 @@ Two deliberate limits:
 This is why the host bridge is a socket rather than a Jupyter comm: a child
 process inherits `$OPA_HOST_SOCKET` and can call back through the same door the
 kernel uses.
+
+**Backend support differs.** Claude Code children can push while sandboxed.
+codex children cannot: headless `codex exec` cancels every MCP tool call unless
+the sandbox is bypassed entirely, so the adapter only attaches the push server
+when dangerous mode is already on. Details and the measurement are in
+[install/codex.md](../install/codex.md#the-push-channel-does-not-work-under-codexs-sandbox).

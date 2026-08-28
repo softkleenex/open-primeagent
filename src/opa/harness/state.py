@@ -88,16 +88,26 @@ class HarnessEntry:
 
 @dataclass
 class RefinementEvent:
-    """One harness refinement. Exact rollback requires the `before` snapshot."""
+    """One harness refinement. Exact rollback requires the `before` snapshot.
+
+    `rationale` and `expected_outcome` are what make a refinement reviewable
+    later. Nothing checks an expected outcome mechanically — we have no gate that
+    could — but it is fed back to whoever decides the *next* refinement, so a
+    change that did not pay off can be recognised and rolled back instead of
+    quietly accumulating. That is how the loop closes without an evaluator.
+    """
 
     id: str
     trigger: str
     changes: list[str]
     evidence: str = ""
     outcome: str = ""
+    rationale: str = ""
+    expected_outcome: str = ""
     created_at: str = field(default_factory=_now)
     before: list[dict[str, Any]] = field(default_factory=list)
     reverted_at: str | None = None
+    rollback_of: str | None = None
 
 
 _ENTRY_FIELDS = {f.name for f in fields(HarnessEntry)}

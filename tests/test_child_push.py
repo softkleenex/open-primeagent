@@ -122,3 +122,47 @@ async def test_the_service_hands_the_socket_to_the_adapter(config):
 
     runtime = Runtime(config)
     assert runtime.rlm.host_socket == str(runtime.socket_path)
+
+
+def test_codex_attaches_the_child_server_through_config_overrides(tmp_path):
+    """codex has no --mcp-config; servers are config keys and `-c` parses TOML."""
+    from opa.rlm.adapters.codex import CodexAdapter
+
+    cmd = CodexAdapter().build_command(
+        request(tmp_path, can_message_parent=True, allow_dangerous=True)
+    )
+    overrides = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-c"]
+    assert any(o.startswith("mcp_servers.opa_child.command=") for o in overrides)
+    assert any("opa.child_server" in o for o in overrides)
+
+
+def test_codex_leaves_the_server_off_by_default(tmp_path):
+    from opa.rlm.adapters.codex import CodexAdapter
+
+    assert "-c" not in CodexAdapter().build_command(request(tmp_path))
+
+
+def test_codex_child_also_gets_the_socket(tmp_path):
+    from opa.rlm.adapters.codex import CodexAdapter
+
+    env = CodexAdapter()._env(request(tmp_path, child_name="c", host_socket="/tmp/s.sock"))
+    assert env["OPA_HOST_SOCKET"] == "/tmp/s.sock"
+    assert env["OPA_CHILD_NAME"] == "c"
+
+
+def test_codex_does_not_attach_a_tool_that_would_always_be_cancelled(tmp_path):
+    """Headless codex cancels MCP tool calls unless the sandbox is bypassed.
+    Attaching the server anyway would bill schema tokens for a tool that fails."""
+    from opa.rlm.adapters.codex import CodexAdapter
+
+    sandboxed = request(tmp_path, can_message_parent=True)
+    assert CodexAdapter.push_available(sandboxed) is False
+    assert "-c" not in CodexAdapter().build_command(sandboxed)
+
+
+def test_codex_attaches_it_when_the_sandbox_is_already_given_up(tmp_path):
+    from opa.rlm.adapters.codex import CodexAdapter
+
+    dangerous = request(tmp_path, can_message_parent=True, allow_dangerous=True)
+    assert CodexAdapter.push_available(dangerous) is True
+    assert "-c" in CodexAdapter().build_command(dangerous)

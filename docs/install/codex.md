@@ -33,3 +33,21 @@ Two things the adapter handles for you, both found by running it:
 - `--skip-git-repo-check` is always passed, since codex refuses to run outside a
   git repository
 - children run under `--sandbox workspace-write` unless dangerous mode is opted into
+
+## The push channel does not work under codex's sandbox
+
+A child can normally report progress mid-run with `can_message_parent=True`. On
+codex that only works when the sandbox is given up entirely.
+
+Measured 2026-08-28: in headless `codex exec`, an MCP tool call comes back as
+`user cancelled MCP tool call`. `approval_policy`, `mcp_servers.<name>.trust`
+and `mcp_servers.<name>.enabled` make no difference — the approval policy governs
+shell commands, not MCP tools, and a headless run has no channel to approve on.
+With `--dangerously-bypass-approvals-and-sandbox` the same call completes.
+
+So the codex adapter attaches the push server **only** when dangerous mode is
+already on. Otherwise the child would be handed a tool that always fails, paying
+for its schema and getting a confusing cancellation back.
+
+Claude Code has no such restriction: scoping `--allowedTools` to the push tool is
+enough, and the child keeps its ordinary tools.

@@ -127,11 +127,47 @@ class HarnessService:
                 {"signature": sig, "count": n} for sig, n in errors.most_common(10) if n > 1
             ],
             "existing": self.overview(),
+            "past_refinements": self.refinement_history(),
+            "how_to_choose": {
+                "prompt": "a narrow behavioural policy this project needs",
+                "memory": "a durable fact - a port, a path, why a decision was made",
+                "skill": "a procedure you keep re-executing, exposed as a Python call",
+                "subagent": "context a delegation role always needs",
+                "scope": (
+                    "local by default; global only for a lesson that will still be "
+                    "true in other sessions, or one that names this project explicitly"
+                ),
+            },
             "note": (
-                "Promote only patterns you saw more than once. "
-                "Prefer the smallest possible change."
+                "Promote only what recurred - `repeated_errors` is the candidate "
+                "list. Prefer the smallest possible change, and read "
+                "`past_refinements`: if an earlier one did not deliver its expected "
+                "outcome, rolling it back is worth more than adding another."
             ),
         }
+
+    def refinement_history(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Past refinements with what they were expected to achieve.
+
+        Nothing here checks an expectation mechanically. Showing it to whoever
+        decides the next refinement is how the loop closes without an evaluator:
+        a change that plainly did not deliver becomes a rollback candidate rather
+        than a permanent one.
+        """
+        events = self.local.refinements + self.global_.refinements
+        recent = sorted(events, key=lambda e: e.created_at)[-limit:]
+        return [
+            {
+                "id": event.id,
+                "trigger": event.trigger,
+                "changes": event.changes,
+                "rationale": event.rationale,
+                "expected_outcome": event.expected_outcome,
+                "reverted": bool(event.reverted_at),
+                "rollback_of": event.rollback_of,
+            }
+            for event in recent
+        ]
 
     @staticmethod
     def _error_key(record: dict) -> str:
@@ -144,6 +180,8 @@ class HarnessService:
         *,
         trigger: str,
         evidence: str = "",
+        rationale: str = "",
+        expected_outcome: str = "",
     ) -> RefinementEvent:
         """Apply a CRUD delta and record it with a `before` snapshot so it reverts.
 
@@ -173,7 +211,11 @@ class HarnessService:
                         reference=change.get("reference") or {},
                     )
                     before.append({"op": "create", "id": entry.id, "scope": entry.scope})
-                    summary.append(f"create {entry.kind}:{entry.id} — {entry.title}")
+                    reason = str(change.get("reason") or "").strip()
+                    summary.append(
+                        f"create {entry.kind}:{entry.id} — {entry.title}"
+                        + (f" ({reason})" if reason else "")
+                    )
                     applied.append(("create", entry))
                 elif op == "update":
                     current = self.get(change["id"])
@@ -201,6 +243,8 @@ class HarnessService:
             trigger=trigger,
             changes=summary,
             evidence=evidence,
+            rationale=rationale,
+            expected_outcome=expected_outcome,
             before=before,
         )
         return self.local.record_refinement(event)
@@ -217,6 +261,17 @@ class HarnessService:
 
         event.reverted_at = _now()
         event.outcome = "rolled back"
+        # Record the reversal as its own event, so history shows that a
+        # refinement was tried and withdrawn rather than silently vanishing.
+        self.local.record_refinement(
+            RefinementEvent(
+                id=f"ref-{uuid.uuid4().hex[:8]}",
+                trigger="rollback",
+                changes=[f"revert {event.id}"],
+                rationale=f"the change did not pay off: {event.expected_outcome or event.trigger}",
+                rollback_of=event.id,
+            )
+        )
         self.local.save()
         self.global_.save()
         return event

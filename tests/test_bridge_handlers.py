@@ -149,7 +149,12 @@ async def test_apply_then_rollback_over_the_bridge(runtime):
 
     await host_request("harness.rollback", {"event_id": event["id"]})
     assert (await host_request("harness.get", {"id": "note"}))["entry"] is None
-    assert len((await host_request("harness.refinements"))["events"]) == 1
+
+    # The reversal is its own event: history must show a change was tried and
+    # withdrawn, not that it never happened.
+    events = (await host_request("harness.refinements"))["events"]
+    assert len(events) == 2
+    assert events[-1]["rollback_of"] == event["id"]
 
 
 async def test_rollback_of_an_unknown_event_is_explained(runtime):

@@ -271,6 +271,8 @@ class Runtime:
                 payload.get("changes") or [],
                 trigger=str(payload.get("trigger") or "agent"),
                 evidence=str(payload.get("evidence") or ""),
+                rationale=str(payload.get("rationale") or ""),
+                expected_outcome=str(payload.get("expected_outcome") or ""),
             )
             self.record("harness.apply", {"event": event.id, "changes": event.changes})
             await self.refresh_surface()
@@ -292,6 +294,8 @@ class Runtime:
                 payload.get("changes") or [],
                 trigger=str(payload.get("trigger") or "evolve"),
                 evidence=str(payload.get("evidence") or ""),
+                rationale=str(payload.get("rationale") or ""),
+                expected_outcome=str(payload.get("expected_outcome") or ""),
             )
             surface_changed = await self.refresh_surface()
             projected = (

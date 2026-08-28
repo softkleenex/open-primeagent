@@ -169,3 +169,51 @@ def test_the_harness_is_per_project_not_per_session(config):
     second = Runtime(config)          # a new session, same project
     assert second.session_id != first.session_id
     assert second.harness.get("run-generate") is not None
+
+
+# ---------- refinement history as the feedback loop ----------
+
+def test_a_refinement_records_why_and_what_it_should_achieve(harness):
+    """Nothing checks an expectation mechanically. Recording it is what lets the
+    next decision see whether the last one paid off."""
+    harness.apply(
+        [{"op": "create", "kind": "prompt", "title": "run generate",
+          "content": "after migrations", "reason": "failed three times this way"}],
+        trigger="/refine",
+        rationale="the same stale-generated-file failure recurred",
+        expected_outcome="no more stale models_gen.py failures in this project",
+    )
+    history = harness.refinement_history()
+    assert history[-1]["rationale"].startswith("the same stale")
+    assert "no more stale" in history[-1]["expected_outcome"]
+    assert "failed three times this way" in history[-1]["changes"][0]
+
+
+def test_history_shows_a_withdrawn_change_rather_than_hiding_it(harness):
+    event = harness.apply(
+        [{"op": "create", "kind": "prompt", "title": "guess", "content": "x"}],
+        trigger="/refine",
+        expected_outcome="fewer retries",
+    )
+    harness.rollback(event.id)
+
+    history = harness.refinement_history()
+    assert history[0]["reverted"] is True
+    assert history[-1]["rollback_of"] == event.id
+
+
+def test_evidence_carries_past_expectations_forward(harness, tmp_path):
+    harness.apply(
+        [{"op": "create", "kind": "prompt", "title": "t", "content": "c"}],
+        trigger="/refine",
+        expected_outcome="the build stops breaking",
+    )
+    evidence = harness.evidence(tmp_path / "trajectory.jsonl")
+    assert evidence["past_refinements"][-1]["expected_outcome"] == "the build stops breaking"
+    assert "rolling it back" in evidence["note"]
+
+
+def test_evidence_says_which_kind_to_reach_for(harness, tmp_path):
+    guidance = harness.evidence(tmp_path / "trajectory.jsonl")["how_to_choose"]
+    assert set(guidance) == {"prompt", "memory", "skill", "subagent", "scope"}
+    assert "local by default" in guidance["scope"]

@@ -26,9 +26,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-
-from jupyter_client.kernelspec import KernelSpecManager
-from jupyter_client.manager import AsyncKernelManager
+from typing import Any
 
 KERNEL_NAME = "opa-python"
 _UNIX_SOCKET_PATH_MAX = 100  # macOS sun_path is 104; leave headroom
@@ -82,7 +80,7 @@ class KernelManager:
         self.cwd = cwd
         self.socket_path = socket_path
         self.session_dir = session_dir
-        self._km: AsyncKernelManager | None = None
+        self._km: Any | None = None
         self._kc = None
         self._started_at: str | None = None
         self._restarts = 0
@@ -140,7 +138,16 @@ class KernelManager:
     # ---------- lifecycle ----------
 
     async def start(self) -> None:
-        """Boot the kernel and run the bootstrap cell."""
+        """Boot the kernel and run the bootstrap cell.
+
+        `jupyter_client` is imported here rather than at module scope. It pulls
+        in zmq and jupyter_core and costs real startup time, and the kernel is
+        deliberately lazy - a host that registers the server but never runs
+        Python should not pay for it.
+        """
+        from jupyter_client.kernelspec import KernelSpecManager
+        from jupyter_client.manager import AsyncKernelManager
+
         spec_root = self._write_kernelspec()
         ksm = KernelSpecManager()
         ksm.kernel_dirs = [str(spec_root)]

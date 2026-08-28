@@ -21,10 +21,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
+import sys
 import time
 
 from .base import TurnRequest, TurnResult
+from .claude_code import CHILD_SERVER_NAME
 
 CLI = "codex"
 
@@ -55,7 +58,41 @@ class CodexAdapter:
             cmd += ["--dangerously-bypass-approvals-and-sandbox"]
         else:
             cmd += ["--sandbox", DEFAULT_SANDBOX]
+        if self.push_available(request):
+            # codex has no --mcp-config; servers are config keys, and `-c` takes
+            # TOML, so each value has to be quoted as TOML rather than as JSON.
+            cmd += [
+                "-c", f'mcp_servers.{CHILD_SERVER_NAME}.command={json.dumps(sys.executable)}',
+                "-c", f'mcp_servers.{CHILD_SERVER_NAME}.args=["-m", "opa.child_server"]',
+            ]
         return cmd
+
+    @staticmethod
+    def push_available(request: TurnRequest) -> bool:
+        """Whether attaching the push server is worth doing for this turn.
+
+        Measured (2026-08-28): in headless `codex exec`, an MCP tool call comes
+        back as `user cancelled MCP tool call` unless the run also passes
+        `--dangerously-bypass-approvals-and-sandbox`. Neither `approval_policy`,
+        `mcp_servers.<name>.trust` nor `.enabled` changes that -- the approval
+        policy governs shell commands, not MCP tools, and headless has no channel
+        to approve on.
+
+        So a sandboxed codex child would be handed a tool that always fails,
+        paying for its schema and getting a confusing cancellation back. Better
+        to leave it off and say so.
+        """
+        return request.can_message_parent and request.allow_dangerous
+
+    def _env(self, request: TurnRequest) -> dict[str, str]:
+        """The child inherits the host socket; without it it cannot answer back."""
+        env = dict(os.environ)
+        env["OPA_ROLE"] = "child"
+        if request.child_name:
+            env["OPA_CHILD_NAME"] = request.child_name
+        if request.host_socket:
+            env["OPA_HOST_SOCKET"] = request.host_socket
+        return env
 
     async def run(self, request: TurnRequest) -> TurnResult:
         started = time.monotonic()
@@ -67,6 +104,7 @@ class CodexAdapter:
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=self._env(request),
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=request.timeout)

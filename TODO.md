@@ -92,8 +92,11 @@ From a coverage audit (90% overall):
       material — the only case where fan-out should win. This is the missing
       experiment that would settle whether sub-agents earn their cost.
 - [ ] `codex` has no `child`-marked integration test; only `claude` does.
-- [ ] The push channel is only wired into the claude adapter; codex needs the
-      same `--mcp-config` treatment.
+- [ ] The user's codex auth is currently expired (`token_expired` on every run),
+      so codex-backed measurements are unreliable until they sign in again.
+- [x] The push channel is wired into codex too, via `-c mcp_servers.*` overrides.
+      It only works when the sandbox is bypassed — headless codex cancels MCP
+      tool calls otherwise — so the adapter gates it behind dangerous mode.
 - [ ] Concurrency: nothing tests two `opa_python` calls racing to boot the kernel,
       although `Runtime.kernel()` locks for exactly that.
 

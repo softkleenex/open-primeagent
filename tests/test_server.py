@@ -84,3 +84,23 @@ async def test_status_surfaces_the_long_run_layer(server):
 
     # looking at status must not consume what is due
     assert len(runtime.schedule.due(collect=False)) == 1
+
+
+def test_the_kernel_stack_is_not_imported_until_a_kernel_is_needed():
+    """The kernel boots lazily, so the import graph should be lazy too.
+
+    jupyter_client pulls in zmq and jupyter_core. A host that registers the
+    server but never runs Python should not pay for that at startup.
+    """
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys; import opa.server; "
+        "loaded = [m for m in sys.modules if m.startswith(('jupyter_client', 'zmq'))]; "
+        "print(len(loaded))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "0", f"kernel stack imported eagerly: {result.stdout}"
