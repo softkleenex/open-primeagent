@@ -39,14 +39,29 @@ opa_python("[f.name for f in files[:5]]")   # print only what you need
 
 ## `opa_status()`
 
-One JSON page: session id and directory, kernel liveness and restart count,
-every sub-agent with status/turns/tokens/cost, unread mailbox count, and harness
+Leads with **`attention`**: what is waiting for you and what looks worth
+promoting, so an agent that lost its context does not have to know which
+question to ask. Each item carries a `kind`, a `detail` and the `next` call to
+make.
+
+| kind | raised when |
+|---|---|
+| `mailbox` | sub-agents have reported and nobody has read it |
+| `subagents_running` | children are still working |
+| `repeated_failure` | the same cell has failed more than once — a promotion candidate |
+| `schedule_due` | scheduled prompts have come due |
+| `goal_active` | a goal is still being pursued, with its remaining budget |
+
+Then the details: session id and directory, kernel liveness and restart count,
+every sub-agent with status/turns/tokens/cost, goal, schedule counts, harness
 entry counts.
 
-Call it after a context compaction or when picking work back up — it is designed
-to restore "how far did I get, and who is still working" in a single call.
+This is the recovery call. A harness that owns its host can promote knowledge at
+the moment a compaction is about to discard it; we cannot see a compaction
+happen, so the recovery call carries that job instead.
 
-Asking for status does **not** boot the kernel.
+Reading it consumes nothing — due items stay due, mail stays unread — and it does
+**not** boot the kernel.
 
 ## `opa_kernel(action="info")`
 

@@ -104,3 +104,41 @@ def test_the_kernel_stack_is_not_imported_until_a_kernel_is_needed():
         [sys.executable, "-c", probe], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "0", f"kernel stack imported eagerly: {result.stdout}"
+
+
+async def test_status_leads_with_what_needs_attention(server, config):
+    """We cannot see a compaction happen, so the recovery call has to carry the
+    knowledge instead: an agent that lost context should not need to know which
+    question to ask."""
+    runtime = server._opa_runtime
+    runtime.goals.create("keep the suite green", token_budget=1000)
+    runtime.schedule.create("check the deploy", in_seconds=0)
+    runtime.rlm.mailbox.deliver(to="parent", sender="probe", message="found something")
+    for _ in range(3):
+        runtime.record("python.exec", {"ok": False, "code": "import missing_mod"})
+
+    state = json.loads((await server.call_tool("opa_status", {})).content[0].text)
+    kinds = {item["kind"] for item in state["attention"]}
+    assert kinds == {"mailbox", "repeated_failure", "schedule_due", "goal_active"}
+
+    failure = next(i for i in state["attention"] if i["kind"] == "repeated_failure")
+    assert "failed 3 times" in failure["detail"]
+    assert "promotion candidate" in failure["next"]
+
+
+async def test_reading_status_consumes_nothing(server):
+    """Looking must not steal the mail or fire the schedule."""
+    runtime = server._opa_runtime
+    runtime.schedule.create("later", in_seconds=0)
+    runtime.rlm.mailbox.deliver(to="parent", sender="x", message="hi")
+
+    await server.call_tool("opa_status", {})
+    await server.call_tool("opa_status", {})
+
+    assert runtime.rlm.mailbox.count() == 1
+    assert len(runtime.schedule.due(collect=False)) == 1
+
+
+async def test_a_quiet_session_asks_for_no_attention(server):
+    state = json.loads((await server.call_tool("opa_status", {})).content[0].text)
+    assert state["attention"] == []

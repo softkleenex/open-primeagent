@@ -393,6 +393,68 @@ class Runtime:
             self.record("surface.refresh", {"entries": len(pending)})
         return changed
 
+    def attention(self) -> list[dict]:
+        """What the host should know without having to ask for it.
+
+        We cannot see a compaction happen, so we cannot promote knowledge at the
+        moment it is about to be lost the way a host-owning harness can. What we
+        can do is make the recovery call carry it: an agent that lost its context
+        and calls `opa_status()` gets told what is waiting and what looks worth
+        promoting, instead of having to know to ask.
+        """
+        items: list[dict] = []
+
+        unread = self.rlm.mailbox.count()
+        if unread:
+            senders = sorted({m["sender"] for m in self.rlm.mailbox.read()})
+            items.append({
+                "kind": "mailbox",
+                "detail": f"{unread} message(s) from {', '.join(senders)}",
+                "next": "await agent_message.inbox()",
+            })
+
+        running = [r.name for r in self.rlm.registry.list() if r.status == "running"]
+        if running:
+            items.append({
+                "kind": "subagents_running",
+                "detail": f"still working: {', '.join(running)}",
+                "next": "await agent_message.inbox() when they report",
+            })
+
+        try:
+            repeated = self.harness.evidence(self.paths.trajectory)["repeated_errors"]
+        except (OSError, ValueError):
+            repeated = []
+        if repeated:
+            worst = repeated[0]
+            items.append({
+                "kind": "repeated_failure",
+                "detail": f"{worst['signature']!r} failed {worst['count']} times",
+                "next": "await harness.evidence() — this is a promotion candidate",
+            })
+
+        due = self.schedule.due(collect=False)
+        if due:
+            items.append({
+                "kind": "schedule_due",
+                "detail": f"{len(due)} scheduled prompt(s) are due",
+                "next": "await schedule.due()",
+            })
+
+        goal = self.goals.goal
+        if goal is not None and goal.status == "active":
+            budget = (
+                f", {goal.remaining_tokens:,} tokens left"
+                if goal.remaining_tokens is not None
+                else ""
+            )
+            items.append({
+                "kind": "goal_active",
+                "detail": f"{goal.objective!r}{budget}",
+                "next": "await goal.get()",
+            })
+        return items
+
     def bootstrap(self, *, agent: str = "auto", remove: bool = False) -> dict:
         """Project the harness into host-read files, writing only inside the delimiters."""
         result = bootstrap_mod.run(

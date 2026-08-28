@@ -92,6 +92,7 @@ def build_server(config: Config | None = None) -> MCPServer:
         kernel = runtime.kernel_if_started
         info = kernel.info() if kernel else None
         state = {
+            "attention": runtime.attention(),
             "session_id": runtime.session_id,
             "session_dir": str(runtime.paths.dir),
             "workspace": str(config.workspace),

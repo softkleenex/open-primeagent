@@ -75,6 +75,17 @@ Promote sparingly. [Benchmarks](../bench/README.md) show an entry pays for
 itself in proportion to how expensive the knowledge is to rediscover — promote
 something the model can re-derive at a glance and you make things *worse*.
 
+## Lost your context?
+
+```
+opa_status()
+```
+
+It leads with what is waiting for you — unread reports from sub-agents, failures
+that have recurred and are worth promoting, scheduled prompts that have come
+due, the goal you were pursuing — and each item says which call to make next.
+Reading it consumes nothing.
+
 ## Where things live
 
 ```
