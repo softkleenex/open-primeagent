@@ -1,6 +1,6 @@
 [project]
 name = "opa-runtime"
-version = "0.0.1"
+version = "0.1.0"
 description = "Kernel-side runtime shim for open-primeagent (rlm / harness / goal / agent_message)"
 requires-python = ">=3.11"
 dependencies = []

@@ -12,7 +12,7 @@ Ported from the architecture of
 **You don't switch agents. You add one MCP server.**
 
 ```bash
-claude mcp add opa -- uvx open-primeagent
+claude mcp add opa -- uvx open-primeagent      # once 0.1.0 is on PyPI; until then, see Install
 ```
 
 [Install](#install) · [Why this is small](#why-this-is-only-3k-lines-and-not-170k) ·
@@ -150,6 +150,10 @@ it. `server.MAX_TOOLS = 4` and a test enforces the ceiling. When you want to add
 a tool, that is the signal to expose a kernel symbol instead.
 
 ## Install
+
+> **Not on PyPI yet.** `uvx open-primeagent` works from the first published
+> release; until then use the checkout form below. See
+> [docs/releasing.md](docs/releasing.md).
 
 <details open>
 <summary><b>Claude Code</b></summary>

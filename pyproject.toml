@@ -1,10 +1,24 @@
 [project]
 name = "open-primeagent"
-version = "0.0.1"
-description = "RLM (persistent Python + persistent subagents + continual harness) for the coding agent you already use"
+version = "0.1.0"
+description = "Persistent Python, long-lived sub-agents and a continual harness for the coding agent you already use"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
+authors = [{ name = "softkleenex" }]
+keywords = ["mcp", "agent", "rlm", "claude-code", "codex", "ipython", "sub-agents"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Code Generators",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 
 dependencies = [
   "mcp>=1.2",           # MCP server (stdio)
@@ -14,6 +28,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/softkleenex/open-primeagent"
+Documentation = "https://github.com/softkleenex/open-primeagent/tree/main/docs"
+Benchmarks = "https://github.com/softkleenex/open-primeagent/tree/main/bench"
+Source = "https://github.com/softkleenex/open-primeagent"
+Issues = "https://github.com/softkleenex/open-primeagent/issues"
 
 [project.scripts]
 opa = "opa.server:main"

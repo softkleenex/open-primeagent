@@ -42,3 +42,4 @@ Read in this order; each layer depends on the one before it.
 | [Benchmarks](../bench/README.md) | measured results, including the ones we lost |
 | [Security](security.md) | **read this before enabling anything autonomous** |
 | [Contributing](../CONTRIBUTING.md) | |
+| [Releasing](releasing.md) | how a version reaches PyPI, and the one-time setup |

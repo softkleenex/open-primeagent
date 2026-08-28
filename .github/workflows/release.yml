@@ -1,0 +1,62 @@
+name: release
+
+# Publishing is deliberately manual: a tag, or a button press. A version that
+# reaches PyPI can never be reused, so it should not happen as a side effect of
+# merging something.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "Where to publish"
+        default: "testpypi"
+        type: choice
+        options: ["testpypi", "pypi"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --extra dev
+      - name: the suite must pass before anything is published
+        run: |
+          uv run ruff check .
+          uv run pytest -q
+      - run: uv build
+      - name: metadata must render on PyPI
+        run: uv run --with twine python -m twine check dist/*
+      - name: the wheel must work on its own
+        run: |
+          uv venv /tmp/clean
+          uv pip install --python /tmp/clean/bin/python dist/*.whl
+          /tmp/clean/bin/python -c "import opa, opa_runtime; print(opa.__version__)"
+          /tmp/clean/bin/opa --help >/dev/null 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    # Trusted Publishing: PyPI verifies this workflow's identity directly, so
+    # there is no API token to store, leak or rotate.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: publish to TestPyPI
+        if: inputs.repository == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+      - name: publish to PyPI
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.repository == 'pypi'
+        uses: pypa/gh-action-pypi-publish@release/v1

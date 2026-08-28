@@ -28,8 +28,11 @@ Phases 0-4 are done. What is left:
 1. **Phase 5 remainder**: candidate children carrying a variant harness plus a
    promotion gate, and the human-approval path through MCP `elicitation`. The
    core (`ToolSurface` + `harness.evolve()`) is done.
-2. **Distribution**: publish to PyPI so `uvx open-primeagent` works, and a
-   Claude Code plugin for the slash commands.
+2. **Distribution**: everything is ready except the one step only a human can do
+   — register the Trusted Publishing publisher on PyPI and create the `release`
+   GitHub environment (`docs/releasing.md`). The name `open-primeagent` was
+   unclaimed on both indexes as of 2026-08-28. After that, a `v*` tag publishes.
+3. A Claude Code plugin for the slash commands.
 
 ## What the benchmarks changed about our understanding
 
