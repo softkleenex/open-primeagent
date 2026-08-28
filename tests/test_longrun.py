@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from opa.longrun.autonomous import AutonomousRunner, run_gate
+from opa.longrun.autonomous import AutonomousRunner, run_gate, worktree_fingerprint
 from opa.longrun.goal import GoalStore
 from opa.longrun.schedule import ScheduleStore
 
@@ -292,3 +292,85 @@ def test_completing_an_exhausted_goal_is_refused(goals):
         goals.complete()
     goals.abandon("budget ran out")
     assert goals.goal.status == "abandoned"
+
+
+# ---------- not burning a turn on an unchanged tree ----------
+
+def git_repo(tmp_path):
+    import subprocess
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "a.py").write_text("x = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-qm", "init"], cwd=root, check=True
+    )
+    return root
+
+
+def test_fingerprint_is_none_outside_a_git_repo(tmp_path):
+    assert worktree_fingerprint(tmp_path) is None
+
+
+def test_fingerprint_notices_edits_and_new_files(tmp_path):
+    root = git_repo(tmp_path)
+    base = worktree_fingerprint(root)
+
+    (root / "a.py").write_text("x = 2\n", encoding="utf-8")
+    assert worktree_fingerprint(root) != base
+
+    (root / "a.py").write_text("x = 1\n", encoding="utf-8")
+    assert worktree_fingerprint(root) == base, "a reverted edit should look unchanged"
+
+    (root / "new.txt").write_text("hello\n", encoding="utf-8")
+    assert worktree_fingerprint(root) != base, "an untracked file is still a change"
+
+
+class EditingFake(FakeRLM):
+    """A child that edits a file on some turns and does nothing on others."""
+
+    def __init__(self, config, edits_on: set[int]) -> None:
+        super().__init__(config)
+        self.edits_on = edits_on
+        self.turn = 0
+
+    def _advance(self, prompt):
+        self.turn += 1
+        if self.turn in self.edits_on:
+            target = self.config.workspace / "a.py"
+            target.write_text(f"x = {self.turn + 100}\n", encoding="utf-8")
+        super()._advance(prompt)
+
+
+async def test_an_unchanged_tree_gets_told_so_instead_of_the_same_failure(config, tmp_path):
+    """Re-running a gate against an identical tree cannot give a different
+    answer, so repeating the failure just invites the same no-op again."""
+    root = git_repo(tmp_path)
+    workspace_config = config.__class__(**{**config.__dict__, "workspace": root})
+    runner = AutonomousRunner(EditingFake(workspace_config, edits_on={1}))
+
+    await runner.start("fix it", child_name="w", gate="exit 1", max_turns=3)
+
+    prompts = runner.rlm.prompts
+    assert "did not change any file" not in prompts[1], "turn 1 edited; do not scold it"
+    assert "did not change any file" in prompts[2], "turn 2 changed nothing"
+    assert "edit something" in prompts[2]
+
+
+async def test_change_detection_is_recorded_per_turn(config, tmp_path):
+    root = git_repo(tmp_path)
+    workspace_config = config.__class__(**{**config.__dict__, "workspace": root})
+    runner = AutonomousRunner(EditingFake(workspace_config, edits_on={1}))
+
+    result = await runner.start("fix it", child_name="w", gate="exit 1", max_turns=2)
+    assert [t["changed_files"] for t in result["turns"]] == [True, False]
+
+
+async def test_suppression_stays_out_of_the_way_outside_git(config):
+    """No repository, no fingerprint, no scolding."""
+    runner = AutonomousRunner(FakeRLM(config))
+    result = await runner.start("fix it", child_name="w", gate="exit 1", max_turns=2)
+    assert all(t["changed_files"] is None for t in result["turns"])
+    assert "did not change any file" not in "".join(runner.rlm.prompts)

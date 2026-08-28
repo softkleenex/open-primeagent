@@ -15,6 +15,7 @@ command itself. Do not use it outside a devcontainer or VM (docs/security.md).
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
@@ -23,6 +24,18 @@ from pathlib import Path
 from typing import Any
 
 MAX_GATE_OUTPUT = 4000
+WORKTREE_TIMEOUT = 30
+
+NO_CHANGE_PROMPT = """\
+You did not change any file on that attempt, so the gate `{gate}` failed exactly
+as before - rerunning it would produce the same output again.
+
+Stop re-reading and edit something. If you believe the code is already correct,
+say so and explain what you think the gate is actually checking, rather than
+trying again unchanged.
+
+Gate output:
+{output}"""
 
 
 def _now() -> str:
@@ -43,6 +56,7 @@ class TurnRecord:
     child_ok: bool
     gate_passed: bool | None
     tokens: int
+    changed_files: bool | None = None
     at: str = field(default_factory=_now)
 
 
@@ -74,6 +88,43 @@ def _run_gate_blocking(command: str, cwd: Path, timeout: float) -> GateResult:
         head = MAX_GATE_OUTPUT * 2 // 5
         output = output[:head] + "\n… [gate output truncated] …\n" + output[-(MAX_GATE_OUTPUT - head):]
     return GateResult(proc.returncode == 0, proc.returncode, output)
+
+
+def worktree_fingerprint(cwd: Path) -> str | None:
+    """A hash of the working tree, or None outside a git repository.
+
+    Used to notice that a turn changed nothing. Re-running a gate against an
+    identical tree cannot produce a different result, so spending another child
+    turn on it is pure waste - the child needs telling that it edited nothing,
+    not another copy of the same failure.
+
+    Covers tracked changes and untracked file contents, so creating a file
+    counts as a change.
+    """
+    def git(*args: str) -> bytes | None:
+        try:
+            proc = subprocess.run(
+                ["git", *args], cwd=str(cwd), capture_output=True,
+                timeout=WORKTREE_TIMEOUT, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return proc.stdout if proc.returncode == 0 else None
+
+    if git("rev-parse", "--is-inside-work-tree") is None:
+        return None
+
+    digest = hashlib.sha256()
+    for args in (("status", "--porcelain=v1"), ("diff", "--binary", "HEAD")):
+        digest.update(git(*args) or b"")
+    untracked = (git("ls-files", "--others", "--exclude-standard") or b"").split()
+    for relative in sorted(untracked):
+        path = cwd / relative.decode(errors="replace")
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(b"<unreadable>")
+    return digest.hexdigest()
 
 
 async def run_gate(command: str, cwd: Path, timeout: float = 600) -> GateResult:
@@ -118,6 +169,7 @@ class AutonomousRunner:
         started = time.monotonic()
         cwd = self.rlm.config.workspace
         prompt = objective.strip()
+        fingerprint = await asyncio.to_thread(worktree_fingerprint, cwd)
 
         try:
             for index in range(1, max_turns + 1):
@@ -150,16 +202,28 @@ class AutonomousRunner:
                     result.detail = "no gate was configured; stopped after one turn"
                     break
 
+                after = await asyncio.to_thread(worktree_fingerprint, cwd)
+                turn.changed_files = None if after is None else after != fingerprint
+                unchanged = fingerprint is not None and after == fingerprint
+                fingerprint = after
+
                 gate_result = await run_gate(gate, cwd)
                 turn.gate_passed = gate_result.passed
                 if gate_result.passed:
                     result.outcome = "gate_passed"
                     result.detail = f"`{gate}` exited 0"
                     break
-                # The gate's own output becomes the next instruction.
+
+                # The gate's own output becomes the next instruction - except when
+                # the tree is untouched, where repeating it invites the same
+                # no-op again.
                 prompt = (
-                    f"The quality gate `{gate}` still fails. Fix the cause and try "
-                    f"again.\n\nGate output:\n{gate_result.output}"
+                    NO_CHANGE_PROMPT.format(gate=gate, output=gate_result.output)
+                    if unchanged
+                    else (
+                        f"The quality gate `{gate}` still fails. Fix the cause and "
+                        f"try again.\n\nGate output:\n{gate_result.output}"
+                    )
                 )
             else:
                 result.outcome = "max_turns"

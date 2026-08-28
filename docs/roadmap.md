@@ -130,6 +130,8 @@ Also settled here:
 
 - The gate runs **off the event loop**. Inline it froze the bridge and every
   child callback for the gate's whole duration — a test suite is minutes.
+- A turn that leaves the worktree byte-identical gets told so rather than handed
+  the same gate failure again; an unchanged tree cannot produce a new result.
 - Exhausting a budget is not completion. `budget_exhausted` is its own status
   and `completed_at` stays empty.
 - No cron expressions. `at` / `in_seconds` / `every_seconds` cover a coding

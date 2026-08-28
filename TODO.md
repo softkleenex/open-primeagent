@@ -103,8 +103,8 @@ sessions and never pay a cold boot. The benchmarks now say so.
 
 **Known gaps we did not close.** Upstream prunes oversized kernel variables at
 compaction and tells the model which ones went; we never prune, which is
-arguably better but should be stated. Upstream suppresses an autonomous rerun
-when the git worktree is unchanged — worth adopting. Its child→parent delivery
+arguably better but should be stated. Upstream's suppression of an autonomous rerun on an
+unchanged git worktree is adopted. Its child→parent delivery
 steers a live turn; ours cannot, and never will from outside the host.
 
 ## Testing gaps worth closing

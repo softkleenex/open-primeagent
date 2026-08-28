@@ -112,13 +112,21 @@ first, and the `outcome` field says which:
 | `timeout` | wall clock exceeded |
 | `error` | the child itself failed; `detail` carries its error |
 
-Two implementation details that matter:
+Three implementation details that matter:
 
 - The gate runs **off the event loop**. A gate is usually a test suite, and
   running it inline would freeze the bridge and every other child callback for
   its whole duration.
 - Gate output is truncated head-and-tail before being fed back, so a noisy suite
   cannot blow out the child's context.
+- **A turn that changed nothing is told so.** The workspace is fingerprinted
+  before and after each turn (tracked changes plus untracked file contents). If
+  the tree is identical, re-running the gate cannot give a different answer, so
+  repeating the same failure would just invite the same no-op. Instead the child
+  is told it edited nothing and asked either to change something or to explain
+  why it believes the code is already correct. `turns[].changed_files` records
+  this, and it is `null` outside a git repository, where there is nothing to
+  compare.
 
 ### ⚠️ Before you use this
 
