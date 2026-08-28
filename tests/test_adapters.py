@@ -119,3 +119,32 @@ def test_codex_without_an_agent_message_is_an_error(tmp_path):
     result = CodexAdapter().parse_stream(stream, request(tmp_path), Path("/tmp/x"), 5)
     assert result.ok is False
     assert "no agent_message" in result.error
+
+
+def test_a_child_is_given_the_tools_it_needs_to_test_its_own_work(tmp_path):
+    """Measured: with only --permission-mode, a headless child cannot run a shell
+    command at all. It can still edit files, which produces the worst kind of
+    sub-agent - one that changes code and never runs the tests."""
+    cmd = ClaudeCodeAdapter().build_command(
+        request(tmp_path, session_id="s", allowed_tools=("Bash", "Read", "Edit"))
+    )
+    assert cmd[cmd.index("--allowedTools") + 1] == "Bash,Read,Edit"
+
+
+def test_the_push_tool_is_added_to_the_toolset_not_substituted_for_it(tmp_path):
+    from opa.rlm.adapters.claude_code import CHILD_PUSH_TOOL
+
+    cmd = ClaudeCodeAdapter().build_command(
+        request(
+            tmp_path, session_id="s", allowed_tools=("Bash",), can_message_parent=True
+        )
+    )
+    allowed = cmd[cmd.index("--allowedTools") + 1].split(",")
+    assert "Bash" in allowed and CHILD_PUSH_TOOL in allowed
+
+
+def test_dangerous_mode_needs_no_allowlist(tmp_path):
+    cmd = ClaudeCodeAdapter().build_command(
+        request(tmp_path, session_id="s", allowed_tools=("Bash",), allow_dangerous=True)
+    )
+    assert "--allowedTools" not in cmd

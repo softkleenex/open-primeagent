@@ -175,6 +175,7 @@ class RLMService:
             model=record.model,
             system_prompt=record.spec,
             permission_mode=self.config.child_permission_mode,
+            allowed_tools=self.config.child_allowed_tools,
             allow_dangerous=self.config.allow_dangerous_child,
             child_name=record.name,
             can_message_parent=record.can_message_parent,

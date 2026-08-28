@@ -83,6 +83,7 @@ async def run_arm(arm: str, model: str) -> Result:
         max_output_chars=4000,
         default_adapter="claude-code",
         child_permission_mode="acceptEdits",
+        child_allowed_tools=("Bash", "Read", "Edit", "Write", "Grep", "Glob"),
         allow_dangerous_child=False,
     )
     server = build_server(config)

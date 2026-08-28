@@ -30,6 +30,7 @@ class TurnRequest:
     model: str | None = None
     system_prompt: str | None = None
     permission_mode: str = "acceptEdits"
+    allowed_tools: tuple[str, ...] = ()
     allow_dangerous: bool = False
     child_name: str | None = None       # used for the child -> parent push channel
     can_message_parent: bool = False

@@ -36,7 +36,22 @@ you are working through very noisy tooling.
 |---|---|---|
 | `OPA_DEFAULT_ADAPTER` | `claude-code` | backend used when `rlm(...)` does not name one |
 | `OPA_CHILD_PERMISSION_MODE` | `acceptEdits` | passed to `claude --permission-mode` |
+| `OPA_CHILD_ALLOWED_TOOLS` | `Bash,Read,Edit,Write,Grep,Glob` | tools a child may use without an approval prompt |
 | `OPA_ALLOW_DANGEROUS_CHILD` | unset | `1` lets children bypass permission checks entirely |
+
+**`OPA_CHILD_ALLOWED_TOOLS` is load-bearing, not a tuning knob.** A permission
+mode alone is not enough: measured, a headless child given only
+`--permission-mode acceptEdits` cannot run a shell command at all. It asks for an
+approval no one is there to give and reports back that it is blocked — while
+still being able to edit files. That is the worst possible sub-agent: one that
+changes code and never runs the tests. The default list is what a coding
+sub-agent needs to check its own work.
+
+Narrow it if you want a read-only reviewer:
+
+```bash
+--env OPA_CHILD_ALLOWED_TOOLS=Read,Grep,Glob
+```
 
 `OPA_ALLOW_DANGEROUS_CHILD=1` gives children
 `--dangerously-skip-permissions` (claude) or

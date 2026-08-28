@@ -63,6 +63,35 @@ def main() -> None:
         print(table(summarize(rows, "round"), ["A-no-harness", "B-with-harness"]))
         print()
 
+    serial = RESULTS / "serial-sonnet.json"
+    if serial.exists():
+        rows = json.loads(serial.read_text(encoding="utf-8"))
+        by_condition: dict[int, list[dict]] = {}
+        for row in rows:
+            by_condition.setdefault(row.get("seconds", 0), []).append(row)
+        for seconds in sorted(by_condition):
+            group = by_condition[seconds]
+            for row in group:
+                row["agent_turns"] = row["children"]
+                row["billed_tokens"] = row["child_tokens"]
+                row["cost_usd"] = row["child_cost"]
+                row["tests_pass"] = row["passed"] == 4
+            print(f"## Sub-agents — independent serial work ({seconds}s per check)\n")
+            print(table(summarize(group, "arm"), ["single", "fanout"]))
+            by_arm: dict[str, list[dict]] = {}
+            for row in group:
+                by_arm.setdefault(row["arm"], []).append(row)
+            fixed = " | ".join(
+                f"{statistics.fmean(r['passed'] for r in by_arm[a]):.1f} / 4"
+                for a in ("single", "fanout")
+            )
+            print(f"| subsystems fixed | {fixed} | |")
+            tampered = " | ".join(
+                str(sum(len(r["tampered"]) for r in by_arm[a])) for a in ("single", "fanout")
+            )
+            print(f"| checks tampered with | {tampered} | |")
+            print()
+
     fanout = RESULTS / "fanout-sonnet.json"
     if fanout.exists():
         rows = json.loads(fanout.read_text(encoding="utf-8"))

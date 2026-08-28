@@ -77,9 +77,14 @@ class ClaudeCodeAdapter:
             cmd += ["--dangerously-skip-permissions"]
         else:
             cmd += ["--permission-mode", request.permission_mode]
+        allowed = list(request.allowed_tools)
         if request.can_message_parent:
             cmd += ["--mcp-config", str(write_child_mcp_config(request.session_dir))]
-            cmd += ["--allowedTools", CHILD_PUSH_TOOL]
+            allowed.append(CHILD_PUSH_TOOL)
+        if allowed and not request.allow_dangerous:
+            # Without this a headless child is blocked on an approval prompt for
+            # every shell command, so it edits code it can never test.
+            cmd += ["--allowedTools", ",".join(allowed)]
         return cmd
 
     def _env(self, request: TurnRequest) -> dict[str, str]:

@@ -21,12 +21,19 @@ malicious repository, or a malicious skill.
 | item | default | why |
 |---|---|---|
 | claude child permissions | `acceptEdits` | bypass is explicit opt-in only |
+| claude child tools | `Bash,Read,Edit,Write,Grep,Glob` | a child that cannot run tests is half a sub-agent; narrow with `OPA_CHILD_ALLOWED_TOOLS` |
 | `--dangerously-skip-permissions` | **off** | requires `OPA_ALLOW_DANGEROUS_CHILD=1` |
 | codex child sandbox | `workspace-write` | no writes outside the workspace |
 | child `cwd` | inside the workspace | cannot escape; both paths are resolved before comparison |
 | bridge socket | `0600` | another local user cannot push commands into your kernel |
 | kernel transport | IPC socket | TCP sends code and output in cleartext on localhost |
 | autonomous mode | off | it edits files without supervision |
+
+**Children can run shell commands by default.** This is deliberate — a sub-agent
+that edits code but cannot run the tests is worse than useless — but it is a real
+capability, and it is granted without anyone approving each command, because a
+headless run has nobody to ask. Set `OPA_CHILD_ALLOWED_TOOLS=Read,Grep,Glob` for
+a reviewer that only looks.
 
 ## When you need a container
 

@@ -16,6 +16,7 @@ def config(tmp_path: Path) -> Config:
         max_output_chars=300,
         default_adapter="claude-code",
         child_permission_mode="acceptEdits",
+        child_allowed_tools=("Bash", "Read", "Edit", "Write", "Grep", "Glob"),
         allow_dangerous_child=False,
         child_can_message_parent=False,
     )

@@ -128,6 +128,24 @@ for the same question — 1,987 tokens against 23,058.
 Same fact, both directions: spawning is expensive, keeping is nearly free. So
 the registry is not a convenience, it is where the value is.
 
+## A child needs tools, not just permission
+
+A permission mode by itself is not enough. Measured: a headless child given only
+`--permission-mode acceptEdits` **cannot run a shell command at all** — it asks
+for an approval nobody is there to give, and answers that it is blocked. It can
+still edit files, which is the worst combination available: a sub-agent that
+changes code and never runs the tests.
+
+So children are given a working toolset by default —
+`Bash,Read,Edit,Write,Grep,Glob` — configurable through
+`OPA_CHILD_ALLOWED_TOOLS`. Narrow it to `Read,Grep,Glob` for a reviewer that
+should only look.
+
+This cost us a benchmark. An earlier version of
+[the serial-work experiment](../../bench/README.md) ran with children that could
+not execute anything; the numbers looked plausible and measured something else
+entirely.
+
 ## Rules that are enforced, not suggested
 
 - **One turn at a time per child.** Two concurrent `--resume` calls on one
