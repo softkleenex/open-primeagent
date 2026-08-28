@@ -210,6 +210,14 @@ because spawning one child cost more than the entire job. Re-tasking a child
 that had already read the file cost **one fifth** of a fresh one (23,058 → 1,987
 tokens, n=4, tiny variance).
 
+We then built a benchmark specifically to let fan-out win — 444 files, ~135k
+tokens, four independent subsystems, children scoped so nothing is read twice —
+and **it still lost on every axis, including wall clock** (112.8s vs 49.6s with
+four children running at once). The reason is worth knowing: the single agent
+answered using 42k tokens on a 135k-token codebase. It never read the
+repository, it grepped. Fan-out relieves a bottleneck that a competent agent
+does not create.
+
 So the value in sub-agents is not parallelism — it is that **the child
 persists**. Which is what the registry is for, and what "a child is not
 disposable" was always supposed to mean.

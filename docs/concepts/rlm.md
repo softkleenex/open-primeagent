@@ -113,6 +113,13 @@ Practically, that means:
 Parallelism does not rescue it either — four cold sessions still have to boot,
 so the wall clock got worse, not better.
 
+Nor does a bigger codebase.
+[We tried](../../bench/README.md#0a-fan-out-on-a-large-codebase--it-loses-even-here):
+444 files, four independent subsystems, one child each, nothing read twice — and
+fan-out was still 2.3x slower and 4.2x more expensive. The single agent answered
+using 42k tokens against a 135k-token repository, because it grepped instead of
+reading. **Fan-out relieves a bottleneck a competent agent does not create.**
+
 Where children earn their cost is **reuse**, and that is measured too. Asking a
 follow-up of a child that had already read the file cost
 [**81% less than spawning a fresh one**](../../bench/README.md#0b-warm-child-vs-cold-child--reuse-wins-by-5x)

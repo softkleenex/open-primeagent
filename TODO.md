@@ -45,16 +45,26 @@ Measured value so far is concentrated in **the harness**, not in RLM:
 | harness entry, knowledge one glance away | ❌ +26% turns |
 | persistent kernel on shell-friendly work | ❌ +42% turns, +33% cost |
 | sub-agent fan-out on a small codebase | ❌ +454% tokens, +777% cost |
-| warm child re-tasking vs a cold child | (re-running with `child_turns` instrumentation) |
+| sub-agent fan-out on a 444-file codebase | ❌ +259% tokens, **+127% wall clock** |
+| warm child re-tasking vs a cold child | ✅ -91% tokens, -81% cost |
 
-The fan-out number has a clean mechanism: ~36k tokens of session startup per
-child, which on a 12-file project exceeds the entire task. This does not
-invalidate sub-agents, but it does mean **fan-out is the wrong default** and
-reuse is the case worth building around. That matches the project's own thesis
-("a child is not disposable") better than fan-out ever did.
+Two mechanisms explain all of it:
 
-Open question this raises: should `rlm()` refuse or warn when the workspace is
-small? Right now the guidance lives only in the tool description and docs.
+1. **A child costs ~36k tokens of session startup.** Spawning is expensive,
+   keeping one is nearly free. That is fan-out losing and reuse winning, from
+   the same fact.
+2. **A competent agent greps; it does not read.** On a 135k-token repository the
+   single reviewer answered using 42k tokens. Fan-out is meant to relieve a
+   context bottleneck that never forms, which is why scaling the codebase up did
+   not rescue it.
+
+So **fan-out has no measured case where it wins**, and reuse does. The registry
+is where the value is, not the parallelism. That matches the project's own
+thesis ("a child is not disposable") better than fan-out ever did.
+
+Open question: should `rlm()` warn when it is about to spawn a second child for
+work that looks small? The guidance currently lives only in the tool description
+and docs, where a model may or may not weigh it.
 
 ## Testing gaps worth closing
 

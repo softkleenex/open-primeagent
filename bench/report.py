@@ -63,6 +63,26 @@ def main() -> None:
         print(table(summarize(rows, "round"), ["A-no-harness", "B-with-harness"]))
         print()
 
+    fanout = RESULTS / "fanout-sonnet.json"
+    if fanout.exists():
+        rows = json.loads(fanout.read_text(encoding="utf-8"))
+        for row in rows:
+            row["agent_turns"] = row["children"]
+            row["billed_tokens"] = row["child_tokens"]
+            row["cost_usd"] = row["total_cost"]
+            row["tests_pass"] = row["ok"]
+        print("## Sub-agents — fan-out on a large codebase\n")
+        print(table(summarize(rows, "arm"), ["single", "fanout"]))
+        by_arm: dict[str, list[dict]] = {}
+        for row in rows:
+            by_arm.setdefault(row["arm"], []).append(row)
+        found = " | ".join(
+            f"{statistics.fmean(r['found_count'] for r in by_arm[a]):.1f} / 4"
+            for a in ("single", "fanout")
+        )
+        print(f"| defects found | {found} | |")
+        print()
+
     warm = RESULTS / "warm-sonnet.json"
     if warm.exists():
         rows = json.loads(warm.read_text(encoding="utf-8"))

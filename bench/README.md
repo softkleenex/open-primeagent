@@ -22,6 +22,7 @@ raw JSON and excluded here, since they are billed at a fraction of the rate).
 
 ```
 uv run python bench/subagents.py --experiment parallel --repeat 3
+uv run python bench/fanout.py --repeat 2
 uv run python bench/warm.py --repeat 4
 ```
 
@@ -75,6 +76,58 @@ We have not yet measured the case where it should win: a codebase large enough
 that the parent could not hold the material at all. Until we do, **there is no
 measured evidence that sub-agent fan-out is worth it**, and
 [the docs say so where people will read them](../docs/concepts/rlm.md#when-not-to-fan-out).
+
+## 0a. Fan-out on a large codebase  ❌ it loses even here
+
+`bench/fanout.py`
+
+Benchmark 0 was open to two fair objections: the project was trivial, and every
+child re-read all of it. This one removes both. **444 files, ~135k tokens, four
+independently ownable subsystems** (auth, billing, catalog, delivery), each
+carrying exactly one planted defect, and each child scoped to one subsystem so
+nothing is read twice.
+
+**What this can even show.** With children scoped, the reading is identical
+either way, so fan-out spends three extra session startups (~108k tokens) *by
+construction*. It cannot win on total tokens and we do not pretend to test that.
+The two hypotheses that could hold are:
+
+- **H1** fan-out is faster, because independent subsystems run at once
+- **H2** fan-out finds more, because each child holds one subsystem instead of four
+
+| metric | single | fanout | delta |
+|---|---|---|---|
+| billed tokens | 41,985 | 150,821 | +259% |
+| cost (USD) | $0.240 | $1.011 | +320% |
+| wall clock | 49.6 s | 112.8 s | **+127%** |
+| defects found | 2.5 / 4 | 3.0 / 4 | |
+| n | 2 | 2 | |
+
+**H1 fails.** Four children running concurrently were still **2.3x slower** than
+one agent working alone.
+
+**H2 is not established.** 3.0 against 2.5 at n=2 is noise. It may be real; this
+does not show it.
+
+### Why parallelism did not help
+
+Look at what the single agent actually spent: **42k tokens on a 135k-token
+codebase**. It never read the repository. It grepped, opened four or five files,
+and answered.
+
+That is the whole result. Fan-out is supposed to relieve a bottleneck — one
+context having to hold everything — and **a competent agent never creates that
+bottleneck**, because it searches instead of reading. Meanwhile each child still
+pays ~36k tokens and ~30 seconds of session startup before it can grep anything,
+and the wall clock is set by the slowest child plus the parent's coordination
+turns.
+
+Making the codebase bigger does not change this. It makes the single agent grep
+a little more and adds nothing to the children's fixed cost.
+
+**So we now have no measured case where sub-agent fan-out wins** — not on a small
+project, not on a large one, not on tokens, cost, or wall clock. If there is one,
+it is somewhere we have not looked, and the burden is on the next benchmark.
 
 ## 0b. Warm child vs cold child  ✅ reuse wins by 5x
 
@@ -231,7 +284,10 @@ tokens**, and the README does not claim there is.
   the persistent kernel.
 - A run across a context compaction, where kernel state survives and context does
   not — the case opa is actually designed for.
-- The case fan-out should win: a codebase large enough that the parent cannot
-  hold the material at all. Benchmark 0 only shows that fan-out loses when the
-  work fits in one context, which is not the interesting case.
+- A case where fan-out wins at all. Benchmarks 0 and 0a rule out "small project"
+  and "large project"; the remaining candidates are work that is genuinely
+  serial-blocking per subsystem (each child running a build or a test suite of
+  its own), where the ~30s startup is amortised against minutes of real work.
+- Whether H2 (focused context finds more defects) is real. It needs n far larger
+  than 2 and a defect set that is not four planted needles.
 - A weaker/cheaper model, where the rediscovery penalty should be larger.
