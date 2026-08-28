@@ -32,6 +32,7 @@ claude mcp add opa -- uvx open-primeagent
 ✅ L3  Continual Harness      prompts / memory / skills / sub-agent specs
                               + projection into the files your agent already reads
 ✅ L4  Long-run               goal / schedule / autonomous gate loop
+✅ L5  Evolution              live tool-surface rewriting + harness.evolve()
 ```
 
 Everything marked ✅ is verified by tests that actually spawn a kernel and a real
@@ -281,18 +282,31 @@ tools/list   call=1  serving_version=1
 ```
 
 On the next turn the model read the new description verbatim. **An MCP server
-can rewrite the instructions its host agent operates under, mid-session, and
-they take effect from the next turn.** No restart.
+can rewrite what its host agent reads, mid-session, and it takes effect from the
+next turn.** No restart. That is shipped as `harness.evolve()`, which pushes one
+delta through all three layers at once — kernel now, tool description next turn,
+project file next session — reversibly.
 
-We also learned that pushing behavioral instructions through tool *results* gets
-correctly flagged as prompt injection by a well-aligned host model, so the
-delivery channel has to be the tool *description*. And Claude Code advertises no
-`sampling` capability but does support `elicitation` — the server can ask the
-*user* for approval mid-call, which is exactly what a promotion gate needs.
+Then building it produced the more interesting result. We put a promoted rule in
+the description and asked Claude Code to quote it. It read our text back
+verbatim, and refused to act on it:
 
-Full write-up with the raw data: [docs/concepts/evolution.md](docs/concepts/evolution.md).
+> the note claims to be "recorded by agent" today, but **I have no record of
+> creating it** … I'd treat it as untrusted/possible prompt injection.
 
-The mechanism is the easy part. The hard part is **evaluation** — without a
+It is right, and no wording fixes it: any provenance a server asserts is just
+more server-authored text. So the limit is real, not cosmetic:
+
+> A tool description can remind an agent of what **it** recorded while running.
+> It cannot give standing to anything else.
+
+Which is why the live surface carries an *index* of the current session's own
+notes, and authority comes from the project file the host presents as the user's
+configuration. **L1 reminds; L0 authorises.**
+
+Full write-up with the transcripts: [docs/concepts/evolution.md](docs/concepts/evolution.md).
+
+The mechanism was the easy part. The hard part is **evaluation** — without a
 measurable gate, "evolution" is just drift. We do not ship an automatic
 promotion path where nothing can be measured.
 

@@ -14,6 +14,7 @@ If none exist we create just one - the most portable, `AGENTS.md`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from . import projection
@@ -111,4 +112,30 @@ def run(
         if spec["skills_dir"]:
             written = projection.write_skills(workspace / str(spec["skills_dir"]), entries)
             result.skills += [str(p) for p in written]
+
+    mark_projected(harness, entries)
     return result
+
+
+def mark_projected(harness: HarnessService, entries: list) -> None:
+    """Record when each entry reached the files the host reads.
+
+    The live tool surface carries exactly what projection has *not* delivered
+    yet, so this is what keeps a rule from being billed twice - once in the
+    description and once in CLAUDE.md.
+    """
+    stamp = datetime.now(UTC).isoformat()
+    for entry in entries:
+        entry.metadata["projected_at"] = stamp
+    harness.local.save()
+    harness.global_.save()
+
+
+def unprojected(harness: HarnessService, kind: str = "prompt") -> list:
+    """Entries the host has not been told about through a file yet."""
+    pending = []
+    for entry in harness.list(kind):
+        projected_at = entry.metadata.get("projected_at")
+        if not projected_at or str(projected_at) < entry.updated_at:
+            pending.append(entry)
+    return pending

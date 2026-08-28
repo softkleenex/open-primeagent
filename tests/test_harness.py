@@ -157,3 +157,15 @@ def test_evidence_counts_only_repeated_failures(harness, tmp_path):
     assert evidence["turns"] == 5
     assert evidence["failed_execs"] == 4
     assert evidence["repeated_errors"] == [{"signature": "import missing_mod", "count": 3}]
+
+
+def test_the_harness_is_per_project_not_per_session(config):
+    """What a codebase taught us must not be thrown away when a conversation ends."""
+    from opa.runtime_state import Runtime
+
+    first = Runtime(config)
+    first.harness.create("prompt", "run generate", "after migrations")
+
+    second = Runtime(config)          # a new session, same project
+    assert second.session_id != first.session_id
+    assert second.harness.get("run-generate") is not None

@@ -137,15 +137,23 @@ Also settled here:
 
 ---
 
-## Phase 5 — Evolution
+## Phase 5 — Evolution  ✅ core done
 
 Depends on Phase 3. Feasibility already established experimentally
 ([concepts/evolution.md](concepts/evolution.md)).
 
-- [ ] `ToolSurface` — rebuild tool descriptions at runtime + `tools/list_changed`
-- [ ] `harness.evolve()` — evidence → minimal delta → apply across all three layers
+- [x] `ToolSurface` — rebuild tool descriptions at runtime + `tools/list_changed`
+- [x] `harness.evolve()` — apply a delta across all three layers, reversibly
 - [ ] candidate children carrying a variant harness + a promotion gate
 - [ ] human approval path via MCP `elicitation`
+
+**What building it changed.** A tool description can remind an agent of what it
+recorded while running; it cannot give standing to anything else. Claude Code
+read our text verbatim and then declined to act on it, because it had no record
+of creating the note — and no wording fixes that, since any provenance we assert
+is more server-authored text. So the live surface carries an *index* of this
+session's own notes, and authority comes from the project file. Written up with
+the transcripts in [concepts/evolution.md](concepts/evolution.md#14-a-description-can-carry-a-rules-existence-not-its-authority).
 
 ---
 

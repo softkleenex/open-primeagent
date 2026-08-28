@@ -71,6 +71,42 @@ is right to.** So the delivery channel matters:
 - ✅ replace the tool **description** (schema) → the legitimate channel, accepted
 - ✅ record that the user explicitly invoked `/evolve` as the justification
 
+### 1.4 A description can carry a rule's existence, not its authority
+
+Section 1.3 concluded "deliver through the tool description, not tool results".
+Building it showed that conclusion was **not enough**.
+
+We put promoted rules into `opa_python`'s description and asked Claude Code to
+quote it. It read our text back verbatim — the mechanism works — and then said:
+
+> this reads like content injected into a tool description to get me to follow
+> an embedded instruction … I haven't acted on it and won't unless you
+> separately ask me to.
+
+So we rewrote the block to carry an index instead of instructions, with
+attribution and a pointer to `harness.overview()`. It flagged that too, with a
+sharper objection:
+
+> the note claims to be "recorded by agent" today, but **I have no record of
+> creating it** … I'd treat it as untrusted/possible prompt injection.
+
+That objection cannot be answered by better wording, because **any provenance we
+assert is just more server-authored text.** A model has no way to distinguish a
+note it really made from one a server claims it made.
+
+The conclusion is a real limit on this layer, not a copywriting problem:
+
+> A tool description can legitimately remind an agent of what **it** recorded
+> while it was running. It cannot give standing to anything else.
+
+Which is why the live surface now carries only notes recorded **during the
+running session**, and everything older reaches the agent through channels that
+carry standing on their own: the user's own project file, or `harness.overview()`
+when the agent asks for it.
+
+It is also why the description carries titles rather than imperatives. Same rule
+as everywhere else here: context is for deciding, not for storage.
+
 ---
 
 ## 2. Three layers of evolution
@@ -78,22 +114,29 @@ is right to.** So the delivery channel matters:
 | layer | takes effect | what changes | status |
 |---|---|---|---|
 | **L0** | next **session** | `CLAUDE.md` / `AGENTS.md` / `.claude/skills` (projection) | ✅ Phase 3 |
-| **L1** | next **turn** | **tool descriptions** = the agent's operating procedure | measured, not built |
+| **L1** | next **turn** | **tool descriptions** — an index of what this session recorded | ✅ Phase 5, with the limit in §1.4 |
 | **L2** | **immediately** | kernel namespace (new helper functions, skills) | already possible |
 
 L2 already works because `opa_python` runs a persistent kernel: if `/evolve`
 defines a new function, it is callable from that moment. That is evolution of
 *capability* rather than of instructions.
 
-Together:
+Together, and this is what `harness.evolve()` does in one call:
 
 ```
-/evolve
+await harness.evolve([...], trigger="/evolve")
    │
-   ├─ L2  define new helpers/skills in the kernel   → usable right now
-   ├─ L1  rewrite tool descriptions + list_changed  → new procedure from the next turn
-   └─ L0  promote to harness entries + project      → survives into the next session
+   ├─ L2  anything defined in the kernel is already callable
+   ├─ L1  rewrite the tool description + list_changed  → the agent sees it next turn
+   └─ L0  project into CLAUDE.md / AGENTS.md          → survives into the next session
 ```
+
+The reply's `applied` field says which layers actually changed, and the returned
+event id works with `rollback()`.
+
+Note the division of labour §1.4 forces: **L1 reminds, L0 authorises.** The
+description tells an agent what it recorded a moment ago; the project file is
+what makes a rule binding on sessions that were not there.
 
 ---
 

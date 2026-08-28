@@ -25,9 +25,9 @@ Settled decisions:
 
 Phases 0-4 are done. What is left:
 
-1. **Phase 5 — evolution.** Scoped in `docs/concepts/evolution.md`; the
-   feasibility experiments are already done. `ToolSurface` (rebuild tool
-   descriptions at runtime + `tools/list_changed`) is the first piece.
+1. **Phase 5 remainder**: candidate children carrying a variant harness plus a
+   promotion gate, and the human-approval path through MCP `elicitation`. The
+   core (`ToolSurface` + `harness.evolve()`) is done.
 2. **Distribution**: publish to PyPI so `uvx open-primeagent` works, and a
    Claude Code plugin for the slash commands.
 
@@ -61,6 +61,19 @@ thesis ("a child is not disposable") better than fan-out ever did.
 Open question: should `rlm()` warn when it is about to spawn a second child for
 work that looks small? The guidance currently lives only in the tool description
 and docs, where a model may or may not weigh it.
+
+## What building Phase 5 changed
+
+A tool description can remind an agent of what **it** recorded while running; it
+cannot give standing to anything else. Claude Code read our promoted rule back
+verbatim and then declined to act on it, because it had no record of creating
+the note. No wording fixes that — any provenance we assert is more
+server-authored text.
+
+So: the live surface carries an *index* of the current session's own notes, and
+authority comes from the project file. **L1 reminds, L0 authorises.** That also
+settled where the harness should live — per **project**, not per session, since
+it is what the codebase taught us rather than what one conversation did.
 
 ## Testing gaps worth closing
 

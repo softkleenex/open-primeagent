@@ -77,6 +77,38 @@ class _Harness:
     async def refinements(self) -> list[dict[str, Any]]:
         return (await host_request("harness.refinements"))["events"]
 
+    async def evolve(
+        self,
+        changes: list[dict[str, Any]],
+        *,
+        trigger: str = "evolve",
+        evidence: str = "",
+        project: bool = True,
+    ) -> dict[str, Any]:
+        """Apply a delta and push it through every layer that can carry it.
+
+        Three layers, three latencies:
+
+            immediately   anything you defined in the kernel is already callable
+            next turn     this rewrites `opa_python`'s description, and the host
+                          re-reads its tool list
+            next session  projection into CLAUDE.md / AGENTS.md
+
+        The reply's `applied` says which layers actually changed. Reversible
+        exactly like `apply()` - the returned event id works with `rollback()`.
+        """
+        payload = {
+            "changes": changes,
+            "trigger": trigger,
+            "evidence": evidence,
+            "project": project,
+        }
+        return await host_request("harness.evolve", payload)
+
+    async def surface(self) -> dict[str, Any]:
+        """What the host currently reads in `opa_python`'s description."""
+        return await host_request("harness.surface")
+
     # ---------- projection ----------
 
     async def project(self, *, agent: str = "auto", remove: bool = False) -> dict[str, Any]:

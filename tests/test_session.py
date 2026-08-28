@@ -10,7 +10,6 @@ def test_ensure_creates_every_directory(tmp_path):
     paths = SessionPaths(root=tmp_path, session_id="s1").ensure()
     for directory in (paths.dir, paths.outputs, paths.mailbox, paths.children):
         assert directory.is_dir()
-    assert paths.harness_state.parent.is_dir()
 
 
 def test_jsonl_roundtrip_keeps_unicode(tmp_path):

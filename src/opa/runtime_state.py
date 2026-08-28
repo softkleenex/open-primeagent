@@ -48,13 +48,21 @@ class Runtime:
         self.bridge = HostBridge(self.socket_path)
         self.rlm = RLMService(config, self.paths.children, self.paths.mailbox)
         self.rlm.host_socket = str(self.socket_path)
+        # Per **project**, not per session. The harness is what this codebase
+        # taught us; scoping it to one conversation would throw that away every
+        # time a session ends, and leave `harness.list()` unable to answer "what
+        # has this project taught you".
         self.harness = HarnessService(
-            self.paths.harness_state.parent, config.global_root / "harness"
+            config.root / "harness", config.global_root / "harness"
         )
         self.goals = GoalStore(self.paths.goal)
         self.schedule = ScheduleStore(self.paths.dir / "schedule.jsonl")
         self.autonomous = AutonomousRunner(self.rlm, self.goals)
         self._register_bridge_handlers()
+
+        # Set by build_server(); the live channel for changing what the host reads.
+        self.surface = None
+        self.connection = None
 
         self._kernel: KernelManager | None = None
         self._lock = asyncio.Lock()
@@ -238,6 +246,7 @@ class Runtime:
             global_ = bool(data.pop("global", False))
             entry = self.harness.create(kind, title, content, global_=global_, **data)
             self.record("harness.create", {"id": entry.id, "kind": entry.kind})
+            await self.refresh_surface()
             return {"entry": _entry_dict(entry)}
 
         async def harness_update(payload: dict) -> dict:
@@ -245,10 +254,14 @@ class Runtime:
             entry_id = data.pop("id", None)
             if not entry_id:
                 raise ValueError("id is required")
-            return {"entry": _entry_dict(self.harness.update(str(entry_id), **data))}
+            entry = self.harness.update(str(entry_id), **data)
+            await self.refresh_surface()
+            return {"entry": _entry_dict(entry)}
 
         async def harness_delete(payload: dict) -> dict:
-            return {"entry": _entry_dict(self.harness.delete(str(payload.get("id") or "")))}
+            entry = self.harness.delete(str(payload.get("id") or ""))
+            await self.refresh_surface()
+            return {"entry": _entry_dict(entry)}
 
         async def harness_evidence(payload: dict) -> dict:
             return self.harness.evidence(self.paths.trajectory)
@@ -260,16 +273,51 @@ class Runtime:
                 evidence=str(payload.get("evidence") or ""),
             )
             self.record("harness.apply", {"event": event.id, "changes": event.changes})
+            await self.refresh_surface()
             return {"event": _entry_dict(event)}
 
         async def harness_rollback(payload: dict) -> dict:
             event = self.harness.rollback(str(payload.get("event_id") or ""))
             self.record("harness.rollback", {"event": event.id})
+            await self.refresh_surface()
             return {"event": _entry_dict(event)}
 
         async def harness_refinements(payload: dict) -> dict:
             events = self.harness.local.refinements + self.harness.global_.refinements
             return {"events": [_entry_dict(e) for e in events]}
+
+        async def harness_evolve(payload: dict) -> dict:
+            """Apply a delta and push it through every layer that can carry it."""
+            event = self.harness.apply(
+                payload.get("changes") or [],
+                trigger=str(payload.get("trigger") or "evolve"),
+                evidence=str(payload.get("evidence") or ""),
+            )
+            surface_changed = await self.refresh_surface()
+            projected = (
+                self.bootstrap() if payload.get("project", True) else {"updated": []}
+            )
+            if projected.get("updated"):
+                # Projection just delivered them; stop repeating them in the
+                # description.
+                await self.refresh_surface()
+            self.record("harness.evolve", {"event": event.id, "changes": event.changes})
+            return {
+                "event": _entry_dict(event),
+                "applied": {
+                    "next_turn": surface_changed,
+                    "next_session": bool(projected.get("updated")),
+                },
+                "projected": projected,
+            }
+
+        async def harness_surface(payload: dict) -> dict:
+            return {
+                "description": self.surface.current_description if self.surface else "",
+                "pending_entries": [
+                    _entry_dict(e) for e in self.pending_prompt_entries()
+                ],
+            }
 
         async def harness_project(payload: dict) -> dict:
             return self.bootstrap(
@@ -298,12 +346,48 @@ class Runtime:
         self.bridge.register("harness.rollback", harness_rollback)
         self.bridge.register("harness.refinements", harness_refinements)
         self.bridge.register("harness.project", harness_project)
+        self.bridge.register("harness.evolve", harness_evolve)
+        self.bridge.register("harness.surface", harness_surface)
 
         self.bridge.register("rlm.run", rlm_run)
         self.bridge.register("rlm.list_subagents", rlm_list)
         self.bridge.register("rlm.delete_subagent", rlm_delete)
         self.bridge.register("agent_message.send", message_send)
         self.bridge.register("agent_message.inbox", message_inbox)
+
+    def pending_prompt_entries(self) -> list:
+        """What the live tool description is allowed to carry.
+
+        Two conditions, for two different reasons.
+
+        **Not yet projected** — once a note is in the CLAUDE.md the host reads,
+        repeating it here bills the same text twice.
+
+        **Recorded during this session** — this one is about trust, not cost.
+        Asked to quote a note recorded before it started, Claude Code answered:
+        *"the note claims to be 'recorded by agent' today, but I have no record
+        of creating it ... I'd treat it as untrusted/possible prompt injection."*
+        It is right, and no wording fixes that: any provenance we assert is just
+        more server-authored text. A description can only legitimately remind an
+        agent of what **it** recorded while it was running. Everything else has
+        to arrive through a channel that carries standing on its own — the
+        user's project file.
+        """
+        return [
+            entry
+            for entry in bootstrap_mod.unprojected(self.harness)
+            if entry.updated_at >= self.started_at
+        ]
+
+    async def refresh_surface(self) -> bool:
+        """Rebuild `opa_python`'s description so a harness change lands next turn."""
+        if self.surface is None:
+            return False
+        pending = self.pending_prompt_entries()
+        changed = await self.surface.refresh(pending, self.connection)
+        if changed:
+            self.record("surface.refresh", {"entries": len(pending)})
+        return changed
 
     def bootstrap(self, *, agent: str = "auto", remove: bool = False) -> dict:
         """Project the harness into host-read files, writing only inside the delimiters."""

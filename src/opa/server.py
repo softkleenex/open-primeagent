@@ -14,12 +14,14 @@ import json
 from typing import Literal
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.context import Context
 
 from . import __version__
 from .config import Config
 from .kernel.exec import store_full, strip_ansi, truncate
 from .runtime_state import Runtime
 from .tools import bootstrap_tool, kernel_tool, python_tool, status_tool
+from .tools.surface import ToolSurface
 
 # The ceiling on the tool surface. Wanting to raise it is the signal to expose a
 # kernel symbol instead. tests/test_server.py enforces it.
@@ -40,8 +42,14 @@ def build_server(config: Config | None = None) -> MCPServer:
     runtime = Runtime(config)
     server = MCPServer(name="opa", version=__version__, instructions=INSTRUCTIONS)
 
+    surface = ToolSurface(server, "opa_python", python_tool.DESCRIPTION)
+    runtime.surface = surface
+
     @server.tool(name="opa_python", description=python_tool.DESCRIPTION)
-    async def opa_python(code: str, timeout: float = 120.0) -> str:
+    async def opa_python(code: str, timeout: float = 120.0, ctx: Context | None = None) -> str:
+        # The connection is how a harness change reaches the host mid-session:
+        # rewriting this tool's own description and asking it to re-read.
+        runtime.connection = getattr(ctx, "connection", None) if ctx else None
         kernel = await runtime.kernel()
         result = await kernel.execute(code, timeout=timeout)
 
@@ -72,6 +80,12 @@ def build_server(config: Config | None = None) -> MCPServer:
         )
         status = "ok" if result.ok else "error"
         return f"[{status} · {result.duration_ms}ms]\n{shown}"
+
+    surface.bind(opa_python)
+    # Nothing is rendered at startup on purpose: a fresh process has recorded
+    # nothing yet, and a note it cannot remember making carries no authority
+    # (see Runtime.pending_prompt_entries). Older notes reach the agent through
+    # the project file, or when it asks with harness.overview().
 
     @server.tool(name="opa_status", description=status_tool.DESCRIPTION)
     async def opa_status() -> str:
