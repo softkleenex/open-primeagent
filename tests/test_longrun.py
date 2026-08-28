@@ -297,16 +297,19 @@ def test_completing_an_exhausted_goal_is_refused(goals):
 # ---------- not burning a turn on an unchanged tree ----------
 
 def git_repo(tmp_path):
+    """A repository with no commit.
+
+    Deliberately: committing needs an ambient git identity, which a CI runner
+    does not have, and the fingerprint does not need one. Without a HEAD the
+    diff contributes nothing and the tree is described entirely by status and
+    untracked contents -- which is also a real state a workspace can be in.
+    """
     import subprocess
 
     root = tmp_path / "repo"
     root.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     (root / "a.py").write_text("x = 1\n", encoding="utf-8")
-    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
-    subprocess.run(
-        ["git", "-c", "commit.gpgsign=false", "commit", "-qm", "init"], cwd=root, check=True
-    )
     return root
 
 
