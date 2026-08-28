@@ -10,7 +10,6 @@ dependencies = [
   "mcp>=1.2",           # MCP server (stdio)
   "jupyter-client>=8",  # drives the persistent IPython kernel
   "ipykernel>=6",       # the kernel itself
-  "opa-runtime",        # kernel-side shim (workspace member)
 ]
 
 [project.optional-dependencies]
@@ -24,14 +23,16 @@ opa-child = "opa.child_server:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# Two top-level packages, one distribution. `opa_runtime` used to be a separate
+# workspace member, which meant `uvx open-primeagent` could not resolve it -- the
+# install line in our own README did not work. Shipping both from here keeps the
+# kernel-side name (it mirrors upstream's in-kernel `rlm` package) without asking
+# anyone to install two things.
 [tool.hatch.build.targets.wheel]
-packages = ["src/opa"]
+packages = ["src/opa", "runtime/src/opa_runtime"]
 
-[tool.uv.workspace]
-members = ["runtime"]
-
-[tool.uv.sources]
-opa-runtime = { workspace = true }
+[tool.hatch.build.targets.sdist]
+include = ["src", "runtime/src", "skills", "README.md", "LICENSE", "NOTICE"]
 
 [tool.ruff]
 line-length = 100

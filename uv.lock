@@ -7,12 +7,6 @@ resolution-markers = [
     "(python_full_version < '3.14' and sys_platform != 'emscripten') or (python_full_version < '3.12' and sys_platform == 'emscripten')",
 ]
 
-[manifest]
-members = [
-    "opa-runtime",
-    "open-primeagent",
-]
-
 [[package]]
 name = "annotated-types"
 version = "0.8.0"
@@ -652,11 +646,6 @@ wheels = [
 ]
 
 [[package]]
-name = "opa-runtime"
-version = "0.0.1"
-source = { editable = "runtime" }
-
-[[package]]
 name = "open-primeagent"
 version = "0.0.1"
 source = { editable = "." }
@@ -664,7 +653,6 @@ dependencies = [
     { name = "ipykernel" },
     { name = "jupyter-client" },
     { name = "mcp" },
-    { name = "opa-runtime" },
 ]
 
 [package.optional-dependencies]
@@ -684,7 +672,6 @@ requires-dist = [
     { name = "ipykernel", specifier = ">=6" },
     { name = "jupyter-client", specifier = ">=8" },
     { name = "mcp", specifier = ">=1.2" },
-    { name = "opa-runtime", editable = "runtime" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },

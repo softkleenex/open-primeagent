@@ -4,8 +4,9 @@
 
 ```bash
 uv sync --extra dev
-uv run pytest -q          # 99 tests, no CLI is invoked
+uv run pytest -q          # no CLI is invoked
 uv run ruff check .
+uv build                  # both packages ship from one distribution
 ```
 
 Optional, and they cost real quota:
