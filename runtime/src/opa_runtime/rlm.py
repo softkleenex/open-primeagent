@@ -59,6 +59,9 @@ async def run(prompt: str, **kwargs: Any) -> RLMSpawnHandle:
     adapter        "claude-code" | "codex". Defaults to the configured backend.
     cwd            must stay inside the workspace.
     system_prompt  a standing role spec for the child.
+    can_message_parent
+                   attach the one-tool `opa-child` server so the child can send
+                   progress notes mid-run instead of only when it finishes.
     """
     if not isinstance(prompt, str):
         raise TypeError(f"prompt must be str, got {type(prompt).__name__}")

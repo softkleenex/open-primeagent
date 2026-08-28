@@ -86,7 +86,7 @@ Found and fixed along the way:
 - [x] skill installation as `SKILL.md`, marked `.opa-managed`
 - [x] `harness.evidence()` / `apply()` / `rollback()` with `before` snapshots
 - [x] `opa_bootstrap` — the fourth and final tool
-- [ ] child → parent push (attach opa to the child, `OPA_ROLE=child`)
+- [x] child → parent push — the one-tool `opa-child` server, `OPA_ROLE=child`
 
 **Exit ✅**:
 
@@ -104,6 +104,12 @@ Also settled here:
   never had is itself changing their environment.
 - Ids keep Unicode word characters; stripping non-ASCII collapsed every Korean
   title onto one fallback id.
+- A child gets the **one-tool** `opa-child` server, never the full one, so it
+  cannot spawn grandchildren. That also answers the recursion-depth question the
+  investigation list was holding open.
+- The socket path must be passed to the adapter explicitly. It lives on the
+  *kernel's* environment, not the server's, so copying `os.environ` left children
+  unable to answer back — found by running it, not by reading it.
 
 ---
 

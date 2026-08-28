@@ -17,6 +17,7 @@ def config(tmp_path: Path) -> Config:
         default_adapter="claude-code",
         child_permission_mode="acceptEdits",
         allow_dangerous_child=False,
+        child_can_message_parent=False,
     )
 
 

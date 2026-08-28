@@ -139,10 +139,31 @@ the registry is not a convenience, it is where the value is.
 - **Unknown arguments raise.** `rlm(prompt, name="x", moodel="opus")` fails
   loudly rather than silently running on the default model.
 
-## Not yet
+## A child can report before it finishes
 
-Child → parent messaging currently happens when the child finishes: the adapter
-captures its final output into the parent mailbox. Pushing *mid-run* requires
-attaching the opa server to the child with `OPA_ROLE=child` — the reason the
-host bridge is a socket rather than a Jupyter comm. See the
-[roadmap](../roadmap.md).
+A child that can only speak at the end goes dark for the whole run. With
+`can_message_parent=True` it gets one extra tool, `opa_notify_parent`, and can
+push progress into the parent mailbox mid-run:
+
+```python
+await rlm("audit the payments path", name="security", can_message_parent=True)
+
+for note in await agent_message.inbox():
+    if note["mid_run"]:
+        print("progress:", note["message"])
+```
+
+`mid_run` distinguishes a progress note from the child's final answer.
+
+Two deliberate limits:
+
+- The child gets the **one-tool `opa-child` server, never the full one**. A child
+  with `rlm` could spawn grandchildren, each paying a full session startup. Here
+  recursion is structurally impossible rather than merely discouraged.
+- The parent verifies the sender against the registry. The bridge socket is
+  `0600`, but a name is not proof of identity, so a process claiming to be
+  `security` is refused unless a child by that name was actually spawned.
+
+This is why the host bridge is a socket rather than a Jupyter comm: a child
+process inherits `$OPA_HOST_SOCKET` and can call back through the same door the
+kernel uses.

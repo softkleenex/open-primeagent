@@ -54,6 +54,7 @@ processes.
 | `OPA_HOST_SOCKET` | Unix socket for calling back into the host |
 | `OPA_SESSION_DIR` | the current session directory |
 | `OPA_ROLE` | `parent` in the kernel; `child` in spawned agents |
+| `OPA_CHILD_NAME` | the spawned child's registry name, used when it messages the parent |
 
 A child inherits `OPA_HOST_SOCKET`, which is what will let it message its parent
 mid-run.

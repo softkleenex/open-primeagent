@@ -47,6 +47,7 @@ class Runtime:
         self.socket_path = self._pick_socket_path()
         self.bridge = HostBridge(self.socket_path)
         self.rlm = RLMService(config, self.paths.children, self.paths.mailbox)
+        self.rlm.host_socket = str(self.socket_path)
         self.harness = HarnessService(
             self.paths.harness_state.parent, config.global_root / "harness"
         )
@@ -124,9 +125,29 @@ class Runtime:
 
         async def message_send(payload: dict) -> dict:
             message = payload.get("message")
-            receiver_name = payload.get("receiver_name")
             if not isinstance(message, str) or not message.strip():
                 raise ValueError("message must be a non-empty string")
+
+            if (payload.get("receiver_role") or "child") == "parent":
+                # A child reporting mid-run. The sender must be a child we
+                # actually spawned, so a stray process on the same machine
+                # cannot post into the parent mailbox under any name it likes.
+                sender = str(payload.get("sender") or "").strip()
+                record = self.rlm.registry.get(sender) if sender else None
+                if record is None:
+                    known = ", ".join(r.name for r in self.rlm.registry.list()) or "(none)"
+                    raise ValueError(
+                        f"unknown sender {sender!r}; only a registered sub-agent can "
+                        f"message the parent. known: {known}"
+                    )
+                self.rlm.mailbox.deliver(
+                    to=PARENT, sender=record.name, message=message.strip(),
+                    rlm_child_id=record.rlm_child_id, ok=True, mid_run=True,
+                )
+                self.record("agent_message.push", {"sender": record.name})
+                return {"delivered_to": PARENT, "sender": record.name}
+
+            receiver_name = payload.get("receiver_name")
             if not isinstance(receiver_name, str) or not receiver_name.strip():
                 raise ValueError("receiver_name is required")
             return await self.rlm.send(message, receiver_name=receiver_name.strip())

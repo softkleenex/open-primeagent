@@ -25,14 +25,10 @@ Settled decisions:
 
 Phases 0-4 are done. What is left:
 
-1. **child → parent push** (the last Phase 3 item): a thin `opa-child` MCP entry
-   point talking to `$OPA_HOST_SOCKET` with `OPA_ROLE=child`, so a child can
-   message the parent mid-run instead of only at the end. Needs
-   `agent_message.send` to accept `receiver_role="parent"`.
-2. **Phase 5 — evolution.** Scoped in `docs/concepts/evolution.md`; the
+1. **Phase 5 — evolution.** Scoped in `docs/concepts/evolution.md`; the
    feasibility experiments are already done. `ToolSurface` (rebuild tool
    descriptions at runtime + `tools/list_changed`) is the first piece.
-3. **Distribution**: publish to PyPI so `uvx open-primeagent` works, and a
+2. **Distribution**: publish to PyPI so `uvx open-primeagent` works, and a
    Claude Code plugin for the slash commands.
 
 ## What the benchmarks changed about our understanding
@@ -83,13 +79,14 @@ From a coverage audit (90% overall):
       material — the only case where fan-out should win. This is the missing
       experiment that would settle whether sub-agents earn their cost.
 - [ ] `codex` has no `child`-marked integration test; only `claude` does.
+- [ ] The push channel is only wired into the claude adapter; codex needs the
+      same `--mcp-config` treatment.
 - [ ] Concurrency: nothing tests two `opa_python` calls racing to boot the kernel,
       although `Runtime.kernel()` locks for exactly that.
 
 ## To investigate
 
 - [ ] **opencode** headless / resume interface (`opencode run`? how does it resume?)
-- [ ] Recursion depth limit when opa is attached to a child via `--mcp-config`
 - [ ] `global` scope conflicts when several projects share `~/.opa`
 
 ## Reference files

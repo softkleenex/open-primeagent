@@ -14,6 +14,7 @@ from pathlib import Path
 ENV_HOST_SOCKET = "OPA_HOST_SOCKET"
 ENV_SESSION_DIR = "OPA_SESSION_DIR"
 ENV_ROLE = "OPA_ROLE"  # "parent" | "child"
+ENV_CHILD_NAME = "OPA_CHILD_NAME"
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,7 @@ class Config:
     default_adapter: str       # "claude-code" | "codex" | ...
     child_permission_mode: str # conservative default; bypass is explicit opt-in only
     allow_dangerous_child: bool
+    child_can_message_parent: bool  # attach the one-tool opa-child server
 
     @classmethod
     def from_env(cls) -> Config:
@@ -39,4 +41,5 @@ class Config:
             default_adapter=os.environ.get("OPA_DEFAULT_ADAPTER", "claude-code"),
             child_permission_mode=os.environ.get("OPA_CHILD_PERMISSION_MODE", "acceptEdits"),
             allow_dangerous_child=os.environ.get("OPA_ALLOW_DANGEROUS_CHILD") == "1",
+            child_can_message_parent=os.environ.get("OPA_CHILD_PUSH", "1") != "0",
         )

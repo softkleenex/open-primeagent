@@ -31,6 +31,9 @@ class TurnRequest:
     system_prompt: str | None = None
     permission_mode: str = "acceptEdits"
     allow_dangerous: bool = False
+    child_name: str | None = None       # used for the child -> parent push channel
+    can_message_parent: bool = False
+    host_socket: str | None = None      # the child cannot reach the parent without it
     timeout: float = 1800.0
 
 

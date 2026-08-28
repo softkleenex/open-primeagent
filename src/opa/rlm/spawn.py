@@ -28,7 +28,9 @@ ADAPTERS: dict[str, type] = {
 # Arguments rlm(...) accepts. Unknown ones are **rejected, not silently dropped**.
 # If `rlm(prompt, name="x", moodel="opus")` just passed, the run would continue on
 # the default model with nobody aware the override never applied.
-SPAWN_KWARGS = frozenset({"adapter", "cwd", "model", "system_prompt"})
+SPAWN_KWARGS = frozenset(
+    {"adapter", "cwd", "model", "system_prompt", "can_message_parent"}
+)
 
 
 class RLMService:
@@ -42,6 +44,8 @@ class RLMService:
         # session id race over the session file and corrupt its context. Messages
         # are queued, never dropped.
         self._turn_locks: dict[str, asyncio.Lock] = {}
+        # Set by Runtime once the bridge is bound; a child needs it to answer back.
+        self.host_socket: str | None = None
 
     # ---------- adapters ----------
 
@@ -79,6 +83,9 @@ class RLMService:
                 cwd=cwd,
                 model=kwargs.get("model"),
                 spec=kwargs.get("system_prompt"),
+                can_message_parent=bool(
+                    kwargs.get("can_message_parent", self.config.child_can_message_parent)
+                ),
                 native_session_id=adapter.preassign_session_id(),
             )
         )
@@ -169,6 +176,9 @@ class RLMService:
             system_prompt=record.spec,
             permission_mode=self.config.child_permission_mode,
             allow_dangerous=self.config.allow_dangerous_child,
+            child_name=record.name,
+            can_message_parent=record.can_message_parent,
+            host_socket=self.host_socket,
         )
         try:
             result = await adapter.run(request)

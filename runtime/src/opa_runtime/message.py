@@ -37,7 +37,11 @@ class _AgentMessage:
         )
 
     async def inbox(self, *, since: int = 0) -> list[dict[str, Any]]:
-        """Read the parent mailbox, where child results arrive."""
+        """Read the parent mailbox, where child results arrive.
+
+        Records with `mid_run: true` are progress notes a child pushed while it
+        was still working, rather than its final answer.
+        """
         payload = await host_request("agent_message.inbox", {"since": since})
         return payload["messages"]
 

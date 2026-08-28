@@ -39,6 +39,7 @@ class ChildRecord:
     native_session_id: str | None = None
     model: str | None = None
     spec: str | None = None
+    can_message_parent: bool = False
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
     turns: int = 0

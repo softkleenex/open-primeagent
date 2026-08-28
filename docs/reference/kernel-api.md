@@ -32,6 +32,7 @@ this does not wait for the child to finish.
 | `adapter` | `"claude-code"` (default) or `"codex"` |
 | `cwd` | must stay inside the workspace |
 | `system_prompt` | a standing role spec, applied on every turn |
+| `can_message_parent` | attach `opa_notify_parent` so the child can push progress mid-run |
 
 Unknown keyword arguments raise `TypeError` rather than being ignored — a silent
 `moodel="opus"` would run on the default model with nobody aware.
@@ -63,7 +64,9 @@ await agent_message.inbox(since=0)   # -> list of records
 ```
 
 Read the parent mailbox, where child results arrive. Each record has `at`,
-`sender`, `receiver`, `message`, `rlm_child_id`, `ok`, `tokens`.
+`sender`, `receiver`, `message`, `rlm_child_id`, `ok`, `tokens`. A record with
+`mid_run: true` is a progress note a child pushed while still working, not its
+final answer.
 
 Collection is a **pull**, not a push: we do not own the host's turn loop.
 

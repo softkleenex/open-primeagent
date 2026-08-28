@@ -16,13 +16,42 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
+import sys
 import time
 import uuid
+from pathlib import Path
 
 from .base import TurnRequest, TurnResult
 
 CLI = "claude"
+CHILD_SERVER_NAME = "opa_child"
+CHILD_PUSH_TOOL = f"mcp__{CHILD_SERVER_NAME}__opa_notify_parent"
+
+
+def write_child_mcp_config(session_dir: Path) -> Path:
+    """A config attaching only the one-tool `opa-child` server.
+
+    Never the full opa server: a child with `rlm` could spawn grandchildren, and
+    each one costs a full session startup.
+    """
+    session_dir.mkdir(parents=True, exist_ok=True)
+    path = session_dir / "child-mcp.json"
+    path.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    CHILD_SERVER_NAME: {
+                        "command": sys.executable,
+                        "args": ["-m", "opa.child_server"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 class ClaudeCodeAdapter:
@@ -48,7 +77,25 @@ class ClaudeCodeAdapter:
             cmd += ["--dangerously-skip-permissions"]
         else:
             cmd += ["--permission-mode", request.permission_mode]
+        if request.can_message_parent:
+            cmd += ["--mcp-config", str(write_child_mcp_config(request.session_dir))]
+            cmd += ["--allowedTools", CHILD_PUSH_TOOL]
         return cmd
+
+    def _env(self, request: TurnRequest) -> dict[str, str]:
+        """The child inherits the host socket, and learns which child it is.
+
+        The socket has to be passed in explicitly: it is set on the kernel's
+        environment, not on the server's own, so copying os.environ alone leaves
+        a child unable to reach its parent.
+        """
+        env = dict(os.environ)
+        env["OPA_ROLE"] = "child"
+        if request.child_name:
+            env["OPA_CHILD_NAME"] = request.child_name
+        if request.host_socket:
+            env["OPA_HOST_SOCKET"] = request.host_socket
+        return env
 
     async def run(self, request: TurnRequest) -> TurnResult:
         started = time.monotonic()
@@ -60,6 +107,7 @@ class ClaudeCodeAdapter:
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=self._env(request),
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=request.timeout)
