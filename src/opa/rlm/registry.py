@@ -14,6 +14,7 @@ Layout:
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -83,11 +84,13 @@ class ChildRegistry:
         return self
 
     def _persist(self, record: ChildRecord) -> None:
+        """Write atomically. A half-written child.json is a child nothing can find."""
         directory = self.child_dir(record.rlm_child_id)
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / "child.json").write_text(
-            json.dumps(asdict(record), indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        target = directory / "child.json"
+        tmp = directory / "child.json.tmp"
+        tmp.write_text(json.dumps(asdict(record), indent=2, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, target)
 
     # ---------- CRUD ----------
 
@@ -97,8 +100,10 @@ class ChildRegistry:
                 f"a sub-agent named {record.name!r} already exists. "
                 f"Send it a message instead of creating a duplicate."
             )
-        self._records[record.rlm_child_id] = record
+        # Persist first. Registering a child whose record never reached disk
+        # would hand back a handle for something no restart could ever recover.
         self._persist(record)
+        self._records[record.rlm_child_id] = record
         return record
 
     def update(self, rlm_child_id: str, **changes) -> ChildRecord:

@@ -223,6 +223,11 @@ So the value in sub-agents is not parallelism — it is that **the child
 persists**. Which is what the registry is for, and what "a child is not
 disposable" was always supposed to mean.
 
+One caveat we owe you: that 36k is *our* architecture's price. Upstream Prime
+Agent runs a child inside its own process and never pays a cold CLI boot. We
+shell out to your own `claude`/`codex` so that we do not have to own your host,
+and this is the bill for that trade.
+
 **Where a learned harness entry pays** — a project whose test suite depends on a
 generator hidden among 16 scripts in `tools/`, with 15 plausible decoys. Arm A
 discovers the rule by failing; arm B starts with one harness entry naming it:

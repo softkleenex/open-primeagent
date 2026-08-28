@@ -148,6 +148,12 @@ class Runtime:
                         f"unknown sender {sender!r}; only a registered sub-agent can "
                         f"message the parent. known: {known}"
                     )
+                if not self.rlm.mailbox.accepts_from(record.name):
+                    raise ValueError(
+                        f"{record.name!r} already has "
+                        f"{self.rlm.mailbox.pending_from(record.name)} unread messages; "
+                        "the parent has to read them before it sends more."
+                    )
                 self.rlm.mailbox.deliver(
                     to=PARENT, sender=record.name, message=message.strip(),
                     rlm_child_id=record.rlm_child_id, ok=True, mid_run=True,

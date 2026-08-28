@@ -171,6 +171,14 @@ They are the same fact seen from both sides:
 > A child costs roughly **36k tokens of session startup**. Spawning is
 > expensive; keeping one is nearly free.
 
+**That 36k is our architecture's price, not sub-agents'.** Upstream Prime Agent
+spawns a child as another session inside its own process, inheriting the
+runtime; it never pays a cold CLI boot. We shell out to the user's own
+`claude` / `codex` precisely so we do not have to own the host — and this is
+the bill for that choice. Anyone reading these numbers as "sub-agent fan-out
+does not work" is reading them too broadly; what they show is that **fan-out
+does not survive a per-child process boot**.
+
 Fanning out to four fresh specialists cost 8.8x. Re-tasking one that was already
 warm cost **one fifth** of starting a new one. So the value in sub-agents is not
 parallelism — it is that **the child persists**, which is exactly what the
@@ -288,6 +296,9 @@ tokens**, and the README does not claim there is.
   and "large project"; the remaining candidates are work that is genuinely
   serial-blocking per subsystem (each child running a build or a test suite of
   its own), where the ~30s startup is amortised against minutes of real work.
+- The same comparison against an in-process child. Upstream does not pay the
+  boot, so its fan-out economics are different from ours by construction, and we
+  have measured only ours.
 - Whether H2 (focused context finds more defects) is real. It needs n far larger
   than 2 and a defect set that is not four planted needles.
 - A weaker/cheaper model, where the rediscovery penalty should be larger.

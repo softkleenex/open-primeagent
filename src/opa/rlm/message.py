@@ -22,6 +22,13 @@ from ..session import jsonl
 
 PARENT = "parent"
 
+# A child reaching the parent is a channel a prompt-injected child can also
+# reach, so it is bounded. Upstream caps message size, pending count and rate
+# for the same reason; without a cap one child can bury everything the others
+# said, or blow out the context of whoever reads the mailbox next.
+MAX_MESSAGE_CHARS = 16_384
+MAX_PENDING_PER_SENDER = 20
+
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
@@ -36,9 +43,23 @@ class Mailbox:
         return self.dir / f"{safe}.jsonl"
 
     def deliver(self, *, to: str, sender: str, message: str, **extra) -> dict:
+        if len(message) > MAX_MESSAGE_CHARS:
+            head = MAX_MESSAGE_CHARS * 3 // 5
+            message = (
+                message[:head]
+                + f"\n… [truncated at {MAX_MESSAGE_CHARS:,} chars] …\n"
+                + message[-(MAX_MESSAGE_CHARS - head) :]
+            )
         record = {"at": _now(), "sender": sender, "receiver": to, "message": message, **extra}
         jsonl.append(self.path(to), record)
         return record
+
+    def pending_from(self, sender: str, *, to: str = PARENT) -> int:
+        return sum(1 for m in self.read(to) if m.get("sender") == sender)
+
+    def accepts_from(self, sender: str, *, to: str = PARENT) -> bool:
+        """Whether `sender` may add another message, or has said enough unread."""
+        return self.pending_from(sender, to=to) < MAX_PENDING_PER_SENDER
 
     def read(self, name: str = PARENT, *, since: int = 0, limit: int | None = None) -> list[dict]:
         return list(jsonl.read(self.path(name), since=since, limit=limit))

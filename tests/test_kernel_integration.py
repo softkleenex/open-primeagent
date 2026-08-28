@@ -72,3 +72,19 @@ async def test_exit3_restart_clears_vars_but_keeps_session(server, config):
 async def test_timeout_interrupts_instead_of_hanging(server):
     out = await call(server, "opa_python", {"code": "import time; time.sleep(30)", "timeout": 2})
     assert "Timeout" in out
+
+
+async def test_status_reports_what_is_still_callable(server):
+    """After a host loses context, the useful fact is not what was stored but
+    what still exists in the kernel."""
+    await call(server, "opa_python", {"code": "files = [1, 2, 3]\ndef rank(x): return x"})
+    state = json.loads(await call(server, "opa_status", {}))
+    assert "files" in state["kernel_names"]
+    assert "rank" in state["kernel_names"]
+    assert "In" not in state["kernel_names"]
+
+
+async def test_asking_for_names_does_not_start_a_kernel(server):
+    state = json.loads(await call(server, "opa_status", {}))
+    assert state["kernel_names"] == []
+    assert server._opa_runtime.kernel_if_started is None

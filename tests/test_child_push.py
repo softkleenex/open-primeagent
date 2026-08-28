@@ -166,3 +166,32 @@ def test_codex_attaches_it_when_the_sandbox_is_already_given_up(tmp_path):
     dangerous = request(tmp_path, can_message_parent=True, allow_dangerous=True)
     assert CodexAdapter.push_available(dangerous) is True
     assert "-c" in CodexAdapter().build_command(dangerous)
+
+
+async def test_a_child_cannot_bury_the_mailbox(runtime):
+    """The push channel is reachable by a prompt-injected child, so it is bounded.
+    One child must not be able to bury what the others said."""
+    from opa.rlm.message import MAX_PENDING_PER_SENDER
+
+    runtime.rlm.registry.add(
+        ChildRecord.new("noisy", "claude-code", Path(runtime.config.workspace))
+    )
+    for i in range(MAX_PENDING_PER_SENDER):
+        await host_request(
+            "agent_message.send",
+            {"message": f"note {i}", "receiver_role": "parent", "sender": "noisy"},
+        )
+    with pytest.raises(RuntimeError, match="already has 20 unread"):
+        await host_request(
+            "agent_message.send",
+            {"message": "one too many", "receiver_role": "parent", "sender": "noisy"},
+        )
+
+
+def test_an_enormous_message_is_truncated_not_dropped(tmp_path):
+    from opa.rlm.message import MAX_MESSAGE_CHARS, Mailbox
+
+    box = Mailbox(tmp_path / "mailbox")
+    record = box.deliver(to="parent", sender="c", message="x" * 100_000)
+    assert len(record["message"]) <= MAX_MESSAGE_CHARS + 80
+    assert "truncated" in record["message"]

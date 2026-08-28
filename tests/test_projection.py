@@ -133,3 +133,27 @@ def test_apply_finds_a_block_written_with_a_different_marker_text(tmp_path):
     assert text.count("opa:begin") == 1
     assert "old body" not in text
     assert "keep me" in text
+
+
+def test_the_block_is_budgeted_because_it_is_read_every_request(tmp_path):
+    """Unbounded, this block would grow until it cost more than it saved."""
+    from opa.harness import projection as proj
+
+    long_body = "SENTINEL_HEAD " + ("filler " * 200) + "SENTINEL_TAIL"
+    many = [entry("prompt", f"rule-{i}", f"Rule number {i}", long_body) for i in range(20)]
+    body = proj.render(many)
+
+    assert body.count("- **") == proj.MAX_PER_KIND
+    assert "14 more" in body
+    assert "harness.overview()" in body
+    # a summary, not the entry: the head survives, the rest does not
+    assert "SENTINEL_HEAD" in body
+    assert "SENTINEL_TAIL" not in body
+    for line in body.splitlines():
+        if line.startswith("- **"):
+            assert len(line) < proj.SUMMARY_CHARS + 60
+
+
+def test_counts_are_shown_so_nothing_looks_complete_when_it_is_not(tmp_path):
+    body = projection.render([entry("prompt", f"r{i}", f"t{i}") for i in range(9)])
+    assert "### Rules for this project (9)" in body

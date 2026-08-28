@@ -91,6 +91,9 @@ def build_server(config: Config | None = None) -> MCPServer:
     async def opa_status() -> str:
         kernel = runtime.kernel_if_started
         info = kernel.info() if kernel else None
+        # What is still callable matters more than what was stored. Upstream
+        # re-anchors a compacted agent with exactly this list.
+        names = await kernel.namespace() if kernel else []
         state = {
             "attention": runtime.attention(),
             "session_id": runtime.session_id,
@@ -107,6 +110,7 @@ def build_server(config: Config | None = None) -> MCPServer:
                 if info
                 else {"alive": False, "note": "not started yet — starts on first opa_python"}
             ),
+            "kernel_names": names,
             "subagents": [
                 {
                     "name": r.name,

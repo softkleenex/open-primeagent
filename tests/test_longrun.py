@@ -263,3 +263,32 @@ async def test_two_runs_cannot_overlap(runner):
     with pytest.raises(RuntimeError, match="already in progress"):
         await runner.start("y", child_name="w2", gate="exit 0")
     assert (await first)["outcome"] == "gate_passed"
+
+
+def test_an_active_goal_carries_the_rules_with_it(goals):
+    """A host that lost context should re-read the rules alongside the objective,
+    not have to remember them."""
+    goals.create("ship the release", token_budget=1000)
+    state = goals.get()
+    assert state["objective"] == "<objective>\nship the release\n</objective>"
+    assert "Only `await goal.complete()` ends it" in state["guidance"]
+    assert "audit the work" in state["guidance"]
+
+
+def test_an_exhausted_budget_gets_the_opposite_instruction(goals):
+    goals.create("big job", token_budget=100)
+    goals.spend(150)
+    state = goals.get()
+    assert state["budget_exhausted"] is True
+    assert "do not call" in state["guidance"]
+    assert "Start no new work" in state["guidance"]
+
+
+def test_completing_an_exhausted_goal_is_refused(goals):
+    """Running out of budget is not achieving the objective."""
+    goals.create("big job", token_budget=100)
+    goals.spend(150)
+    with pytest.raises(ValueError, match="not completion"):
+        goals.complete()
+    goals.abandon("budget ran out")
+    assert goals.goal.status == "abandoned"

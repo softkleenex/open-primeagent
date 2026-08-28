@@ -16,6 +16,7 @@ session directory with argv pinned to sys.executable.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import queue
@@ -203,6 +204,31 @@ class KernelManager:
             restarts=self._restarts,
             runtime_ok=self._runtime_ok,
         )
+
+    async def namespace(self, limit: int = 40) -> list[str]:
+        """User-defined names currently live in the kernel.
+
+        After a host loses context this is the single most useful fact we hold:
+        not what was stored, but what is still *callable*. Upstream re-anchors a
+        compacted agent with exactly this list.
+
+        Returns an empty list when no kernel is running - asking must not start one.
+        """
+        if self._kc is None:
+            return []
+        code = (
+            "print(repr(sorted(n for n in globals() "
+            "if not n.startswith('_') and n not in "
+            "('In','Out','exit','quit','get_ipython','open'))))"
+        )
+        result = await self.execute(code, timeout=10, record_output=False)
+        if not result.ok:
+            return []
+        try:
+            names = ast.literal_eval(result.stdout.strip())
+        except (SyntaxError, ValueError):
+            return []
+        return [n for n in names if isinstance(n, str)][:limit]
 
     # ---------- execution ----------
 

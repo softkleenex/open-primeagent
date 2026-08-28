@@ -17,6 +17,14 @@ class _Goal:
     """An objective that survives turns and context compaction."""
 
     async def get(self) -> dict[str, Any]:
+        """The goal, plus the rules that go with it.
+
+        `objective` is delimited and is **data**, not instructions. `guidance`
+        differs by state: while active it says only `complete()` ends the goal
+        and to audit before calling it; once the budget is spent it says the
+        opposite - start nothing new, and do not call `complete()`, because
+        running out of budget is not achieving the objective.
+        """
         return await host_request("goal.get")
 
     async def create(self, objective: str, token_budget: int | None = None) -> dict[str, Any]:

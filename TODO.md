@@ -75,6 +75,38 @@ authority comes from the project file. **L1 reminds, L0 authorises.** That also
 settled where the harness should live — per **project**, not per session, since
 it is what the codebase taught us rather than what one conversation did.
 
+## What the deep read of upstream changed
+
+Three parallel readings of `_ref/prime-agent` (compaction/kernel, child lifecycle,
+turn loop). No code copied. What it changed here:
+
+**Confirmed our shape.** Even upstream, which owns the whole host, has *no push
+signal* for compaction — its kernel finds out by polling `compact.status`. Our
+"the recovery call carries the knowledge" design is the same answer arrived at
+from a weaker position, not a compromise.
+
+**Filled real gaps.**
+- `opa_status` now lists live kernel names. Upstream re-anchors a compacted agent
+  with exactly that list, and we were not providing it.
+- The mailbox has per-message and per-sender caps. The push channel is reachable
+  by a prompt-injected child; one child must not be able to bury the rest.
+- Child records are written atomically and persisted *before* being registered.
+  A handle for a child whose record never reached disk is unrecoverable.
+- Goal carries its rules with it, and budget exhaustion now refuses `complete()`
+  outright with a wrap-up instruction instead of a status field nobody reads.
+- The projection block is budgeted (6 per kind, 180-char summaries, counts and
+  overflow). It is read on every request; unbounded it would cost more than it saves.
+
+**Corrected a claim.** Our 36k-per-child startup is the price of shelling out to
+the user's CLI, not a property of sub-agents: upstream's children are in-process
+sessions and never pay a cold boot. The benchmarks now say so.
+
+**Known gaps we did not close.** Upstream prunes oversized kernel variables at
+compaction and tells the model which ones went; we never prune, which is
+arguably better but should be stated. Upstream suppresses an autonomous rerun
+when the git worktree is unchanged — worth adopting. Its child→parent delivery
+steers a live turn; ours cannot, and never will from outside the host.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):

@@ -55,7 +55,14 @@ await schedule.due(collect=False)     # look without consuming
 ```
 
 Interval entries are the heartbeat form: firing reschedules them, one-offs
-deactivate.
+deactivate. Missed ticks coalesce — an interval that came due five times while
+you were away fires once, not five times.
+
+A host-owning harness offers two deliveries for these: *steer*, which interrupts
+a running turn, and *follow-up*, which waits for the turn to end. **We can only
+ever do the second.** Interrupting a turn means being inside the host's loop, and
+we are not. If you need something to actually interrupt, that is `autonomous`,
+where opa drives the children itself.
 
 `source` separates what you asked for from what the agent set up on its own
 (upstream keeps `/heartbeat` and `rlm_heartbeat` apart for the same reason). An

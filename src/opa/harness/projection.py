@@ -31,6 +31,12 @@ _BLOCK = re.compile(
 
 MEMORY_DIR_NAME = "memory"
 
+# This block is read on every request, so it is budgeted like one. Entries are
+# routing hints - enough to know a rule exists and go read it - not the rules
+# themselves. Upstream applies the same discipline for the same reason.
+MAX_PER_KIND = 6
+SUMMARY_CHARS = 180
+
 
 def _inside(directory: Path, name: str) -> Path:
     """Resolve `name` under `directory`, refusing to escape it.
@@ -45,8 +51,22 @@ def _inside(directory: Path, name: str) -> Path:
     return candidate
 
 
+def _section(lines: list[str], heading: str, entries: list, render_one) -> None:
+    if not entries:
+        return
+    shown = entries[:MAX_PER_KIND]
+    lines.append(f"### {heading} ({len(entries)})")
+    lines.append("")
+    lines += [render_one(entry) for entry in shown]
+    if len(entries) > len(shown):
+        lines.append(
+            f"- … {len(entries) - len(shown)} more — `await harness.overview()`"
+        )
+    lines.append("")
+
+
 def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> str:
-    """Render prompt entries, the memory index and the skill list as block body."""
+    """Render the block body: an index of what exists, not the content itself."""
     prompts = [e for e in entries if e.kind == "prompt"]
     memories = [e for e in entries if e.kind == "memory"]
     skills = [e for e in entries if e.kind == "skill"]
@@ -56,29 +76,20 @@ def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> st
         lines.append("_(harness is empty)_")
         return "\n".join(lines)
 
-    if prompts:
-        lines.append("### Rules for this project")
-        lines.append("")
-        for entry in prompts:
-            lines.append(f"- **{entry.title}** — {_one_line(entry.content)}")
-        lines.append("")
+    lines.append(
+        "Summaries recorded for this project, kept short because this block is "
+        "read on every request. Use them to know a rule exists; read the entry "
+        "with `await harness.overview()` when the detail matters."
+    )
+    lines.append("")
 
-    if memories:
-        # Only the **index**, never the bodies. "Context is for deciding, not for
-        # storage" applies to the projection too.
-        lines.append("### Memory index")
-        lines.append("")
-        for entry in memories:
-            location = f"`.opa/{MEMORY_DIR_NAME}/{entry.id}.md`" if memory_dir else f"`{entry.id}`"
-            lines.append(f"- {entry.title} → {location}")
-        lines.append("")
-
-    if skills:
-        lines.append("### Skills")
-        lines.append("")
-        for entry in skills:
-            lines.append(f"- `{entry.id}` — {_one_line(entry.content)}")
-        lines.append("")
+    _section(lines, "Rules for this project", prompts,
+             lambda e: f"- **{e.title}** — {_one_line(e.content, SUMMARY_CHARS)}")
+    _section(lines, "Memory index", memories,
+             lambda e: f"- {e.title} → "
+                       + (f"`.opa/{MEMORY_DIR_NAME}/{e.id}.md`" if memory_dir else f"`{e.id}`"))
+    _section(lines, "Skills", skills,
+             lambda e: f"- `{e.id}` — {_one_line(e.content, SUMMARY_CHARS)}")
 
     return "\n".join(lines).rstrip() + "\n"
 
