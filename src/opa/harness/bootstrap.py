@@ -105,9 +105,17 @@ def run(
     body = projection.render(entries, memory_dir=memory_dir)
     result.memories = [str(p) for p in projection.write_memories(memory_dir, entries)]
 
+    # Two names can be one file: `CLAUDE.md -> AGENTS.md` is a common symlink, and
+    # writing through it twice reported two updates for one edit. Deduplicate on
+    # the resolved path so the report describes what actually happened.
+    seen: set[Path] = set()
     for name in agents:
         spec = HOSTS[name]
         target = workspace / str(spec["prompt_file"] or FALLBACK_PROMPT_FILE)
+        resolved = target.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
         (result.updated if projection.apply(target, body) else result.unchanged).append(str(target))
         if spec["skills_dir"]:
             written = projection.write_skills(workspace / str(spec["skills_dir"]), entries)

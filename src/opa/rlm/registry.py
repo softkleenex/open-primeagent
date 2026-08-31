@@ -41,7 +41,6 @@ class ChildRecord:
     model: str | None = None
     spec: str | None = None
     can_message_parent: bool = False
-    token: str = ""          # identifies this child to the bridge; never self-asserted
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
     turns: int = 0

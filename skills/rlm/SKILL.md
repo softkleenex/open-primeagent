@@ -24,6 +24,24 @@ for m in await agent_message.inbox():
     print(m["sender"], m["message"][:200])
 ```
 
+**Keep any wait short.** Your host caps how long a single tool call may run —
+Claude Code cuts it at about two minutes — and that cap governs, not the
+`timeout` you pass to `opa_python`. A cell that polls until a child finishes will
+be backgrounded mid-wait. Poll briefly and come back:
+
+```python
+import asyncio
+for _ in range(10):                       # ~50s, comfortably inside the cap
+    inbox = await agent_message.inbox()
+    if inbox:
+        break
+    await asyncio.sleep(5)
+len(inbox)
+```
+
+There is nothing to lose by returning empty-handed: the mailbox is durable, so
+the next call picks up whatever arrived meanwhile.
+
 ## A child is not disposable
 
 ```python

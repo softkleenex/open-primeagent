@@ -76,3 +76,30 @@ def test_memory_bodies_never_land_in_the_prompt_file(harness, tmp_path):
     assert "api=8080 api=8080" not in text
     assert ".opa/memory/service-ports.md" in text
     assert (tmp_path / ".opa" / "memory" / "service-ports.md").exists()
+
+
+def test_a_symlinked_prompt_file_is_reported_once(harness, tmp_path):
+    """`CLAUDE.md -> AGENTS.md` is a common setup. Writing through the link twice
+    reported two updated files for one edit."""
+    (tmp_path / "AGENTS.md").write_text(USER_CLAUDE_MD, encoding="utf-8")
+    (tmp_path / "CLAUDE.md").symlink_to("AGENTS.md")
+    harness.create("prompt", "run generate", "after migrations")
+
+    result = bootstrap.run(harness, tmp_path, tmp_path / ".opa")
+
+    assert len(result.updated) + len(result.unchanged) == 1
+    text = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert text.count("opa:begin") == 1
+    assert (tmp_path / "CLAUDE.md").is_symlink(), "the link itself must survive"
+
+
+def test_removing_through_a_symlink_restores_the_target(harness, tmp_path):
+    (tmp_path / "AGENTS.md").write_text(USER_CLAUDE_MD, encoding="utf-8")
+    (tmp_path / "CLAUDE.md").symlink_to("AGENTS.md")
+    harness.create("prompt", "t", "c")
+
+    bootstrap.run(harness, tmp_path, tmp_path / ".opa")
+    bootstrap.run(harness, tmp_path, tmp_path / ".opa", remove=True)
+
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == USER_CLAUDE_MD
+    assert (tmp_path / "CLAUDE.md").is_symlink()

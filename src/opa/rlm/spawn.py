@@ -47,9 +47,16 @@ class RLMService:
         self._turn_locks: dict[str, asyncio.Lock] = {}
         # Set by Runtime once the bridge is bound; a child needs it to answer back.
         self.host_socket: str | None = None
-        # Mints a caller token per child. Identity has to come from something the
+        # Mints a caller token per turn. Identity has to come from something the
         # child cannot choose, or one child can speak as another.
+        #
+        # The token is never persisted. child.json lives under `.opa/` inside the
+        # workspace the children work in, and they have Read and Glob -- writing
+        # the credential there would let any sibling read it and speak as its
+        # owner, which is the exact impersonation this is meant to prevent.
+        # Minting per turn and revoking afterwards keeps it in memory and short.
         self.issue_token: Callable[[str], str] | None = None
+        self.revoke_token: Callable[[str], None] | None = None
 
     # ---------- adapters ----------
 
@@ -93,8 +100,6 @@ class RLMService:
                 native_session_id=adapter.preassign_session_id(),
             )
         )
-        if self.issue_token is not None:
-            self.registry.update(record.rlm_child_id, token=self.issue_token(record.name))
         self._launch(record, prompt, adapter, resume=False)
         return {
             "rlm_child_id": record.rlm_child_id,
@@ -172,6 +177,7 @@ class RLMService:
                 rlm_child_id=record.rlm_child_id, ok=False,
             )
             return
+        turn_token = self.issue_token(record.name) if self.issue_token else None
         request = TurnRequest(
             prompt=prompt,
             cwd=Path(record.cwd),
@@ -186,10 +192,16 @@ class RLMService:
             child_name=record.name,
             can_message_parent=record.can_message_parent,
             host_socket=self.host_socket,
-            token=record.token or None,
+            token=turn_token,
         )
         try:
-            result = await adapter.run(request)
+            try:
+                result = await adapter.run(request)
+            finally:
+                # The credential outlives nothing: once the turn is over the
+                # token stops being accepted at all.
+                if turn_token and self.revoke_token:
+                    self.revoke_token(turn_token)
         except Exception as exc:  # noqa: BLE001 - a child failure must not kill the host
             self._safe_update(
                 record.rlm_child_id, status="error", last_error=f"{type(exc).__name__}: {exc}"

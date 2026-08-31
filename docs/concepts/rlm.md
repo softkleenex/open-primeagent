@@ -43,6 +43,12 @@ await agent_message.inbox()
 Collection is a **pull**. We do not own your host's turn loop, so we cannot wake
 you — you collect on your next turn.
 
+Keep the wait short. Your host caps how long one tool call may run (Claude Code
+cuts it at roughly two minutes), and that cap wins over the `timeout` you pass to
+`opa_python`; a cell that polls until a child finishes gets backgrounded
+mid-wait. Poll for a few tens of seconds and return. The mailbox is durable, so
+coming back empty-handed costs nothing.
+
 ## It survives restarts
 
 The registry is on disk, not in kernel memory. After a kernel restart, a context
@@ -187,10 +193,16 @@ children share our uid.
 
 So the boundary lives in the bridge:
 
-- **Every caller carries a token.** The kernel gets one, each child gets its own,
-  and a handler declares which roles may invoke it. A child's token authorises
-  exactly one request type — `agent_message.send` to its parent. `harness.apply`,
-  `harness.project`, `rlm.run`, `autonomous.start` and the rest are unreachable.
+- **Every caller carries a token.** The kernel gets one; a child gets one **per
+  turn**, held in memory and revoked when the turn ends. It is deliberately never
+  written to `child.json`: that file lives under `.opa/` inside the workspace the
+  children work in, and they have `Read` and `Glob` — a credential stored there
+  is a credential shared with every sibling.
+- **A handler declares which roles may invoke it**, defaulting to parent-only. A
+  child's token authorises `agent_message.send` **to its parent** and nothing
+  else. Not `harness.apply`, not `rlm.run`, and not the parent→child direction of
+  `agent_message.send` — that one re-tasks a live session with an arbitrary
+  prompt, so a child reaching it would own its sibling.
 - **Identity comes from the token, never from the payload.** A `sender` field is
   ignored. Taking it on trust let one compromised child file forged findings
   under a sibling's name, and burn that sibling's mailbox quota until its real

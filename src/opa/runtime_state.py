@@ -50,6 +50,7 @@ class Runtime:
         self.rlm = RLMService(config, self.paths.children, self.paths.mailbox)
         self.rlm.host_socket = str(self.socket_path)
         self.rlm.issue_token = lambda name: self.bridge.issue_token("child", name)
+        self.rlm.revoke_token = self.bridge.revoke_token
         # The kernel is the only caller allowed everything. A child gets its own
         # token and a much shorter list of things it may ask for.
         self.kernel_token = self.bridge.issue_token("parent")
@@ -170,6 +171,16 @@ class Runtime:
                 self.record("agent_message.push", {"sender": record.name})
                 return {"delivered_to": PARENT, "sender": record.name}
 
+            # Everything below re-tasks another agent's live session with an
+            # arbitrary prompt. A child reaching it could hijack a sibling -- and
+            # the message would be filed as if the parent had sent it. Only the
+            # kernel drives children.
+            caller = bridge_current_caller()
+            if caller is not None and caller.role != "parent":
+                raise ValueError(
+                    "a sub-agent may only message its parent; re-tasking another "
+                    "agent is the parent's to do"
+                )
             receiver_name = payload.get("receiver_name")
             if not isinstance(receiver_name, str) or not receiver_name.strip():
                 raise ValueError("receiver_name is required")
