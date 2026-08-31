@@ -119,6 +119,47 @@ arguably better but should be stated. Upstream's suppression of an autonomous re
 unchanged git worktree is adopted. Its child→parent delivery
 steers a live turn; ours cannot, and never will from outside the host.
 
+## What dogfooding found (2026-08-31)
+
+First real use of opa on this repository rather than on a benchmark. Four
+findings in one sitting, none of which a synthetic experiment would have
+produced.
+
+**A stale server is invisible.** The registered MCP server had been alive for
+days and was still running Phase 3 code: it answered `goal: {"note": "Phase 4"}`
+and had no `attention` field, while the source on disk was current. An MCP
+server lives as long as the host session, so it never picks up an upgrade until
+the host reconnects — and nothing said so. `opa_status` now reports the running
+server's own version and start time.
+
+**The bridge had no trust boundary, and our docstrings claimed it did.** Found
+by pointing a reviewer child at `src/opa/bridge.py` and the push path. A child is
+a separate process holding `$OPA_HOST_SOCKET`, and since children now get `Bash`
+by default it can speak the protocol directly — the one-tool MCP server only
+limits what its *model* is offered. It could call `harness.apply` and
+`harness.project` and write a persistent instruction into the user's own
+`CLAUDE.md`, spawn grandchildren via `rlm.run`, or delete its siblings. Fixed
+with per-caller tokens: a child's token authorises `agent_message.send` and
+nothing else.
+
+**`sender` was self-asserted.** One child could file forged findings under a
+sibling's name and exhaust that sibling's mailbox quota. Identity now comes from
+the token.
+
+**Children inherited the whole server environment.** Every secret the server
+held travelled to a process the threat model assumes may be prompt-injected,
+which only has to run `env`. Children now get a built environment plus
+`OPA_CHILD_ENV_PASSTHROUGH`.
+
+Worth recording *how* these were missed: the earlier security pass found a path
+traversal because it went looking for path traversal. It never tested the trust
+boundary a docstring asserted. A reviewer reading the code with no memory of
+having written it did.
+
+Also learned: of the three coding CLIs installed here, only `claude` is usable —
+`codex` reports an expired token and `gemini` an ineligible tier. That blocks
+adapter work that cannot be verified by running it.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):
