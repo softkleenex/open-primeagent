@@ -38,18 +38,24 @@ from slowsuite import SUBSYSTEMS, SUITE_SECONDS, build, verify
 from opa.config import Config
 from opa.server import build_server
 
+# Both prompts demand the check's *output*, not just that it passes. Without
+# that an agent can fix by inspection and never run anything, which is exactly
+# how the first version of this benchmark failed to impose the blocking work it
+# was built to impose.
 CHILD_TASK = (
     "In this repository, {name}/core.py has a bug: {hint}. Fix {name}/core.py so "
     "that `python3 {name}/check.py` exits 0. The check takes about {seconds} "
     "seconds to run, which is expected — wait for it. Do NOT edit {name}/check.py. "
-    "Reply with only DONE when it passes."
+    "You must actually run the check and report its exact stdout and exit status; "
+    "do not claim it passes without having run it. Reply with that output."
 )
 SINGLE_TASK = (
     "This repository has four subsystems: {names}. Each has one bug in its "
     "core.py, and an acceptance check `python3 <name>/check.py` that must exit 0. "
     "Each check takes about {seconds} seconds to run, which is expected — wait for "
-    "them. Fix all four. Do NOT edit any check.py. Reply with only DONE when all "
-    "four pass."
+    "them. Fix all four. Do NOT edit any check.py. You must actually run all four "
+    "checks after fixing and report each one's exact stdout and exit status; do "
+    "not claim a check passes without having run it. Reply with those four outputs."
 )
 
 
@@ -63,6 +69,7 @@ class Run:
     duration_ms: int = 0
     passed: int = 0
     passing: list[str] = field(default_factory=list)
+    verified: list[str] = field(default_factory=list)   # checks the agent itself ran
     tampered: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -126,6 +133,7 @@ async def run_arm(arm: str, model: str, seconds: int, timeout: float) -> Run:
             duration_ms=elapsed,
             passed=int(graded["passed"]),
             passing=list(graded["passing"]),
+            verified=list(graded["verified"]),
             tampered=list(graded["tampered"]),
             errors=[r.name for r in records if r.status == "error"],
         )
@@ -139,7 +147,9 @@ async def main_async(args) -> None:
         f"{len(SUBSYSTEMS)} subsystems, each check blocks ~{args.seconds}s "
         f"(serial floor for one agent: ~{args.seconds * len(SUBSYSTEMS)}s)"
     )
-    rows: list[Run] = []
+    out = Path(args.out) / f"serial-{args.model}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+
     for attempt in range(args.repeat):
         for arm in ("single", "fanout"):
             print(f"[{arm}] attempt {attempt + 1}/{args.repeat} …", flush=True)
@@ -147,17 +157,17 @@ async def main_async(args) -> None:
             print(
                 f"    {row.duration_ms / 1000:6.1f}s  tokens={row.child_tokens:,} "
                 f"cost=${row.child_cost}  passed={row.passed}/4 "
+                f"verified={len(row.verified)}/4 "
                 f"tampered={row.tampered} errors={row.errors}",
                 flush=True,
             )
-            rows.append(row)
-
-    out = Path(args.out) / f"serial-{args.model}.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
-    out.write_text(
-        json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8"
-    )
+            # Write after each attempt. These runs take minutes and cost real
+            # rate limit; losing all of them to one interruption is not a
+            # tradeoff worth making for tidier code.
+            previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
+            out.write_text(
+                json.dumps(previous + [asdict(row)], indent=2), encoding="utf-8"
+            )
     print(f"wrote {out}")
 
 

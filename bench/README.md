@@ -20,9 +20,17 @@ All runs: Sonnet, macOS, one machine, sequential. `billed tokens` =
 `input + output + cache_creation` (cache reads are reported separately in the
 raw JSON and excluded here, since they are billed at a fraction of the rate).
 
+**The cost column is an API-rate equivalent, not a charge.** These runs used a
+subscription login, where consumption counts against rate limits rather than
+being billed per token. `total_cost_usd` is what Claude Code computes the same
+usage would cost at API rates, and it is reported here because it is a single
+comparable number — not because anyone was invoiced for it. Tokens are the
+figure to compare.
+
 ```
 uv run python bench/subagents.py --experiment parallel --repeat 3
 uv run python bench/fanout.py --repeat 2
+uv run python bench/serial.py --repeat 3 --seconds 30
 uv run python bench/warm.py --repeat 4
 ```
 
@@ -76,6 +84,68 @@ We have not yet measured the case where it should win: a codebase large enough
 that the parent could not hold the material at all. Until we do, **there is no
 measured evidence that sub-agent fan-out is worth it**, and
 [the docs say so where people will read them](../docs/concepts/rlm.md#when-not-to-fan-out).
+
+## 0-. Ownership and verification  ⚠️ the finding was not the one we went looking for
+
+`bench/serial.py`, `bench/slowsuite.py`
+
+Four subsystems, one small planted bug each, and an acceptance check per
+subsystem that blocks for 30s before it can report — the shape of a build. Both
+arms are told to fix all four, run every check, and report each one's output.
+
+- **single** — one agent does all four
+- **fanout** — one child per subsystem
+
+The question was whether serial blocking work finally makes fan-out worth it.
+The answer turned out to be about something else.
+
+| | single | fanout |
+|---|---|---|
+| subsystems fixed | 4/4, 4/4, 4/4 | 4/4, 4/4, 4/4 |
+| **checks actually run** | **4/4, 0/4, 0/4** | **4/4, 4/4, 4/4** |
+| wall clock | 93s, 51s, 55s | 66s, 53s, 51s |
+| billed tokens | 43,135 | 119,449 |
+| checks tampered with | 0 | 0 |
+| n | 3 | 3 |
+
+**Four specialists each verified their own subsystem, every time. One agent
+doing all four verified everything once in three runs** — the other two times it
+fixed the code correctly by inspection and never ran a check, despite being told
+to run all four and report their output.
+
+Nobody edited an acceptance check, in any run of any arm.
+
+That makes the wall-clock column mostly unusable: two of the three single runs
+are fast because they skipped work. On the one occasion both arms did the same
+thing, single took **93s against fan-out's 56s** — n=1, directional at best.
+
+What is measured, at n=3 on both sides, is the verification behaviour. A
+plausible reading is that ownership does it: a child that owns one subsystem
+runs its one check, while an agent holding four decides three of them are
+obvious. We have not tested that explanation.
+
+Fan-out still costs **2.8x the tokens**, for the same fixes.
+
+### It took four attempts to measure anything
+
+Worth recording, because the failures were all the same shape.
+
+1. Children could not run shell commands at all. `--permission-mode acceptEdits`
+   alone leaves a headless child asking for an approval nobody is there to give;
+   it could edit files but never test them. Fixed in the product, not the
+   benchmark — see [rlm.md](../docs/concepts/rlm.md#a-child-needs-tools-not-just-permission).
+   Results archived as `results/serial-INVALID-children-could-not-run-commands.json`.
+2. With that fixed, the task said "make the checks pass", so an agent could fix
+   by inspection and skip the blocking work entirely. The prompt was tightened.
+3. The tightened prompt did not bind either — runs still finished well under the
+   120s of mandatory sleep. Archived as `results/serial-unequal-verification.json`.
+4. Each check now writes a receipt before it can fail, so grading can report what
+   was actually run rather than what was asked for.
+
+The lesson generalises: **an agent decides how much verification to do, so a
+benchmark cannot impose work through its prompt.** If the scoring cannot tell
+whether the work happened, the numbers are measuring something else. All three
+earlier versions produced plausible tables.
 
 ## 0a. Fan-out on a large codebase  ❌ it loses even here
 
@@ -292,10 +362,11 @@ tokens**, and the README does not claim there is.
   the persistent kernel.
 - A run across a context compaction, where kernel state survives and context does
   not — the case opa is actually designed for.
-- A case where fan-out wins at all. Benchmarks 0 and 0a rule out "small project"
-  and "large project"; the remaining candidates are work that is genuinely
-  serial-blocking per subsystem (each child running a build or a test suite of
-  its own), where the ~30s startup is amortised against minutes of real work.
+- A clean wall-clock comparison under serial blocking work. Benchmark 0- only
+  managed one run where both arms did the same thing. Forcing equal verification
+  — rather than measuring it after the fact — is the missing piece.
+- Whether ownership really is what drives the verification difference, or whether
+  it is an artifact of one prompt describing four jobs and the other describing one.
 - The same comparison against an in-process child. Upstream does not pay the
   boot, so its fan-out economics are different from ours by construction, and we
   have measured only ours.

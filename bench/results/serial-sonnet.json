@@ -1,0 +1,130 @@
+[
+  {
+    "arm": "single",
+    "seconds": 30,
+    "child_tokens": 48357,
+    "child_cost": 0.366659,
+    "children": 1,
+    "duration_ms": 92668,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "verified": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "fanout",
+    "seconds": 30,
+    "child_tokens": 120843,
+    "child_cost": 0.665656,
+    "children": 4,
+    "duration_ms": 65720,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "verified": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "single",
+    "seconds": 30,
+    "child_tokens": 39988,
+    "child_cost": 0.271821,
+    "children": 1,
+    "duration_ms": 50633,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "verified": [],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "fanout",
+    "seconds": 30,
+    "child_tokens": 118556,
+    "child_cost": 0.644982,
+    "children": 4,
+    "duration_ms": 52678,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "verified": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "single",
+    "seconds": 30,
+    "child_tokens": 41061,
+    "child_cost": 0.259665,
+    "children": 1,
+    "duration_ms": 54633,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "verified": [],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "fanout",
+    "seconds": 30,
+    "child_tokens": 118949,
+    "child_cost": 0.64727,
+    "children": 4,
+    "duration_ms": 50621,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "verified": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  }
+]

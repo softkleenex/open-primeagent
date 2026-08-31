@@ -232,6 +232,15 @@ Agent runs a child inside its own process and never pays a cold CLI boot. We
 shell out to your own `claude`/`codex` so that we do not have to own your host,
 and this is the bill for that trade.
 
+**One thing fan-out did buy, unexpectedly.** Given four subsystems each with a
+bug and a 30-second acceptance check, four specialists ran every check, every
+time (3/3 runs). One agent doing all four fixed the code correctly but verified
+everything only **once in three runs** — twice it decided inspection was enough
+and never ran a check, despite being told to. Same fixes either way, at 2.8x the
+tokens. [The write-up](bench/README.md#0--ownership-and-verification--the-finding-was-not-the-one-we-went-looking-for)
+also records that it took four attempts before the benchmark measured anything
+real.
+
 **Where a learned harness entry pays** — a project whose test suite depends on a
 generator hidden among 16 scripts in `tools/`, with 15 plausible decoys. Arm A
 discovers the rule by failing; arm B starts with one harness entry naming it:

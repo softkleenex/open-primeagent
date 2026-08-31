@@ -1,0 +1,104 @@
+[
+  {
+    "arm": "single",
+    "seconds": 30,
+    "child_tokens": 40359,
+    "child_cost": 0.276431,
+    "children": 1,
+    "duration_ms": 170861,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "fanout",
+    "seconds": 30,
+    "child_tokens": 118543,
+    "child_cost": 0.646132,
+    "children": 4,
+    "duration_ms": 52665,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "single",
+    "seconds": 30,
+    "child_tokens": 38159,
+    "child_cost": 0.229133,
+    "children": 1,
+    "duration_ms": 50616,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "fanout",
+    "seconds": 30,
+    "child_tokens": 118872,
+    "child_cost": 0.657595,
+    "children": 4,
+    "duration_ms": 54600,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "single",
+    "seconds": 30,
+    "child_tokens": 39398,
+    "child_cost": 0.23819,
+    "children": 1,
+    "duration_ms": 50640,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  },
+  {
+    "arm": "fanout",
+    "seconds": 30,
+    "child_tokens": 117283,
+    "child_cost": 0.637338,
+    "children": 4,
+    "duration_ms": 54671,
+    "passed": 4,
+    "passing": [
+      "parser",
+      "pricing",
+      "routing",
+      "cache"
+    ],
+    "tampered": [],
+    "errors": []
+  }
+]

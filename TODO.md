@@ -45,6 +45,7 @@ Measured value so far is concentrated in **the harness**, not in RLM:
 | persistent kernel on shell-friendly work | ❌ +42% turns, +33% cost |
 | sub-agent fan-out on a small codebase | ❌ +454% tokens, +777% cost |
 | sub-agent fan-out on a 444-file codebase | ❌ +259% tokens, **+127% wall clock** |
+| fan-out with a blocking check per subsystem | ⚠️ same fixes, 2.8x tokens, but **4/4 checks verified vs 1-of-3 runs** |
 | warm child re-tasking vs a cold child | ✅ -91% tokens, -81% cost |
 
 Two mechanisms explain all of it:
@@ -103,6 +104,14 @@ from a weaker position, not a compromise.
 **Corrected a claim.** Our 36k-per-child startup is the price of shelling out to
 the user's CLI, not a property of sub-agents: upstream's children are in-process
 sessions and never pay a cold boot. The benchmarks now say so.
+
+**A methodology lesson worth keeping.** The serial-work benchmark measured the
+wrong thing three times before it measured anything: children could not run
+shell commands at all; then the task let an agent fix by inspection and skip the
+work; then a tightened prompt still did not bind. An agent decides how much
+verification to do, so a benchmark cannot impose work through its prompt — the
+scoring has to be able to tell whether the work happened. Every failed version
+produced a plausible table.
 
 **Known gaps we did not close.** Upstream prunes oversized kernel variables at
 compaction and tells the model which ones went; we never prune, which is
