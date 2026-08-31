@@ -27,6 +27,22 @@ from .base import TurnRequest, TurnResult
 
 CLI = "claude"
 CHILD_SERVER_NAME = "opa_child"
+
+# What a coding CLI needs to start and find its own configuration. Everything
+# else the server happens to hold stays with the server.
+BASE_ENV = (
+    "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TERM",
+    "TMPDIR", "TEMP", "TMP", "SSL_CERT_FILE", "SSL_CERT_DIR",
+    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy",
+    "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME",
+    "CLAUDE_CONFIG_DIR", "CODEX_HOME", "NODE_EXTRA_CA_CERTS",
+)
+
+
+def _passthrough() -> tuple[str, ...]:
+    """Extra variables the user has explicitly chosen to forward to children."""
+    raw = os.environ.get("OPA_CHILD_ENV_PASSTHROUGH", "")
+    return tuple(part.strip() for part in raw.split(",") if part.strip())
 CHILD_PUSH_TOOL = f"mcp__{CHILD_SERVER_NAME}__opa_notify_parent"
 
 
@@ -88,18 +104,29 @@ class ClaudeCodeAdapter:
         return cmd
 
     def _env(self, request: TurnRequest) -> dict[str, str]:
-        """The child inherits the host socket, and learns which child it is.
+        """Build the child's environment, rather than handing it ours.
 
-        The socket has to be passed in explicitly: it is set on the kernel's
-        environment, not on the server's own, so copying os.environ alone leaves
-        a child unable to reach its parent.
+        Copying `os.environ` wholesale gave a child every secret the server
+        happened to hold -- cloud credentials, tokens for other MCP servers --
+        and a prompt-injected child with a shell only has to run `env`. It needs
+        far less than that: enough to find its CLI and its own config.
+
+        The socket is passed explicitly because it lives on the *kernel's*
+        environment, not the server's, so inheriting alone left children unable
+        to answer back at all.
         """
-        env = dict(os.environ)
+        env = {
+            name: os.environ[name]
+            for name in (*BASE_ENV, *_passthrough())
+            if name in os.environ
+        }
         env["OPA_ROLE"] = "child"
         if request.child_name:
             env["OPA_CHILD_NAME"] = request.child_name
         if request.host_socket:
             env["OPA_HOST_SOCKET"] = request.host_socket
+        if request.token:
+            env["OPA_CHILD_TOKEN"] = request.token
         return env
 
     async def run(self, request: TurnRequest) -> TurnResult:

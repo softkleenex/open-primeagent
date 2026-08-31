@@ -35,6 +35,7 @@ class TurnRequest:
     child_name: str | None = None       # used for the child -> parent push channel
     can_message_parent: bool = False
     host_socket: str | None = None      # the child cannot reach the parent without it
+    token: str | None = None            # what the bridge will recognise it as
     timeout: float = 1800.0
 
 

@@ -77,10 +77,13 @@ def _now() -> str:
 
 
 class KernelManager:
-    def __init__(self, *, cwd: Path, socket_path: Path, session_dir: Path) -> None:
+    def __init__(
+        self, *, cwd: Path, socket_path: Path, session_dir: Path, token: str = ""
+    ) -> None:
         self.cwd = cwd
         self.socket_path = socket_path
         self.session_dir = session_dir
+        self.token = token
         self._km: Any | None = None
         self._kc = None
         self._started_at: str | None = None
@@ -134,6 +137,8 @@ class KernelManager:
         env["OPA_HOST_SOCKET"] = str(self.socket_path)
         env["OPA_SESSION_DIR"] = str(self.session_dir)
         env["OPA_ROLE"] = "parent"
+        if self.token:
+            env["OPA_HOST_TOKEN"] = self.token
         return env
 
     # ---------- lifecycle ----------

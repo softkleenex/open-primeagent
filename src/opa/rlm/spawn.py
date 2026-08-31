@@ -11,6 +11,7 @@ results arrive in the mailbox. So these two lines really do run in parallel:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from pathlib import Path
 
 from ..config import Config
@@ -46,6 +47,9 @@ class RLMService:
         self._turn_locks: dict[str, asyncio.Lock] = {}
         # Set by Runtime once the bridge is bound; a child needs it to answer back.
         self.host_socket: str | None = None
+        # Mints a caller token per child. Identity has to come from something the
+        # child cannot choose, or one child can speak as another.
+        self.issue_token: Callable[[str], str] | None = None
 
     # ---------- adapters ----------
 
@@ -89,6 +93,8 @@ class RLMService:
                 native_session_id=adapter.preassign_session_id(),
             )
         )
+        if self.issue_token is not None:
+            self.registry.update(record.rlm_child_id, token=self.issue_token(record.name))
         self._launch(record, prompt, adapter, resume=False)
         return {
             "rlm_child_id": record.rlm_child_id,
@@ -180,6 +186,7 @@ class RLMService:
             child_name=record.name,
             can_message_parent=record.can_message_parent,
             host_socket=self.host_socket,
+            token=record.token or None,
         )
         try:
             result = await adapter.run(request)

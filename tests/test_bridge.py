@@ -22,6 +22,7 @@ async def bridge(monkeypatch):
     br = HostBridge(path)
     await br.serve()
     monkeypatch.setenv("OPA_HOST_SOCKET", str(path))
+    monkeypatch.setenv("OPA_HOST_TOKEN", br.issue_token("parent"))
     yield br
     await br.close()
 
@@ -103,7 +104,12 @@ async def test_handler_result_cannot_shadow_protocol_fields(bridge):
     assert reply == {"status": "running", "error": "not really", "id": "999", "ok": True}
 
     reader, writer = await asyncio.open_unix_connection(str(bridge.socket_path))
-    writer.write(json.dumps({"id": "1", "type": "test.sneaky"}).encode() + b"\n")
+    writer.write(
+        json.dumps(
+            {"id": "1", "token": os.environ["OPA_HOST_TOKEN"], "type": "test.sneaky"}
+        ).encode()
+        + b"\n"
+    )
     await writer.drain()
     wire = json.loads(await reader.readline())
     writer.close()

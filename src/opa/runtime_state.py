@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .bridge import HostBridge
+from .bridge import current_caller as bridge_current_caller
 from .config import Config
 from .harness import bootstrap as bootstrap_mod
 from .harness.service import HarnessService
@@ -48,6 +49,10 @@ class Runtime:
         self.bridge = HostBridge(self.socket_path)
         self.rlm = RLMService(config, self.paths.children, self.paths.mailbox)
         self.rlm.host_socket = str(self.socket_path)
+        self.rlm.issue_token = lambda name: self.bridge.issue_token("child", name)
+        # The kernel is the only caller allowed everything. A child gets its own
+        # token and a much shorter list of things it may ask for.
+        self.kernel_token = self.bridge.issue_token("parent")
         # Per **project**, not per session. The harness is what this codebase
         # taught us; scoping it to one conversation would throw that away every
         # time a session ends, and leave `harness.list()` unable to answer "what
@@ -140,13 +145,17 @@ class Runtime:
                 # A child reporting mid-run. The sender must be a child we
                 # actually spawned, so a stray process on the same machine
                 # cannot post into the parent mailbox under any name it likes.
-                sender = str(payload.get("sender") or "").strip()
+                # Identity comes from the caller's token. A `sender` field in
+                # the payload is ignored: taking it on trust let any child post
+                # under a sibling's name, forging provenance and burning that
+                # sibling's mailbox quota.
+                caller = bridge_current_caller()
+                sender = caller.name if caller else ""
                 record = self.rlm.registry.get(sender) if sender else None
                 if record is None:
-                    known = ", ".join(r.name for r in self.rlm.registry.list()) or "(none)"
                     raise ValueError(
-                        f"unknown sender {sender!r}; only a registered sub-agent can "
-                        f"message the parent. known: {known}"
+                        "only a registered sub-agent may message the parent, and its "
+                        "identity comes from its own caller token"
                     )
                 if not self.rlm.mailbox.accepts_from(record.name):
                     raise ValueError(
@@ -362,7 +371,10 @@ class Runtime:
         self.bridge.register("rlm.run", rlm_run)
         self.bridge.register("rlm.list_subagents", rlm_list)
         self.bridge.register("rlm.delete_subagent", rlm_delete)
-        self.bridge.register("agent_message.send", message_send)
+        # The only thing a child may ask for. Everything else stays parent-only,
+        # because a child process holds the socket and can speak this protocol
+        # directly whatever its MCP tool list says.
+        self.bridge.register("agent_message.send", message_send, roles=("parent", "child"))
         self.bridge.register("agent_message.inbox", message_inbox)
 
     def pending_prompt_entries(self) -> list:
@@ -489,6 +501,7 @@ class Runtime:
                     cwd=self.config.workspace,
                     socket_path=self.socket_path,
                     session_dir=self.paths.dir,
+                    token=self.kernel_token,
                 )
                 await km.start()
                 self._kernel = km

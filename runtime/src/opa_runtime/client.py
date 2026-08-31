@@ -15,6 +15,10 @@ import os
 from typing import Any
 
 ENV_SOCKET = "OPA_HOST_SOCKET"
+# Says who is calling. The kernel and each child get different ones, and the
+# bridge decides what each may do; holding the socket is not authority, because
+# our own children hold it too.
+ENV_TOKENS = ("OPA_HOST_TOKEN", "OPA_CHILD_TOKEN")
 DEFAULT_TIMEOUT = 300.0
 
 # Must match the host (bridge.MAX_LINE_BYTES). Leaving asyncio's 64 KiB default
@@ -47,7 +51,18 @@ async def host_request(
             f"({ENV_SOCKET} is unset). This kernel was not started by the opa MCP server."
         )
 
-    request = {"id": str(next(_ids)), "type": request_type, "payload": payload or {}}
+    token = next((os.environ[name] for name in ENV_TOKENS if os.environ.get(name)), None)
+    if not token:
+        raise RuntimeError(
+            "no open-primeagent caller token in the environment "
+            f"({' or '.join(ENV_TOKENS)}). This process was not started by the opa server."
+        )
+    request = {
+        "id": str(next(_ids)),
+        "token": token,
+        "type": request_type,
+        "payload": payload or {},
+    }
 
     async def _roundtrip() -> dict[str, Any]:
         reader, writer = await asyncio.open_unix_connection(socket_path, limit=MAX_LINE_BYTES)

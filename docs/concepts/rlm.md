@@ -173,14 +173,37 @@ for note in await agent_message.inbox():
 
 `mid_run` distinguishes a progress note from the child's final answer.
 
-Two deliberate limits:
+### Where the boundary actually is
 
-- The child gets the **one-tool `opa-child` server, never the full one**. A child
-  with `rlm` could spawn grandchildren, each paying a full session startup. Here
-  recursion is structurally impossible rather than merely discouraged.
-- The parent verifies the sender against the registry. The bridge socket is
-  `0600`, but a name is not proof of identity, so a process claiming to be
-  `security` is refused unless a child by that name was actually spawned.
+The child gets the one-tool `opa-child` server, never the full one, so its model
+is never offered a way to spawn grandchildren. **That is a nudge, not a
+boundary**, and this page used to claim otherwise.
+
+A child is a separate process. It holds `$OPA_HOST_SOCKET` and it has a shell,
+so it can speak the bridge protocol directly regardless of what its tool list
+says. Restricting an MCP tool list restricts what a *model* is offered, not what
+a *process* can do. `0600` on the socket only keeps out other users; our own
+children share our uid.
+
+So the boundary lives in the bridge:
+
+- **Every caller carries a token.** The kernel gets one, each child gets its own,
+  and a handler declares which roles may invoke it. A child's token authorises
+  exactly one request type — `agent_message.send` to its parent. `harness.apply`,
+  `harness.project`, `rlm.run`, `autonomous.start` and the rest are unreachable.
+- **Identity comes from the token, never from the payload.** A `sender` field is
+  ignored. Taking it on trust let one compromised child file forged findings
+  under a sibling's name, and burn that sibling's mailbox quota until its real
+  reports were rejected.
+- **A child gets a built environment, not ours.** Copying `os.environ` handed it
+  every secret the server happened to hold; a prompt-injected child with a shell
+  only has to run `env`. It now receives what a CLI needs to start and find its
+  own config, plus anything listed in `OPA_CHILD_ENV_PASSTHROUGH`.
+
+All three were found by [pointing a sub-agent at this repository's own
+code](../../TODO.md) — not by the security audit that preceded them, which
+checked for the shape of bug it went looking for and not the trust boundary a
+docstring claimed.
 
 This is why the host bridge is a socket rather than a Jupyter comm: a child
 process inherits `$OPA_HOST_SOCKET` and can call back through the same door the

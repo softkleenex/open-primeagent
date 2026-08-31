@@ -96,6 +96,11 @@ def build_server(config: Config | None = None) -> MCPServer:
         names = await kernel.namespace() if kernel else []
         state = {
             "attention": runtime.attention(),
+            # An MCP server is long-lived: a host keeps this process for the whole
+            # conversation, so it does not pick up an upgrade until the host
+            # reconnects. Without these two fields that is invisible -- the server
+            # simply answers with an older shape and nobody can tell why.
+            "server": {"version": __version__, "started_at": runtime.started_at},
             "session_id": runtime.session_id,
             "session_dir": str(runtime.paths.dir),
             "workspace": str(config.workspace),

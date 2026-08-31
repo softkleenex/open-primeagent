@@ -142,3 +142,14 @@ async def test_reading_status_consumes_nothing(server):
 async def test_a_quiet_session_asks_for_no_attention(server):
     state = json.loads((await server.call_tool("opa_status", {})).content[0].text)
     assert state["attention"] == []
+
+
+async def test_status_reports_the_running_server_version(server):
+    """A host keeps one MCP server process for the whole conversation, so it does
+    not pick up an upgrade until it reconnects. Found by dogfooding: the live
+    server was days old, answered with an older shape, and nothing said so."""
+    from opa import __version__
+
+    state = json.loads((await server.call_tool("opa_status", {})).content[0].text)
+    assert state["server"]["version"] == __version__
+    assert state["server"]["started_at"] == server._opa_runtime.started_at

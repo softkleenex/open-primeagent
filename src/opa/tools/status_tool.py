@@ -9,9 +9,14 @@ One-page state of the open-primeagent session, starting with "attention": what
 is waiting for you and what looks worth promoting to the harness, so you do not
 have to know which question to ask.
 
-Then the details: kernel liveness, persistent sub-agents (name / adapter /
-status / turns / tokens), active goal and budget, scheduled prompts, harness
-entry counts, and unread mailbox messages.
+Then the details: the running server's own version and start time, kernel
+liveness, persistent sub-agents (name / adapter / status / turns / tokens),
+active goal and budget, scheduled prompts, harness entry counts, and unread
+mailbox messages.
+
+If the version here is older than the one you installed, this process predates
+the upgrade: an MCP server lives as long as the host session, so reconnect it
+before concluding a feature is missing.
 
 Call this whenever you have lost context or are picking work back up. Reading it
 does not consume anything: due schedule items stay due and mail stays unread.

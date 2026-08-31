@@ -139,6 +139,7 @@ async def runtime(config, monkeypatch):
     rt.connection = FakeConnection()
     await rt.start_bridge()
     monkeypatch.setenv("OPA_HOST_SOCKET", str(rt.socket_path))
+    monkeypatch.setenv("OPA_HOST_TOKEN", rt.kernel_token)
     yield rt
     await rt.shutdown()
 

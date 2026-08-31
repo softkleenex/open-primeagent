@@ -3,19 +3,20 @@
 A child that can only speak when it finishes has to go dark for the whole run.
 This lets it report mid-run instead.
 
-It is deliberately **not** the full opa server. A child gets exactly one tool and
-no `rlm`, which makes recursive spawning structurally impossible rather than
-merely discouraged, and keeps the added tool schema down to one entry.
+It is deliberately **not** the full opa server: one tool, no `rlm`, so the model
+is never offered a way to spawn grandchildren.
 
-The child reaches its parent through `$OPA_HOST_SOCKET`, inherited from the
-process that spawned it. The socket is `0600`, so only the user who started the
-parent can reach it.
+That is a nudge, not a boundary, and this file used to claim otherwise. A child
+process holds `$OPA_HOST_SOCKET` and, with a shell, can speak the bridge
+protocol directly no matter what its tool list says. The boundary lives in the
+bridge: each caller has a token, and a child's token authorises exactly one
+request type. `0600` on the socket only keeps out other *users*; our own
+children share our uid.
 """
 
 from __future__ import annotations
 
 import asyncio
-import os
 
 from mcp.server.mcpserver import MCPServer
 
@@ -50,13 +51,11 @@ def build_server() -> MCPServer:
         if not isinstance(message, str) or not message.strip():
             return "nothing sent: message was empty"
         try:
+            # No sender field: the bridge takes our identity from the token in
+            # our environment, which we cannot choose.
             await host_request(
                 "agent_message.send",
-                {
-                    "message": message.strip(),
-                    "receiver_role": "parent",
-                    "sender": os.environ.get(ENV_CHILD_NAME, ""),
-                },
+                {"message": message.strip(), "receiver_role": "parent"},
             )
         except RuntimeError as exc:
             # The parent may have shut down. Say so rather than failing the child.

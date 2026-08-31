@@ -59,6 +59,18 @@ Narrow it if you want a read-only reviewer:
 [security.md](../security.md) first; without it, codex children run under
 `--sandbox workspace-write`.
 
+A child does **not** inherit the server's environment. It gets what a coding CLI
+needs to start and find its own configuration — `PATH`, `HOME`, proxy and TLS
+settings, `CLAUDE_CONFIG_DIR` / `CODEX_HOME` and similar. Anything else the
+server happens to hold, including credentials for unrelated services, stays with
+the server: a prompt-injected child with a shell only has to run `env`.
+
+If a child genuinely needs something more, name it:
+
+```bash
+--env OPA_CHILD_ENV_PASSTHROUGH=MY_REGISTRY_TOKEN,COMPANY_CA_BUNDLE
+```
+
 ## Set by us, for processes we start
 
 You do not set these; the server injects them into the kernel and into child
@@ -69,6 +81,7 @@ processes.
 | `OPA_HOST_SOCKET` | Unix socket for calling back into the host |
 | `OPA_SESSION_DIR` | the current session directory |
 | `OPA_ROLE` | `parent` in the kernel; `child` in spawned agents |
+| `OPA_HOST_TOKEN` / `OPA_CHILD_TOKEN` | the caller token the bridge recognises; decides what may be asked for |
 | `OPA_CHILD_NAME` | the spawned child's registry name, used when it messages the parent |
 
 A child inherits `OPA_HOST_SOCKET`, which is what will let it message its parent

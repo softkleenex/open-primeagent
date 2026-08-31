@@ -21,13 +21,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import shutil
 import sys
 import time
 
 from .base import TurnRequest, TurnResult
-from .claude_code import CHILD_SERVER_NAME
+from .claude_code import CHILD_SERVER_NAME, ClaudeCodeAdapter
 
 CLI = "codex"
 
@@ -85,14 +84,8 @@ class CodexAdapter:
         return request.can_message_parent and request.allow_dangerous
 
     def _env(self, request: TurnRequest) -> dict[str, str]:
-        """The child inherits the host socket; without it it cannot answer back."""
-        env = dict(os.environ)
-        env["OPA_ROLE"] = "child"
-        if request.child_name:
-            env["OPA_CHILD_NAME"] = request.child_name
-        if request.host_socket:
-            env["OPA_HOST_SOCKET"] = request.host_socket
-        return env
+        """Same narrowed environment as the claude adapter; see its docstring."""
+        return ClaudeCodeAdapter()._env(request)
 
     async def run(self, request: TurnRequest) -> TurnResult:
         started = time.monotonic()

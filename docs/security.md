@@ -26,8 +26,18 @@ malicious repository, or a malicious skill.
 | codex child sandbox | `workspace-write` | no writes outside the workspace |
 | child `cwd` | inside the workspace | cannot escape; both paths are resolved before comparison |
 | bridge socket | `0600` | another local user cannot push commands into your kernel |
+| bridge authority | per-caller token | a child may call one request type; the kernel may call all of them |
+| child environment | built, not inherited | the server's other secrets do not travel to a child |
 | kernel transport | IPC socket | TCP sends code and output in cleartext on localhost |
 | autonomous mode | off | it edits files without supervision |
+
+**The socket is not the boundary.** `0600` keeps out other *users*. It does not
+separate the kernel from a child, because a child runs as the same user and
+holds the socket path. Authority comes from a per-caller token instead: a child's
+token authorises `agent_message.send` to its parent and nothing else. Without
+that, a prompt-injected child could write a harness entry and project it into
+your own `CLAUDE.md` — a persistent, cross-session implant inside the delimiter
+block we promise to control.
 
 **Children can run shell commands by default.** This is deliberate — a sub-agent
 that edits code but cannot run the tests is worse than useless — but it is a real
