@@ -156,7 +156,9 @@ def test_evidence_counts_only_repeated_failures(harness, tmp_path):
     evidence = harness.evidence(trajectory)
     assert evidence["turns"] == 5
     assert evidence["failed_execs"] == 4
-    assert evidence["repeated_errors"] == [{"signature": "import missing_mod", "count": 3}]
+    assert evidence["repeated_errors"] == [
+        {"signature": "import missing_mod", "count": 3, "suggests": "prompt or memory"}
+    ]
 
 
 def test_the_harness_is_per_project_not_per_session(config):
@@ -217,3 +219,47 @@ def test_evidence_says_which_kind_to_reach_for(harness, tmp_path):
     guidance = harness.evidence(tmp_path / "trajectory.jsonl")["how_to_choose"]
     assert set(guidance) == {"prompt", "memory", "skill", "subagent", "scope"}
     assert "local by default" in guidance["scope"]
+
+
+def test_evidence_sees_a_procedure_worth_making_a_skill(harness, tmp_path):
+    """A cell run again and again is the argument for a skill. Counting only
+    failures missed every procedure that worked."""
+    trajectory = tmp_path / "trajectory.jsonl"
+    for _ in range(3):
+        jsonl.append(trajectory, {"event": "python.exec", "ok": True,
+                                  "code": "run_migrations_and_regenerate()"})
+    jsonl.append(trajectory, {"event": "python.exec", "ok": True, "code": "once()"})
+
+    repeated = harness.evidence(trajectory)["repeated_commands"]
+    assert repeated == [
+        {"signature": "run_migrations_and_regenerate()", "count": 3, "suggests": "skill"}
+    ]
+
+
+def test_evidence_sees_a_role_worth_a_subagent_spec(harness, tmp_path):
+    """Sub-agent activity used to leave no trace at all, so a delegation role
+    that kept recurring was invisible to the thing meant to notice it."""
+    trajectory = tmp_path / "trajectory.jsonl"
+    for _ in range(2):
+        jsonl.append(trajectory, {"event": "rlm.turn", "name": "security", "ok": True})
+    jsonl.append(trajectory, {"event": "rlm.turn", "name": "one-off", "ok": True})
+
+    assert harness.evidence(trajectory)["retasked_subagents"] == [
+        {"name": "security", "turns": 2, "suggests": "subagent spec"}
+    ]
+
+
+def test_evidence_admits_what_it_cannot_see(harness, tmp_path):
+    """The most useful lesson of the session that produced this came from a call
+    that succeeded and returned something stale. Nothing here shows that."""
+    note = harness.evidence(tmp_path / "trajectory.jsonl")["note"]
+    assert "repetition, not wrongness" in note
+    assert "add what you noticed yourself" in note
+
+
+def test_a_comment_is_not_a_procedure_signature(harness, tmp_path):
+    trajectory = tmp_path / "trajectory.jsonl"
+    for _ in range(2):
+        jsonl.append(trajectory, {"event": "python.exec", "ok": True,
+                                  "code": "# same comment\nactual_call()"})
+    assert harness.evidence(trajectory)["repeated_commands"][0]["signature"] == "actual_call()"

@@ -168,7 +168,9 @@ async def test_evidence_reports_this_session(runtime):
     runtime.record("python.exec", {"ok": False, "code": "boom()"})
     evidence = await host_request("harness.evidence")
     assert evidence["failed_execs"] == 2
-    assert evidence["repeated_errors"] == [{"signature": "boom()", "count": 2}]
+    assert evidence["repeated_errors"] == [
+        {"signature": "boom()", "count": 2, "suggests": "prompt or memory"}
+    ]
 
 
 async def test_project_writes_only_inside_the_block(runtime, config):

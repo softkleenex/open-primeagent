@@ -93,10 +93,28 @@ await harness.delete(entry_id)
 evidence = await harness.evidence()
 ```
 
-Grounds gathered from this session's trajectory: turn count, failed executions,
-and `repeated_errors`. **Only repeated signals are promotion candidates** — the
+Grounds gathered from this session's trajectory. Each signal names the kind of
+entry it argues for:
+
+| signal | argues for |
+|---|---|
+| `repeated_errors` | a `prompt` policy or a `memory` fact |
+| `repeated_commands` | a `skill` — a procedure being re-executed |
+| `retasked_subagents` | a `subagent` spec — a delegation role that keeps recurring |
+| `truncated_outputs` | work that should stay in the kernel rather than come back |
+
+**Only repeated signals are candidates** — the
 [benchmarks](../../bench/README.md) show that promoting something the model can
 re-derive at a glance makes things measurably worse.
+
+`past_refinements` comes back too, with what each was expected to achieve, so a
+change that did not pay off becomes a rollback candidate rather than something
+that quietly accumulates.
+
+**What it cannot see.** These are signals of repetition, not of wrongness. The
+most useful lesson of the session that produced this function came from a call
+that *succeeded* and returned something stale; no trajectory shows that. Add
+what you noticed yourself.
 
 ```python
 event = await harness.apply(changes, trigger="...", evidence="...")

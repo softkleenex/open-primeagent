@@ -111,20 +111,54 @@ class HarnessService:
     def evidence(self, trajectory_path: Path, *, limit: int = 400) -> dict[str, Any]:
         """Gather grounds from the trajectory. The caller does the judging.
 
-        A one-off is not a pattern; only **repeated** signals are promotion
-        candidates. So we count recurrences (same error, same code shape) and
-        return them.
+        A one-off is not a pattern; only **repeated** signals are candidates. Each
+        signal is deliberately tied to the kind of entry it argues for, so the
+        answer is not just "here is some data".
+
+        Its blind spot is worth stating, because it cost us one: the most useful
+        lesson of the session that produced this function came from a call that
+        *succeeded* and returned something stale. Nothing in a trajectory shows
+        that. Mechanical signals see repetition, not wrongness.
         """
         records = list(jsonl.read(trajectory_path))[-limit:]
+
         errors: Counter[str] = Counter()
+        commands: Counter[str] = Counter()
+        truncated = 0
         for record in records:
-            if record.get("event") == "python.exec" and not record.get("ok", True):
-                errors[self._error_key(record)] += 1
+            if record.get("event") != "python.exec":
+                continue
+            if record.get("truncated"):
+                truncated += 1
+            key = self._code_key(record)
+            if record.get("ok", True):
+                commands[key] += 1
+            else:
+                errors[key] += 1
+
+        delegations: Counter[str] = Counter()
+        for record in records:
+            if record.get("event") == "rlm.turn":
+                delegations[str(record.get("name") or "")] += 1
+
         return {
             "turns": len(records),
             "failed_execs": sum(errors.values()),
+            "truncated_outputs": truncated,
             "repeated_errors": [
-                {"signature": sig, "count": n} for sig, n in errors.most_common(10) if n > 1
+                {"signature": sig, "count": n, "suggests": "prompt or memory"}
+                for sig, n in errors.most_common(10)
+                if n > 1
+            ],
+            "repeated_commands": [
+                {"signature": sig, "count": n, "suggests": "skill"}
+                for sig, n in commands.most_common(10)
+                if n > 1
+            ],
+            "retasked_subagents": [
+                {"name": name, "turns": n, "suggests": "subagent spec"}
+                for name, n in delegations.most_common(10)
+                if n > 1 and name
             ],
             "existing": self.overview(),
             "past_refinements": self.refinement_history(),
@@ -139,12 +173,27 @@ class HarnessService:
                 ),
             },
             "note": (
-                "Promote only what recurred - `repeated_errors` is the candidate "
-                "list. Prefer the smallest possible change, and read "
+                "Promote only what recurred; each signal above names the kind it "
+                "argues for. Prefer the smallest possible change, and read "
                 "`past_refinements`: if an earlier one did not deliver its expected "
-                "outcome, rolling it back is worth more than adding another."
+                "outcome, rolling it back is worth more than adding another. "
+                "These signals see repetition, not wrongness - a call that "
+                "succeeded and returned something wrong leaves no trace here, so "
+                "add what you noticed yourself."
             ),
         }
+
+    @staticmethod
+    def _code_key(record: dict) -> str:
+        """A stable shape for a cell, so the same procedure counts as the same one."""
+        code = str(record.get("code") or "").strip()
+        if not code:
+            return "(empty cell)"
+        for line in code.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line[:120]
+        return code.splitlines()[0][:120]
 
     def refinement_history(self, limit: int = 10) -> list[dict[str, Any]]:
         """Past refinements with what they were expected to achieve.
@@ -168,11 +217,6 @@ class HarnessService:
             }
             for event in recent
         ]
-
-    @staticmethod
-    def _error_key(record: dict) -> str:
-        code = str(record.get("code") or "")
-        return code.strip().splitlines()[0][:120] if code.strip() else "(empty cell)"
 
     def apply(
         self,

@@ -19,14 +19,18 @@ its model, so the judgement is yours (or a refiner child's).
 ## What to promote
 
 Do not promote something you saw once. Promote only what **recurred** —
-`evidence()["repeated_errors"]` is the candidate list.
+`evidence()` counts the repetitions and names the kind each one argues for:
 
-| what you learned | where it goes |
+| signal | argues for |
 |---|---|
-| a procedure this project always requires | `prompt` |
-| a specific fact (port, path, owner, why a decision was made) | `memory` |
-| a procedure you keep re-executing | `skill` |
-| context a particular role always needs | `subagent` spec |
+| `repeated_errors` | a `prompt` policy, or a `memory` fact |
+| `repeated_commands` | a `skill` — you keep running the same procedure |
+| `retasked_subagents` | a `subagent` spec — the same delegation role keeps coming back |
+
+**It will miss the best lessons.** Those signals see repetition, not wrongness:
+a call that succeeded and returned something stale or misleading leaves no trace
+at all. If you noticed something the trajectory cannot show, that is exactly the
+thing worth writing down — pass it in the `evidence` argument yourself.
 
 ## Rules
 

@@ -51,6 +51,7 @@ class Runtime:
         self.rlm.host_socket = str(self.socket_path)
         self.rlm.issue_token = lambda name: self.bridge.issue_token("child", name)
         self.rlm.revoke_token = self.bridge.revoke_token
+        self.rlm.on_event = self.record
         # The kernel is the only caller allowed everything. A child gets its own
         # token and a much shorter list of things it may ask for.
         self.kernel_token = self.bridge.issue_token("parent")
@@ -109,7 +110,12 @@ class Runtime:
                     "name= is required. It is the sub-agent's address for later re-tasking "
                     "(e.g. name='api-reviewer')."
                 )
-            return await self.rlm.run(prompt, name=name.strip(), **kwargs)
+            handle = await self.rlm.run(prompt, name=name.strip(), **kwargs)
+            self.record(
+                "rlm.run",
+                {"name": handle["name"], "adapter": handle["adapter"], "prompt": prompt},
+            )
+            return handle
 
         async def rlm_list(payload: dict) -> dict:
             return {
@@ -184,6 +190,10 @@ class Runtime:
             receiver_name = payload.get("receiver_name")
             if not isinstance(receiver_name, str) or not receiver_name.strip():
                 raise ValueError("receiver_name is required")
+            self.record(
+                "agent_message.send",
+                {"receiver": receiver_name.strip(), "message": message},
+            )
             return await self.rlm.send(message, receiver_name=receiver_name.strip())
 
         async def message_inbox(payload: dict) -> dict:

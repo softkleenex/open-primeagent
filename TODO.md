@@ -160,6 +160,25 @@ Also learned: of the three coding CLIs installed here, only `claude` is usable �
 `codex` reports an expired token and `gemini` an ineligible tier. That blocks
 adapter work that cannot be verified by running it.
 
+## Continuing to dogfood (2026-09-02)
+
+Two more from using it rather than testing it.
+
+**Sub-agent activity left no trace in the trajectory.** `rlm.run`,
+`agent_message.send` and child turns were never recorded, so the session record
+— the thing refinement reads — could not show that any work had been delegated.
+The most significant thing that happened in the previous session (spawning a
+reviewer, re-tasking it, getting two rounds of findings) was invisible to the
+tool meant to learn from it. Now recorded, and `evidence()` uses it.
+
+**`evidence()` only counted failed cells.** It answered "nothing to promote"
+while the session had just produced its most valuable lesson. It now also counts
+procedures that were re-executed (a skill argument) and delegation roles that
+recurred (a sub-agent spec argument), and each signal names the kind it argues
+for. It also says plainly what it cannot see: these are signals of repetition,
+not of wrongness, and the lesson that prompted all this came from a call that
+*succeeded* and returned something stale.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):

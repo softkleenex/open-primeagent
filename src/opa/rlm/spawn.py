@@ -57,6 +57,10 @@ class RLMService:
         # Minting per turn and revoking afterwards keeps it in memory and short.
         self.issue_token: Callable[[str], str] | None = None
         self.revoke_token: Callable[[str], None] | None = None
+        # Set by Runtime. Sub-agent activity used to leave no trace in the
+        # trajectory at all, so the session record could not show that work had
+        # been delegated -- and refinement reads that record.
+        self.on_event: Callable[[str, dict], None] | None = None
 
     # ---------- adapters ----------
 
@@ -149,6 +153,10 @@ class RLMService:
             raise ValueError(f"cwd {candidate} is outside the workspace {workspace}")
         return candidate
 
+    def _record(self, event: str, data: dict) -> None:
+        if self.on_event is not None:
+            self.on_event(event, data)
+
     def _launch(self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool) -> None:
         task = asyncio.create_task(self._run_turn(record, prompt, adapter, resume=resume))
         self._tasks.add(task)
@@ -220,6 +228,17 @@ class RLMService:
             tokens=record.tokens + (result.tokens or 0),
             cost_usd=round(record.cost_usd + (result.cost_usd or 0.0), 6),
             last_error=result.error,
+        )
+        self._record(
+            "rlm.turn",
+            {
+                "name": record.name,
+                "resume": resume,
+                "ok": result.ok,
+                "turns": record.turns + 1,
+                "tokens": result.tokens or 0,
+                "prompt": prompt,
+            },
         )
         self.registry.record_turn(
             record.rlm_child_id,
