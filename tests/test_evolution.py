@@ -13,6 +13,7 @@ import pytest
 from opa.harness.state import HarnessEntry
 from opa.runtime_state import Runtime
 from opa.tools.surface import ToolSurface
+from opa_runtime import client
 from opa_runtime.client import host_request
 
 BASE = "Execute Python in a persistent kernel."
@@ -139,8 +140,10 @@ async def runtime(config, monkeypatch):
     rt.connection = FakeConnection()
     await rt.start_bridge()
     monkeypatch.setenv("OPA_HOST_SOCKET", str(rt.socket_path))
-    monkeypatch.setenv("OPA_HOST_TOKEN", rt.kernel_token)
+    # The kernel is handed its token in-process, never through the environment.
+    client.set_token(rt.kernel_token)
     yield rt
+    client.set_token(None)
     await rt.shutdown()
 
 

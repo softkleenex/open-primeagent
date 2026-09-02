@@ -204,6 +204,16 @@ Written up in `docs/install/codex.md` rather than fixed, because
 `--ignore-user-config` would also drop the user's model settings and codex auth
 here is expired, so the result could not be verified.
 
+**The reviewer was too generous once, and checking mattered.** It dismissed
+stealing the kernel's token via same-uid `ps` as out of scope under the "not a
+sandbox" framing. But our threat model names a prompt-injected child explicitly,
+and that child runs as the same user with a shell. Verified: `ps eww` on the
+kernel prints `OPA_HOST_TOKEN` in full. The kernel's token is now handed over
+in-process at boot instead of through its environment, which removes the
+one-command path — and the docs now say plainly that it does not remove the last
+one. Same-uid is not containment, and claiming otherwise would have been the
+same mistake as the docstring that started this.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):

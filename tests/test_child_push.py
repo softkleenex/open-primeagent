@@ -17,6 +17,7 @@ from opa.rlm.adapters.claude_code import (
 )
 from opa.rlm.registry import ChildRecord
 from opa.runtime_state import Runtime
+from opa_runtime import client
 from opa_runtime.client import host_request
 
 # ---------- the child-side server ----------
@@ -66,8 +67,10 @@ async def runtime(config, monkeypatch):
     rt = Runtime(config)
     await rt.start_bridge()
     monkeypatch.setenv("OPA_HOST_SOCKET", str(rt.socket_path))
-    monkeypatch.setenv("OPA_HOST_TOKEN", rt.kernel_token)
+    # The kernel is handed its token in-process, never through the environment.
+    client.set_token(rt.kernel_token)
     yield rt
+    client.set_token(None)
     await rt.shutdown()
 
 
@@ -77,7 +80,7 @@ def child_env(runtime, name, monkeypatch):
         ChildRecord.new(name, "claude-code", Path(runtime.config.workspace))
     )
     token = runtime.bridge.issue_token("child", record.name)
-    monkeypatch.delenv("OPA_HOST_TOKEN", raising=False)
+    client.set_token(None)          # stop being the kernel
     monkeypatch.setenv("OPA_CHILD_TOKEN", token)
     return record
 
@@ -148,14 +151,14 @@ async def test_the_kernel_keeps_full_access(runtime):
 
 async def test_a_caller_without_a_token_is_refused(runtime, monkeypatch):
     """Holding the socket is not authority; our own children hold it too."""
-    monkeypatch.delenv("OPA_HOST_TOKEN", raising=False)
+    client.set_token(None)
     monkeypatch.delenv("OPA_CHILD_TOKEN", raising=False)
     with pytest.raises(RuntimeError, match="no open-primeagent caller token"):
         await host_request("agent_message.send", {"message": "hi"})
 
 
 async def test_an_invented_token_is_refused(runtime, monkeypatch):
-    monkeypatch.setenv("OPA_HOST_TOKEN", "not-a-real-token")
+    client.set_token("not-a-real-token")
     with pytest.raises(RuntimeError, match="unrecognised caller"):
         await host_request("agent_message.send", {"message": "hi"})
 
@@ -332,3 +335,24 @@ def test_strict_mode_still_leaves_room_for_the_push_server(tmp_path):
     )
     assert "--strict-mcp-config" in cmd
     assert "--mcp-config" in cmd
+
+
+async def test_the_kernel_token_never_reaches_the_environment(config):
+    """`ps eww` hands any same-uid process another's environment, and this token
+    carries full bridge authority. Keeping it out of the environment does not
+    make it unreachable — same-uid never is — it removes the one-command path."""
+    from opa.kernel.manager import KernelManager
+    from opa.runtime_state import Runtime
+
+    runtime = Runtime(config)
+    manager = KernelManager(
+        cwd=config.workspace,
+        socket_path=runtime.socket_path,
+        session_dir=runtime.paths.dir,
+        token=runtime.kernel_token,
+    )
+    env = manager._env()
+    assert "OPA_HOST_TOKEN" not in env
+    assert runtime.kernel_token not in "".join(env.values())
+    # it is handed over in-process instead
+    assert runtime.kernel_token in manager._bootstrap()

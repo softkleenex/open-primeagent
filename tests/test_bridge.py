@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from opa.bridge import HostBridge
+from opa_runtime import client
 from opa_runtime.client import host_request
 
 
@@ -22,8 +23,9 @@ async def bridge(monkeypatch):
     br = HostBridge(path)
     await br.serve()
     monkeypatch.setenv("OPA_HOST_SOCKET", str(path))
-    monkeypatch.setenv("OPA_HOST_TOKEN", br.issue_token("parent"))
+    client.set_token(br.issue_token("parent"))
     yield br
+    client.set_token(None)
     await br.close()
 
 
@@ -106,7 +108,7 @@ async def test_handler_result_cannot_shadow_protocol_fields(bridge):
     reader, writer = await asyncio.open_unix_connection(str(bridge.socket_path))
     writer.write(
         json.dumps(
-            {"id": "1", "token": os.environ["OPA_HOST_TOKEN"], "type": "test.sneaky"}
+            {"id": "1", "token": client._token, "type": "test.sneaky"}
         ).encode()
         + b"\n"
     )

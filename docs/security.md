@@ -40,6 +40,18 @@ that, a prompt-injected child could write a harness entry and project it into
 your own `CLAUDE.md` — a persistent, cross-session implant inside the delimiter
 block we promise to control.
 
+**And the token boundary does not contain a determined same-uid process
+either.** `ps eww` hands any process of your user another's environment. We keep
+the kernel's token — the one with full authority — out of its environment for
+that reason, handing it over in-process at boot instead. That removes the
+one-command path; it does not remove the last one. A child that goes looking, as
+the same user, can still find credentials belonging to its siblings.
+
+So be clear about what the token scheme buys: it stops a model that follows the
+tools it is offered, and it stops the accidental path. It is not containment.
+**Containment needs a different uid or a container** — which is what the rest of
+this page is about.
+
 **Children can run shell commands by default.** This is deliberate — a sub-agent
 that edits code but cannot run the tests is worse than useless — but it is a real
 capability, and it is granted without anyone approving each command, because a

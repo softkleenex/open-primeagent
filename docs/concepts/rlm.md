@@ -217,7 +217,14 @@ So the boundary lives in the bridge:
   only has to run `env`. It now receives what a CLI needs to start and find its
   own config, plus anything listed in `OPA_CHILD_ENV_PASSTHROUGH`.
 
-All three were found by [pointing a sub-agent at this repository's own
+**What this is not.** A same-uid process can read another's environment with one
+`ps` command, so a child that goes looking can still reach a sibling's
+credentials. The kernel's own token is kept out of its environment for exactly
+this reason — it is handed over in-process at boot — but that closes the easy
+path, not the last one. The bridge stops a model that follows the tools it is
+given; [containment needs a container](../security.md).
+
+These were found by [pointing a sub-agent at this repository's own
 code](../../TODO.md) — not by the security audit that preceded them, which
 checked for the shape of bug it went looking for and not the trust boundary a
 docstring claimed.

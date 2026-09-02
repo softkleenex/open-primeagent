@@ -34,8 +34,14 @@ _UNIX_SOCKET_PATH_MAX = 100  # macOS sun_path is 104; leave headroom
 
 # The cell run right after boot. It must not take the kernel down on failure -
 # even without `rlm`, a plain Python working memory is still useful.
+# The kernel's caller token is injected here rather than through its environment.
+# `ps eww` hands any same-uid process another's environment, and this token
+# carries full authority over the bridge.
 BOOTSTRAP = """\
 try:
+    import opa_runtime.client as _opa_client
+
+    _opa_client.set_token({token!r})
     from opa_runtime import (  # noqa: F401
         agent_message,
         autonomous,
@@ -137,8 +143,7 @@ class KernelManager:
         env["OPA_HOST_SOCKET"] = str(self.socket_path)
         env["OPA_SESSION_DIR"] = str(self.session_dir)
         env["OPA_ROLE"] = "parent"
-        if self.token:
-            env["OPA_HOST_TOKEN"] = self.token
+        # Deliberately not the token: see the bootstrap cell.
         return env
 
     # ---------- lifecycle ----------
@@ -168,9 +173,12 @@ class KernelManager:
         await self._kc.wait_for_ready(timeout=60)
         self._started_at = _now()
 
-        boot = await self.execute(BOOTSTRAP, timeout=30, record_output=False)
+        boot = await self.execute(self._bootstrap(), timeout=30, record_output=False)
         probe = await self.execute("_OPA_RUNTIME_OK", timeout=10, record_output=False)
         self._runtime_ok = boot.ok and probe.result_repr == "True"
+
+    def _bootstrap(self) -> str:
+        return BOOTSTRAP.format(token=self.token)
 
     async def stop(self) -> None:
         if self._kc is not None:
@@ -189,7 +197,7 @@ class KernelManager:
         await self._kc.wait_for_ready(timeout=60)
         self._restarts += 1
         self._started_at = _now()
-        boot = await self.execute(BOOTSTRAP, timeout=30, record_output=False)
+        boot = await self.execute(self._bootstrap(), timeout=30, record_output=False)
         probe = await self.execute("_OPA_RUNTIME_OK", timeout=10, record_output=False)
         self._runtime_ok = boot.ok and probe.result_repr == "True"
 

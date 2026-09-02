@@ -18,7 +18,20 @@ ENV_SOCKET = "OPA_HOST_SOCKET"
 # Says who is calling. The kernel and each child get different ones, and the
 # bridge decides what each may do; holding the socket is not authority, because
 # our own children hold it too.
-ENV_TOKENS = ("OPA_HOST_TOKEN", "OPA_CHILD_TOKEN")
+ENV_TOKENS = ("OPA_CHILD_TOKEN",)
+
+# The kernel's token is handed to it in-process at boot and never placed in its
+# environment. `ps eww` shows any same-uid process another's environment, and the
+# kernel token carries full authority -- a child with a shell could read it in
+# one command and become the parent. Keeping it out of the environment does not
+# make it unreachable (same-uid never is; see docs/security.md), it removes the
+# one-command path.
+_token: str | None = None
+
+
+def set_token(value: str) -> None:
+    global _token
+    _token = value
 DEFAULT_TIMEOUT = 300.0
 
 # Must match the host (bridge.MAX_LINE_BYTES). Leaving asyncio's 64 KiB default
@@ -51,11 +64,14 @@ async def host_request(
             f"({ENV_SOCKET} is unset). This kernel was not started by the opa MCP server."
         )
 
-    token = next((os.environ[name] for name in ENV_TOKENS if os.environ.get(name)), None)
+    token = _token or next(
+        (os.environ[name] for name in ENV_TOKENS if os.environ.get(name)), None
+    )
     if not token:
         raise RuntimeError(
             "no open-primeagent caller token in the environment "
-            f"({' or '.join(ENV_TOKENS)}). This process was not started by the opa server."
+            "(no in-process token, and no OPA_CHILD_TOKEN). "
+            "This process was not started by the opa server."
         )
     request = {
         "id": str(next(_ids)),
