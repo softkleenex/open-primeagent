@@ -313,3 +313,22 @@ async def test_a_turn_token_stops_working_once_the_turn_is_over(config, monkeypa
         assert runtime.bridge.caller_for(seen[0]) is None, "the turn token outlived its turn"
     finally:
         await runtime.shutdown()
+
+
+def test_a_child_never_inherits_the_user_mcp_ecosystem(tmp_path):
+    """`--mcp-config` is additive. Without `--strict-mcp-config` a child also
+    loaded every MCP server the user had registered — measured: a probe child saw
+    arxiv, chrome-devtools and the rest, and in a workspace where opa itself is
+    registered it would get a full opa server with a parent-role token."""
+    adapter = ClaudeCodeAdapter()
+    for kwargs in ({}, {"can_message_parent": True}):
+        cmd = adapter.build_command(request(tmp_path, session_id="s", **kwargs))
+        assert "--strict-mcp-config" in cmd, kwargs
+
+
+def test_strict_mode_still_leaves_room_for_the_push_server(tmp_path):
+    cmd = ClaudeCodeAdapter().build_command(
+        request(tmp_path, session_id="s", can_message_parent=True)
+    )
+    assert "--strict-mcp-config" in cmd
+    assert "--mcp-config" in cmd

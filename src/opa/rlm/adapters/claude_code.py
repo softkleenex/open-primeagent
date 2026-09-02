@@ -94,6 +94,12 @@ class ClaudeCodeAdapter:
         else:
             cmd += ["--permission-mode", request.permission_mode]
         allowed = list(request.allowed_tools)
+        # `--mcp-config` is *additive*: without `--strict-mcp-config` a child also
+        # loads every MCP server the user has registered -- their mail, their
+        # drive, their browser, and in a workspace where opa itself is registered,
+        # a full opa server with a parent-role token. A spawned sub-agent must
+        # start from nothing and be handed only what we chose to give it.
+        cmd += ["--strict-mcp-config"]
         if request.can_message_parent:
             cmd += ["--mcp-config", str(write_child_mcp_config(request.session_dir))]
             allowed.append(CHILD_PUSH_TOOL)

@@ -51,3 +51,16 @@ for its schema and getting a confusing cancellation back.
 
 Claude Code has no such restriction: scoping `--allowedTools` to the push tool is
 enough, and the child keeps its ordinary tools.
+
+## Known gap: a codex child still inherits your configured MCP servers
+
+The claude adapter passes `--strict-mcp-config`, so a child starts from no MCP
+servers and gets only what we hand it. codex has no per-invocation equivalent:
+its servers come from `$CODEX_HOME/config.toml`, and the only lever is
+`--ignore-user-config`, which would also discard the model and provider settings
+a user relies on.
+
+So a codex child can reach every MCP server you have configured. We have not
+shipped `--ignore-user-config` for children because the trade is real and we
+could not verify the result here — the codex login on this machine is expired.
+If that matters to you, run codex children under a separate `CODEX_HOME`.

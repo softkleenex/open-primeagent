@@ -28,6 +28,7 @@ malicious repository, or a malicious skill.
 | bridge socket | `0600` | another local user cannot push commands into your kernel |
 | bridge authority | per-caller token | a child may call one request type; the kernel may call all of them |
 | child environment | built, not inherited | the server's other secrets do not travel to a child |
+| child MCP servers | `--strict-mcp-config` | a child gets only what we hand it, never the user's registered servers |
 | kernel transport | IPC socket | TCP sends code and output in cleartext on localhost |
 | autonomous mode | off | it edits files without supervision |
 

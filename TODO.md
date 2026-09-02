@@ -179,6 +179,31 @@ for. It also says plainly what it cannot see: these are signals of repetition,
 not of wrongness, and the lesson that prompted all this came from a call that
 *succeeded* and returned something stale.
 
+## Dogfooding round 3, on a restarted server (2026-09-02)
+
+With the host restarted the server finally ran current code, and `opa_status`
+reported its own version — the fix from round 2 working in the situation that
+motivated it.
+
+**A child inherited the user's entire MCP ecosystem.** Found by the reviewer
+sub-agent, and reported through the push channel *while it was still working* —
+the first time that channel has paid for itself. `--mcp-config` is additive, so
+without `--strict-mcp-config` a spawned child also loaded every MCP server the
+user has registered: measured, a probe child saw arxiv and chrome-devtools among
+others. In a workspace where opa itself is registered — such as this one — the
+child would get a full opa server with a parent-role token, defeating the
+one-tool restriction entirely. Fixed; children now start from nothing.
+
+Verified directly against a live child process rather than in a unit test: its
+environment carried exactly `OPA_CHILD_NAME`, `OPA_CHILD_TOKEN`,
+`OPA_HOST_SOCKET` and `OPA_ROLE`, no parent token and no credentials.
+
+Still open: a codex child has no per-invocation equivalent of
+`--strict-mcp-config`, so it still inherits `$CODEX_HOME/config.toml` servers.
+Written up in `docs/install/codex.md` rather than fixed, because
+`--ignore-user-config` would also drop the user's model settings and codex auth
+here is expired, so the result could not be verified.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):

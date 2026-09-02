@@ -207,6 +207,11 @@ So the boundary lives in the bridge:
   ignored. Taking it on trust let one compromised child file forged findings
   under a sibling's name, and burn that sibling's mailbox quota until its real
   reports were rejected.
+- **A child starts from no MCP servers at all.** `--mcp-config` is additive, so
+  without `--strict-mcp-config` a child loaded every server the user had
+  registered — their mail, their drive, their browser — and in a workspace where
+  opa itself is registered, a full opa server with a parent-role token. It now
+  gets exactly what we hand it and nothing else.
 - **A child gets a built environment, not ours.** Copying `os.environ` handed it
   every secret the server happened to hold; a prompt-injected child with a shell
   only has to run `env`. It now receives what a CLI needs to start and find its
