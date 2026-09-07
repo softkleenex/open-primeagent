@@ -101,6 +101,7 @@ class _Autonomous:
         token_budget: int | None = None,
         wall_clock_seconds: float | None = None,
         model: str | None = None,
+        cwd: str | None = None,
     ) -> dict[str, Any]:
         """Drive a child until `gate` (a shell command) exits 0.
 
@@ -109,6 +110,10 @@ class _Autonomous:
 
         Stops on `max_turns`, `token_budget` or `wall_clock_seconds`, whichever
         comes first. The outcome field says which.
+
+        `cwd` scopes the run to a subdirectory of the workspace - both the child
+        and the gate. Without it the run happens in the workspace root, which is
+        rarely what you want for something running unsupervised.
 
         WARNING: this edits files and runs `gate` unsupervised. Use it inside a
         devcontainer or VM.
@@ -121,6 +126,7 @@ class _Autonomous:
             "token_budget": token_budget,
             "wall_clock_seconds": wall_clock_seconds,
             "model": model,
+            "cwd": cwd,
         }
         return await host_request(
             "autonomous.start", {k: v for k, v in payload.items() if v is not None}

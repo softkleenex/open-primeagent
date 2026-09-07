@@ -38,8 +38,15 @@ Rules kept from upstream, and enforced here:
 - One active goal at a time; starting a second is refused with the first one's
   objective in the error.
 
-Token budgets are charged wherever tokens are actually burned — an autonomous
-run bills its children against the active goal.
+**A budget bounds delegated work, not the whole goal.** Every sub-agent turn and
+every autonomous turn is charged against the active goal. What the host agent
+spends on its own reasoning is not: it never tells us, and we will not invent a
+number. So `remaining_tokens` answers "how much more may I hand out", which is
+the part we can actually enforce.
+
+Until this was measured it was worse than imprecise — only autonomous runs were
+charged, so a session could spend a child's whole budget and still report the
+full amount remaining.
 
 ## Schedule
 
@@ -85,10 +92,17 @@ await autonomous.start(
     "make the failing integration tests pass",
     child_name="fixer",
     gate="uv run pytest -q tests/integration",
+    cwd="services/billing",        # scope it; the default is the workspace root
     max_turns=6,
     token_budget=300_000,
 )
 ```
+
+`cwd` scopes both the child and the gate to a subdirectory. Without it the run
+happens in the workspace root, which is rarely what you want for something
+editing files unsupervised — and until this existed the advice below was
+impossible to follow. It is resolved through the same guard as a child's `cwd`,
+so it still cannot leave the workspace.
 
 The loop:
 

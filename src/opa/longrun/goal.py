@@ -49,6 +49,9 @@ class Goal:
     objective: str
     status: GoalStatus = "active"
     token_budget: int | None = None
+    # Delegated tokens only: sub-agent turns and autonomous runs. We cannot see
+    # what the host agent itself spends -- it never tells us -- so this bounds
+    # the work we hand out, not the whole goal.
     tokens_used: int = 0
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
@@ -129,7 +132,12 @@ class GoalStore:
         }
 
     def spend(self, tokens: int) -> Goal | None:
-        """Charge tokens against the active goal. Called wherever tokens are burned."""
+        """Charge tokens against the active goal.
+
+        Called wherever we can see the cost: a sub-agent turn, an autonomous
+        turn. The host's own consumption is invisible to us, so a budget bounds
+        delegated work rather than everything the goal will cost.
+        """
         if self.goal is None or self.goal.status not in PENDING or tokens <= 0:
             return self.goal
         self.goal.tokens_used += int(tokens)

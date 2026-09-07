@@ -158,7 +158,7 @@ await schedule.list(source=None)                  # "user" | "agent"
 await schedule.due(collect=True)                  # collect=False looks without consuming
 await schedule.delete(entry_id)
 
-await autonomous.start(objective, child_name=…, gate="pytest -q",
+await autonomous.start(objective, child_name=…, gate="pytest -q", cwd=None,
                        max_turns=5, token_budget=None, wall_clock_seconds=None)
 await autonomous.status()
 ```

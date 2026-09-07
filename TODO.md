@@ -214,6 +214,31 @@ one-command path — and the docs now say plainly that it does not remove the la
 one. Same-uid is not containment, and claiming otherwise would have been the
 same mistake as the docstring that started this.
 
+## Phase 4, used for real for the first time (2026-09-07)
+
+Three gaps, all from trying to use goal / schedule / autonomous rather than
+testing them.
+
+**A token budget counted one code path.** A child spent 27,541 tokens while the
+goal reported its full 400,000 remaining, because only autonomous runs charged
+it. Every sub-agent turn is charged now — and the docs say what a budget can and
+cannot bound: we never see what the host agent spends on its own reasoning, so
+it bounds delegated work.
+
+**`kernel_names` was mostly noise.** It exists to re-orient a caller that lost
+context, but half the list was the symbols we preload into every kernel, which
+are present regardless and say nothing about the session. Excluded.
+
+**An autonomous run could not be scoped.** The gate and the child always ran in
+the server's workspace root, so the advice to keep unsupervised work away from
+anything you care about was impossible to follow. `cwd` now scopes both,
+resolved through the same guard as a child's cwd.
+
+Confirmed working as designed: `attention` surfaces the mailbox, due schedule
+items and the active goal with the next call for each; a schedule peek does not
+consume; user- and agent-created entries stay distinguishable; the goal carries
+its own rules and refuses to complete on an exhausted budget.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):

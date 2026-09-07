@@ -51,7 +51,7 @@ class Runtime:
         self.rlm.host_socket = str(self.socket_path)
         self.rlm.issue_token = lambda name: self.bridge.issue_token("child", name)
         self.rlm.revoke_token = self.bridge.revoke_token
-        self.rlm.on_event = self.record
+        self.rlm.on_event = self._on_rlm_event
         # The kernel is the only caller allowed everything. A child gets its own
         # token and a much shorter list of things it may ask for.
         self.kernel_token = self.bridge.issue_token("parent")
@@ -248,6 +248,7 @@ class Runtime:
             data = dict(payload)
             objective = str(data.pop("objective", ""))
             child_name = str(data.pop("child_name", "") or "autonomous")
+            data.pop("_caller", None)
             self.record("autonomous.start", {"objective": objective[:200]})
             result = await self.autonomous.start(objective, child_name=child_name, **data)
             self.record("autonomous.finish", {"outcome": result.get("outcome")})
@@ -397,6 +398,17 @@ class Runtime:
         # directly whatever its MCP tool list says.
         self.bridge.register("agent_message.send", message_send, roles=("parent", "child"))
         self.bridge.register("agent_message.inbox", message_inbox)
+
+    def _on_rlm_event(self, event: str, data: dict) -> None:
+        """Record delegated work, and charge it to the goal.
+
+        A goal used to be charged only by an autonomous run, so a session could
+        spend a child's entire budget and still report the full amount
+        remaining. Anything we can actually see the cost of gets charged.
+        """
+        self.record(event, data)
+        if event == "rlm.turn":
+            self.goals.spend(int(data.get("tokens") or 0))
 
     def pending_prompt_entries(self) -> list:
         """What the live tool description is allowed to carry.

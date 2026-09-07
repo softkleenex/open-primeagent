@@ -88,3 +88,15 @@ async def test_asking_for_names_does_not_start_a_kernel(server):
     state = json.loads(await call(server, "opa_status", {}))
     assert state["kernel_names"] == []
     assert server._opa_runtime.kernel_if_started is None
+
+
+async def test_the_name_list_leaves_out_what_is_always_there(server):
+    """The list exists to re-orient a caller that lost context. Preloaded symbols
+    are present in every kernel, so naming them crowds out the few names that
+    actually say what this session built."""
+    await call(server, "opa_python", {"code": "dependency_graph = {'a': ['b']}"})
+    state = json.loads(await call(server, "opa_status", {}))
+
+    assert "dependency_graph" in state["kernel_names"]
+    for always_there in ("rlm", "harness", "goal", "schedule", "agent_message"):
+        assert always_there not in state["kernel_names"]

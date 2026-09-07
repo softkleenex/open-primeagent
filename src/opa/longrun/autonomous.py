@@ -65,6 +65,7 @@ class RunResult:
     objective: str
     child_name: str
     outcome: str            # gate_passed | max_turns | token_budget | timeout | error
+    cwd: str = ""
     turns: list[TurnRecord] = field(default_factory=list)
     tokens: int = 0
     cost_usd: float = 0.0
@@ -156,6 +157,7 @@ class AutonomousRunner:
         wall_clock_seconds: float | None = None,
         model: str | None = None,
         turn_timeout: float = 1800,
+        cwd: str | None = None,
     ) -> dict[str, Any]:
         if not isinstance(objective, str) or not objective.strip():
             raise ValueError("objective must be a non-empty string")
@@ -167,9 +169,14 @@ class AutonomousRunner:
         result = RunResult(objective=objective.strip(), child_name=child_name, outcome="error")
         self.active = result
         started = time.monotonic()
-        cwd = self.rlm.config.workspace
+        # An autonomous run edits files and executes the gate unsupervised, and
+        # the docs tell you to keep it away from anything you care about. Until
+        # this could be scoped it always ran in the server's own workspace, which
+        # made that advice impossible to follow. Resolved through the same guard
+        # as a child's cwd, so it still cannot leave the workspace.
+        run_cwd = self.rlm._resolve_cwd(cwd)
         prompt = objective.strip()
-        fingerprint = await asyncio.to_thread(worktree_fingerprint, cwd)
+        fingerprint = await asyncio.to_thread(worktree_fingerprint, run_cwd)
 
         try:
             for index in range(1, max_turns + 1):
@@ -183,7 +190,8 @@ class AutonomousRunner:
                     break
 
                 turn = await self._one_turn(
-                    prompt, child_name, index, model=model, timeout=turn_timeout
+                    prompt, child_name, index, model=model, timeout=turn_timeout,
+                    cwd=cwd,
                 )
                 result.turns.append(turn)
                 record = self.rlm.registry.get(child_name)
@@ -202,12 +210,12 @@ class AutonomousRunner:
                     result.detail = "no gate was configured; stopped after one turn"
                     break
 
-                after = await asyncio.to_thread(worktree_fingerprint, cwd)
+                after = await asyncio.to_thread(worktree_fingerprint, run_cwd)
                 turn.changed_files = None if after is None else after != fingerprint
                 unchanged = fingerprint is not None and after == fingerprint
                 fingerprint = after
 
-                gate_result = await run_gate(gate, cwd)
+                gate_result = await run_gate(gate, run_cwd)
                 turn.gate_passed = gate_result.passed
                 if gate_result.passed:
                     result.outcome = "gate_passed"
@@ -229,19 +237,27 @@ class AutonomousRunner:
                 result.outcome = "max_turns"
                 result.detail = f"stopped after {max_turns} turns without passing the gate"
         finally:
+            result.cwd = str(run_cwd)
             result.duration_ms = int((time.monotonic() - started) * 1000)
             self.active = None
         return result.as_dict()
 
     async def _one_turn(
-        self, prompt: str, child_name: str, index: int, *, model: str | None, timeout: float
+        self,
+        prompt: str,
+        child_name: str,
+        index: int,
+        *,
+        model: str | None,
+        timeout: float,
+        cwd: str | None = None,
     ) -> TurnRecord:
         record = self.rlm.registry.get(child_name)
         before = record.tokens if record else 0
         before_turns = record.turns if record else 0
 
         if record is None:
-            await self.rlm.run(prompt, name=child_name, model=model)
+            await self.rlm.run(prompt, name=child_name, model=model, cwd=cwd)
         else:
             await self.rlm.send(prompt, receiver_name=child_name)
 

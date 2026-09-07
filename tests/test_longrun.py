@@ -197,6 +197,11 @@ class FakeRLM:
     def get(self, name):
         return self.record if self._exists else None
 
+    def _resolve_cwd(self, raw):
+        from opa.rlm.spawn import RLMService
+
+        return RLMService._resolve_cwd(self, raw)
+
     async def run(self, prompt, name, **kw):
         self._exists = True
         self._advance(prompt)
@@ -377,3 +382,50 @@ async def test_suppression_stays_out_of_the_way_outside_git(config):
     result = await runner.start("fix it", child_name="w", gate="exit 1", max_turns=2)
     assert all(t["changed_files"] is None for t in result["turns"])
     assert "did not change any file" not in "".join(runner.rlm.prompts)
+
+
+async def test_a_child_turn_is_charged_to_the_goal(config):
+    """Measured before this was wired: a child spent 27k tokens and the goal
+    still reported its full budget remaining. A budget that counts one code path
+    is not a budget."""
+    from opa.runtime_state import Runtime
+
+    runtime = Runtime(config)
+    runtime.goals.create("ship it", token_budget=100_000)
+    runtime.rlm.on_event("rlm.turn", {"name": "worker", "tokens": 27_541, "ok": True})
+
+    state = runtime.goals.get()
+    assert state["goal"]["tokens_used"] == 27_541
+    assert state["remaining_tokens"] == 100_000 - 27_541
+
+
+async def test_delegated_spend_can_exhaust_a_budget(config):
+    from opa.runtime_state import Runtime
+
+    runtime = Runtime(config)
+    runtime.goals.create("ship it", token_budget=1_000)
+    runtime.rlm.on_event("rlm.turn", {"name": "worker", "tokens": 1_500, "ok": True})
+
+    assert runtime.goals.goal.status == "budget_exhausted"
+    assert "do not call" in runtime.goals.get()["guidance"]
+
+
+async def test_an_autonomous_run_can_be_scoped_to_a_directory(config, tmp_path):
+    """It edits files and runs the gate unsupervised, and the docs say to keep it
+    away from anything you care about. Until this was possible the run always
+    happened in the workspace root, which made that advice impossible to follow."""
+    (config.workspace / "scratch").mkdir()
+    (config.workspace / "scratch" / "marker").write_text("here", encoding="utf-8")
+    runner = AutonomousRunner(FakeRLM(config))
+
+    result = await runner.start(
+        "tidy up", child_name="w", gate="test -f marker", max_turns=1, cwd="scratch"
+    )
+    assert result["outcome"] == "gate_passed", "the gate ran in scratch/, not the root"
+    assert result["cwd"].endswith("scratch")
+
+
+async def test_a_scoped_run_still_cannot_leave_the_workspace(config):
+    runner = AutonomousRunner(FakeRLM(config))
+    with pytest.raises(ValueError, match="outside the workspace"):
+        await runner.start("x", child_name="w", gate="exit 0", cwd="/etc")

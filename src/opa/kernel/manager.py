@@ -30,6 +30,12 @@ from pathlib import Path
 from typing import Any
 
 KERNEL_NAME = "opa-python"
+
+# What the bootstrap cell puts in every kernel. Always present, so listing them
+# back tells a caller nothing about the session it is trying to re-orient in.
+PRELOADED = frozenset(
+    {"rlm", "agent_message", "harness", "goal", "schedule", "autonomous", "host_request"}
+)
 _UNIX_SOCKET_PATH_MAX = 100  # macOS sun_path is 104; leave headroom
 
 # The cell run right after boot. It must not take the kernel down on failure -
@@ -219,20 +225,25 @@ class KernelManager:
         )
 
     async def namespace(self, limit: int = 40) -> list[str]:
-        """User-defined names currently live in the kernel.
+        """Names this session built, still live in the kernel.
 
-        After a host loses context this is the single most useful fact we hold:
-        not what was stored, but what is still *callable*. Upstream re-anchors a
-        compacted agent with exactly this list.
+        After a host loses context this is the most useful fact we hold: not what
+        was stored, but what is still *callable*. Upstream re-anchors a compacted
+        agent with exactly this list.
+
+        The symbols we preload are excluded. They are always present, so naming
+        them says nothing about this session, and they crowded out the handful of
+        names that did.
 
         Returns an empty list when no kernel is running - asking must not start one.
         """
         if self._kc is None:
             return []
+        hidden = sorted(PRELOADED | {"In", "Out", "exit", "quit", "get_ipython", "open"})
         code = (
+            f"_opa_hidden = {hidden!r}\n"
             "print(repr(sorted(n for n in globals() "
-            "if not n.startswith('_') and n not in "
-            "('In','Out','exit','quit','get_ipython','open'))))"
+            "if not n.startswith('_') and n not in _opa_hidden)))"
         )
         result = await self.execute(code, timeout=10, record_output=False)
         if not result.ok:
