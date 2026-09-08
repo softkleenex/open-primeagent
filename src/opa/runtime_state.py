@@ -117,31 +117,53 @@ class Runtime:
             )
             return handle
 
-        async def rlm_list(payload: dict) -> dict:
+        def subagent_payload(r) -> dict:
+            """One child, in the shape upstream's `rlm` runtime validates.
+
+            `rlm.list_subagents` and `rlm.delete_subagent` share this because
+            upstream feeds both through the same validator, so the two request
+            types have to agree field for field.
+
+            The first six keys are upstream's contract
+            (`_ref/.../rlm/__init__.py:181` `_subagent_from_payload`); the rest
+            are ours. `session_name` duplicates `name` deliberately: `name` is
+            what our own API reads, `session_name` is what upstream-written code
+            reads, and dropping either breaks one of them.
+            """
             return {
-                "subagents": [
-                    {
-                        "rlm_child_id": r.rlm_child_id,
-                        "name": r.name,
-                        "adapter": r.adapter,
-                        "status": r.status,
-                        "turns": r.turns,
-                        "tokens": r.tokens,
-                        "cost_usd": r.cost_usd,
-                        "model": r.model,
-                        "session_dir": str(self.rlm.registry.child_dir(r.rlm_child_id)),
-                        "last_error": r.last_error,
-                    }
-                    for r in self.rlm.registry.list()
-                ]
+                "rlm_child_id": r.rlm_child_id,
+                "session_name": r.name,
+                "session_id": r.native_session_id,
+                # Upstream separates "has a session" from "is running one". We
+                # kept only `status`, which cannot say *which* session is live
+                # for a child re-tasked across several turns.
+                "active_session_id": r.native_session_id if r.status == "running" else None,
+                "session_dir": str(self.rlm.registry.child_dir(r.rlm_child_id)),
+                "status": r.status,
+                "name": r.name,
+                "adapter": r.adapter,
+                "turns": r.turns,
+                "tokens": r.tokens,
+                "cost_usd": r.cost_usd,
+                "model": r.model,
+                "last_error": r.last_error,
             }
+
+        async def rlm_list(payload: dict) -> dict:
+            return {"subagents": [subagent_payload(r) for r in self.rlm.registry.list()]}
 
         async def rlm_delete(payload: dict) -> dict:
             target = payload.get("target")
             if not isinstance(target, str) or not target.strip():
                 raise ValueError("target must be a non-empty string")
             record = self.rlm.registry.delete(target.strip())
-            return {"deleted": {"rlm_child_id": record.rlm_child_id, "name": record.name}}
+            # `subagent` is upstream's key and carries the whole record. We used
+            # to return `{"deleted": {id, name}}`, which meant an identically
+            # named request answered in a shape upstream's validator rejects.
+            # `deleted` stays for now only because a kernel started before this
+            # change still reads it - same version-skew we added
+            # `status.server.version` for.
+            return {"subagent": subagent_payload(record), "deleted": subagent_payload(record)}
 
         async def message_send(payload: dict) -> dict:
             message = payload.get("message")

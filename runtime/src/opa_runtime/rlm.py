@@ -32,6 +32,19 @@ class RLMSpawnHandle:
 
 @dataclass(frozen=True)
 class RLMSubagent:
+    """A retained child.
+
+    `rlm_child_id`, `session_name`, `session_id`, `active_session_id`,
+    `session_dir` and `status` are upstream's field names, so code written
+    against prime-agent's `rlm` reads this unchanged. `name` and the counters
+    below are ours.
+
+    `session_id` is the host CLI's own session identifier; `active_session_id`
+    is that same id only while a turn is in flight, and None when the child is
+    idle - which is how you tell "this child has a session to resume" from
+    "this child is busy right now".
+    """
+
     rlm_child_id: str
     name: str
     adapter: str
@@ -41,6 +54,9 @@ class RLMSubagent:
     cost_usd: float
     model: str | None
     session_dir: Path
+    session_name: str = ""
+    session_id: str | None = None
+    active_session_id: str | None = None
     last_error: str | None = None
 
     def __repr__(self) -> str:
@@ -48,6 +64,24 @@ class RLMSubagent:
             f"<subagent {self.name!r} ({self.adapter}) {self.status} "
             f"turns={self.turns} tokens={self.tokens}>"
         )
+
+
+def _subagent(entry: dict[str, Any]) -> RLMSubagent:
+    return RLMSubagent(
+        rlm_child_id=entry["rlm_child_id"],
+        name=entry["name"],
+        adapter=entry["adapter"],
+        status=entry["status"],
+        turns=entry["turns"],
+        tokens=entry["tokens"],
+        cost_usd=entry["cost_usd"],
+        model=entry.get("model"),
+        session_dir=Path(entry["session_dir"]),
+        session_name=entry.get("session_name") or entry["name"],
+        session_id=entry.get("session_id"),
+        active_session_id=entry.get("active_session_id"),
+        last_error=entry.get("last_error"),
+    )
 
 
 async def run(prompt: str, **kwargs: Any) -> RLMSpawnHandle:
@@ -83,26 +117,16 @@ class _RLM:
     async def list_subagents(self) -> list[RLMSubagent]:
         """The same children must come back after a kernel restart or a compaction."""
         payload = await host_request("rlm.list_subagents")
-        return [
-            RLMSubagent(
-                rlm_child_id=entry["rlm_child_id"],
-                name=entry["name"],
-                adapter=entry["adapter"],
-                status=entry["status"],
-                turns=entry["turns"],
-                tokens=entry["tokens"],
-                cost_usd=entry["cost_usd"],
-                model=entry.get("model"),
-                session_dir=Path(entry["session_dir"]),
-                last_error=entry.get("last_error"),
-            )
-            for entry in payload["subagents"]
-        ]
+        return [_subagent(entry) for entry in payload["subagents"]]
 
-    async def delete_subagent(self, target: str | RLMSubagent) -> dict:
-        selector = target.name if isinstance(target, RLMSubagent) else str(target).strip()
+    async def delete_subagent(self, target: str | RLMSubagent) -> RLMSubagent:
+        """Drop one child. Returns the record as it was when it went away."""
+        # Address by id, not name: names can be reused, ids cannot.
+        selector = (
+            target.rlm_child_id if isinstance(target, RLMSubagent) else str(target).strip()
+        )
         payload = await host_request("rlm.delete_subagent", {"target": selector})
-        return payload["deleted"]
+        return _subagent(payload["subagent"])
 
     async def __call__(self, prompt: str, **kwargs: Any) -> RLMSpawnHandle:
         return await run(prompt, **kwargs)
