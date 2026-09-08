@@ -47,8 +47,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import random
+import re
 import subprocess
 import time
 import uuid
@@ -227,38 +227,51 @@ PREAMBLE = (
     "modules by name. Treat `import mod_NNN` as a directed edge. "
 )
 QUESTIONS = [
-    PREAMBLE + "Every question in this session concerns only the modules "
-    "reachable from root.py. How many distinct modules are transitively "
-    "reachable from root.py by following imports? Do not count root.py "
-    "itself. Answer with only the number.",
-
-    "Excluding the modules that root.py imports directly, which single "
-    "reachable module would, if deleted, make the greatest number of modules "
-    "unreachable from root.py? Some descendants may survive by another route, "
-    "so this is not simply the largest subtree. On a tie pick the "
-    "lexicographically smallest filename. Answer with only the filename.",
-
-    "Call that module M. Exactly how many modules would become unreachable "
-    "from root.py if M were deleted? Count M itself. "
-    "Answer with only the number.",
-
-    "What is the length in edges of the longest import path from root.py to "
-    "M? Answer with only the number.",
-
-    "How many distinct modules are transitively reachable from M itself? Do "
-    "not count M. Answer with only the number.",
-
-    "Among exactly those modules that would become unreachable if M were "
-    "deleted, which has the most lines? On a tie pick the lexicographically "
-    "smallest filename. Answer with only the filename.",
-
-    "Call that module L. In the original graph, what is the length in edges "
-    "of the longest import path from root.py to L? "
-    "Answer with only the number.",
-
-    "Finally: counting only modules reachable from root.py plus root.py "
-    "itself, how many import edges are there between them? "
-    "Answer with only the number.",
+    # Each entry is parenthesised: ISC004 exists because a missing comma between
+    # two adjacent strings in a list silently concatenates them into one, which
+    # here would merge two questions and shift every answer after it.
+    (
+        PREAMBLE + "Every question in this session concerns only the modules "
+        "reachable from root.py. How many distinct modules are transitively "
+        "reachable from root.py by following imports? Do not count root.py "
+        "itself. Answer with only the number."
+    ),
+    (
+        "Excluding the modules that root.py imports directly, which single "
+        "reachable module would, if deleted, make the greatest number of "
+        "modules unreachable from root.py? Some descendants may survive by "
+        "another route, so this is not simply the largest subtree. On a tie "
+        "pick the lexicographically smallest filename. "
+        "Answer with only the filename."
+    ),
+    (
+        "Call that module M. Exactly how many modules would become unreachable "
+        "from root.py if M were deleted? Count M itself. "
+        "Answer with only the number."
+    ),
+    (
+        "What is the length in edges of the longest import path from root.py "
+        "to M? Answer with only the number."
+    ),
+    (
+        "How many distinct modules are transitively reachable from M itself? "
+        "Do not count M. Answer with only the number."
+    ),
+    (
+        "Among exactly those modules that would become unreachable if M were "
+        "deleted, which has the most lines? On a tie pick the "
+        "lexicographically smallest filename. Answer with only the filename."
+    ),
+    (
+        "Call that module L. In the original graph, what is the length in "
+        "edges of the longest import path from root.py to L? "
+        "Answer with only the number."
+    ),
+    (
+        "Finally: counting only modules reachable from root.py plus root.py "
+        "itself, how many import edges are there between them? "
+        "Answer with only the number."
+    ),
 ]
 
 

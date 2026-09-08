@@ -153,3 +153,37 @@ async def test_status_reports_the_running_server_version(server):
     state = json.loads((await server.call_tool("opa_status", {})).content[0].text)
     assert state["server"]["version"] == __version__
     assert state["server"]["started_at"] == server._opa_runtime.started_at
+
+
+# ---------- the console script ----------
+
+def test_help_prints_instead_of_starting_the_server(capsys):
+    """`opa --help` used to start the server, so it printed nothing.
+
+    On a terminal, where stdin stays open, it then sat waiting for MCP protocol
+    and looked like a hang - as the first command anyone runs after installing.
+    """
+    from opa.server import main
+
+    main(["--help"])
+    out = capsys.readouterr().out
+    assert "open-primeagent MCP server" in out
+    assert "claude mcp add opa" in out, "say how to register it, not just that it exists"
+
+
+def test_version_prints_the_version(capsys):
+    from opa import __version__
+    from opa.server import main
+
+    main(["--version"])
+    assert capsys.readouterr().out.strip() == __version__
+
+
+def test_an_unknown_argument_is_refused_rather_than_ignored(capsys):
+    """Silently serving MCP on a typo would look like the flag had worked."""
+    from opa.server import main
+
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--wat"])
+    assert exit_info.value.code == 2
+    assert "--wat" in capsys.readouterr().err

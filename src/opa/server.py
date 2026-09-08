@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from typing import Literal
 
 from mcp.server.mcpserver import MCPServer
@@ -181,8 +182,45 @@ def build_server(config: Config | None = None) -> MCPServer:
     return server
 
 
-def main() -> None:
-    """Run the stdio MCP server. Entry point for the `opa` console script."""
+USAGE = """opa {version} - open-primeagent MCP server
+
+Run with no arguments to serve MCP over stdio. It is meant to be launched by
+your coding agent, not by you: on a terminal it will sit there waiting for MCP
+protocol on stdin, which looks like a hang.
+
+Register it with the agent you already use:
+
+  claude mcp add opa -- uvx open-primeagent     # Claude Code
+                                               # Codex / opencode: see the docs
+
+Options:
+  -h, --help       show this and exit
+  -V, --version    print the version and exit
+
+Configuration is by environment variable (OPA_WORKSPACE, OPA_ROOT, ...):
+  https://github.com/softkleenex/open-primeagent/blob/main/docs/reference/configuration.md
+"""
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Run the stdio MCP server. Entry point for the `opa` console script.
+
+    `--help` used to start the server like any other invocation, so it printed
+    nothing and - on a terminal, where stdin stays open - simply hung. That is
+    the first command someone runs after installing.
+    """
+    args = sys.argv[1:] if argv is None else argv
+    if any(a in ("-h", "--help") for a in args):
+        print(USAGE.format(version=__version__))
+        return
+    if any(a in ("-V", "--version") for a in args):
+        print(__version__)
+        return
+    if args:
+        print(f"opa: unexpected argument {args[0]!r}\n", file=sys.stderr)
+        print(USAGE.format(version=__version__), file=sys.stderr)
+        raise SystemExit(2)
+
     server = build_server()
     try:
         asyncio.run(server.run_stdio_async())
