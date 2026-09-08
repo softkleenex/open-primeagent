@@ -36,6 +36,19 @@ class _AgentMessage:
             "agent_message.send", {"message": message, "receiver_name": receiver_name}
         )
 
+    async def list_agents(self) -> dict[str, Any]:
+        """Who you can address from here.
+
+        Returns `current` (name, id, depth) and `entries`, each carrying a
+        `relationship` of "parent" or "child".
+
+        Upstream also lists siblings. We do not: a child that could address a
+        sibling could re-task work it does not own, so a child sees only the
+        parent here. The list reflects the authority the bridge will actually
+        grant, rather than a family tree it would then refuse to act on.
+        """
+        return await host_request("agent_message.list_agents")
+
     async def inbox(self, *, since: int = 0) -> list[dict[str, Any]]:
         """Read the parent mailbox, where child results arrive.
 

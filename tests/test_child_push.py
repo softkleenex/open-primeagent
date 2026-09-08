@@ -356,3 +356,37 @@ async def test_the_kernel_token_never_reaches_the_environment(config):
     assert runtime.kernel_token not in "".join(env.values())
     # it is handed over in-process instead
     assert runtime.kernel_token in manager._bootstrap()
+
+
+async def test_list_agents_shows_a_parent_only_its_children(runtime):
+    """Upstream's agent-message skill calls this before sending."""
+    for name in ("zeta", "alpha"):
+        runtime.rlm.registry.add(
+            ChildRecord.new(name, "claude-code", Path(runtime.config.workspace))
+        )
+    payload = await host_request("agent_message.list_agents")
+
+    assert payload["current"]["name"] == "parent"
+    assert payload["current"]["depth"] == 0
+    assert [e["name"] for e in payload["entries"]] == ["alpha", "zeta"], "sorted by name"
+    assert {e["relationship"] for e in payload["entries"]} == {"child"}
+
+
+async def test_list_agents_shows_a_child_only_the_parent(runtime, monkeypatch):
+    """The address book has to match the authority the bridge will grant.
+
+    A child may message the parent and nothing else, so listing a sibling here
+    would advertise a route that `agent_message.send` refuses - and inviting a
+    child to discover its siblings by name is the first half of re-tasking work
+    it does not own.
+    """
+    runtime.rlm.registry.add(
+        ChildRecord.new("sibling", "claude-code", Path(runtime.config.workspace))
+    )
+    child_env(runtime, "worker", monkeypatch)
+
+    payload = await host_request("agent_message.list_agents")
+
+    assert payload["current"]["name"] == "worker"
+    assert [e["relationship"] for e in payload["entries"]] == ["parent"]
+    assert "sibling" not in {e["name"] for e in payload["entries"]}

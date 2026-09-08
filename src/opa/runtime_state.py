@@ -165,6 +165,56 @@ class Runtime:
             # `status.server.version` for.
             return {"subagent": subagent_payload(record), "deleted": subagent_payload(record)}
 
+        async def message_list_agents(payload: dict) -> dict:
+            """Who the caller may actually address, which is not the same list for everyone.
+
+            Upstream's `agent-message` skill calls this to find the parent,
+            siblings and children before sending. Ours answers per role, because
+            our authority boundary is genuinely narrower than upstream's and a
+            list that implied otherwise would be worse than none:
+
+            - a parent sees its children
+            - a child sees the parent, and nothing else
+
+            Siblings are omitted deliberately, not overlooked. Letting a child
+            address a sibling is how it could re-task work it does not own, and
+            a token-authenticated bridge is the wrong place to reintroduce that.
+            The `relationship` field is what makes the difference visible to a
+            reader who came from upstream.
+            """
+            caller = bridge_current_caller()
+            if caller is not None and caller.role == "child":
+                record = self.rlm.registry.get(caller.name)
+                return {
+                    "current": {
+                        "name": caller.name,
+                        "id": record.rlm_child_id if record else "",
+                        "depth": 1,
+                    },
+                    "entries": [
+                        {
+                            "relationship": "parent",
+                            "name": PARENT,
+                            "id": self.session_id,
+                            "depth": 0,
+                            "status": "running",
+                        }
+                    ],
+                }
+            return {
+                "current": {"name": PARENT, "id": self.session_id, "depth": 0},
+                "entries": [
+                    {
+                        "relationship": "child",
+                        "name": r.name,
+                        "id": r.rlm_child_id,
+                        "depth": 1,
+                        "status": r.status,
+                    }
+                    for r in sorted(self.rlm.registry.list(), key=lambda r: r.name)
+                ],
+            }
+
         async def message_send(payload: dict) -> dict:
             message = payload.get("message")
             if not isinstance(message, str) or not message.strip():
@@ -421,6 +471,11 @@ class Runtime:
         # directly whatever its MCP tool list says.
         self.bridge.register("agent_message.send", message_send, roles=("parent", "child"))
         self.bridge.register("agent_message.inbox", message_inbox)
+        # A child may ask who it can talk to; the answer it gets is just itself
+        # and the parent.
+        self.bridge.register(
+            "agent_message.list_agents", message_list_agents, roles=("parent", "child")
+        )
 
     def _on_rlm_event(self, event: str, data: dict) -> None:
         """Record delegated work, and charge it to the goal.

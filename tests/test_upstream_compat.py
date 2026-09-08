@@ -49,6 +49,21 @@ UPSTREAM_STATUSES = frozenset({"running", "completed", "error"})
 UPSTREAM_HANDLE_FIELDS = ("rlm_child_id", "session_dir", "status", "model")
 # rlm/__init__.py:317 __all__
 UPSTREAM_RLM_CALLABLES = ("run", "list_subagents", "delete_subagent")
+# What upstream's own shipped skills call, extracted from
+# packages/coding-agent/skills/*/SKILL.md. This is a sharper test than the
+# module's __all__: these are the calls that upstream documentation tells a
+# model to make, so a missing one breaks a skill a user may paste in verbatim.
+UPSTREAM_SKILL_CALLS = {
+    "goal": ("get", "create", "complete"),
+    "rlm": ("list_subagents", "delete_subagent"),
+    "agent_message": ("send", "list_agents"),
+}
+# Deliberately not provided. Recorded so the omission stays a decision.
+#   rlm_heartbeat.*  - our equivalent is `schedule`, under a different name
+#   compact.*, refine.*, linear.*, notion.*, agent_observe.*
+#                    - host-harness features we delegate rather than reimplement
+UPSTREAM_SKILL_CALLS_NOT_PROVIDED = ("rlm_heartbeat", "compact", "refine", "agent_observe")
+
 # rlm/harness.py HarnessEntry
 UPSTREAM_HARNESS_ENTRY_FIELDS = (
     "id",
@@ -133,6 +148,26 @@ def test_rlm_exposes_upstreams_callables():
 
     for name in UPSTREAM_RLM_CALLABLES:
         assert callable(getattr(rlm, name, None)), f"rlm.{name} is missing"
+
+
+def test_upstream_skills_find_the_calls_they_document():
+    """Upstream's shipped skills should run here, not just its type names.
+
+    Found `agent_message.list_agents` missing this way: it is documented in
+    upstream's agent-message skill, so a user pasting that skill in would have
+    hit an AttributeError before sending anything.
+    """
+    from opa_runtime import agent_message, goal
+    from opa_runtime.rlm import rlm
+
+    objects = {"goal": goal, "rlm": rlm, "agent_message": agent_message}
+    missing = [
+        f"{obj}.{call}"
+        for obj, calls in UPSTREAM_SKILL_CALLS.items()
+        for call in calls
+        if not callable(getattr(objects[obj], call, None))
+    ]
+    assert not missing, f"upstream skills call these and we do not have them: {missing}"
 
 
 def test_upstream_request_type_names_are_registered(runtime):

@@ -31,6 +31,7 @@ async def runtime(config, monkeypatch):
 async def test_every_documented_type_is_registered(runtime):
     assert set(runtime.bridge.types) == {
         "agent_message.inbox",
+        "agent_message.list_agents",
         "agent_message.send",
         "autonomous.start",
         "autonomous.status",
