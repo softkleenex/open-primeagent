@@ -238,8 +238,9 @@ class Runtime:
             return {"goal": _entry_dict(goal)}
 
         async def goal_complete(payload: dict) -> dict:
-            result = self.goals.complete()
-            self.record("goal.complete", {})
+            note = str(payload.get("note") or "")
+            result = self.goals.complete(note)
+            self.record("goal.complete", {"note": note})
             return result
 
         async def goal_abandon(payload: dict) -> dict:

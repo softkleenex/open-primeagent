@@ -32,6 +32,18 @@ def test_a_second_goal_is_refused_while_one_is_active(goals):
         goals.create("second")
 
 
+def test_completing_records_what_achieving_it_consisted_of(goals):
+    """`abandon` took a note and `complete` did not, which was backwards.
+
+    A goal outlives the session that set it, so the note on the successful
+    outcome is the one a later reader actually needs.
+    """
+    goals.create("ship the thing")
+    done = goals.complete("shipped in abc1234")
+    assert done["goal"]["note"] == "shipped in abc1234"
+    assert done["goal"]["status"] == "completed"
+
+
 def test_completing_reports_the_budget(goals):
     goals.create("ship it", token_budget=500)
     goals.spend(120)

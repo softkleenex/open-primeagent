@@ -148,7 +148,7 @@ class GoalStore:
         self.save()
         return self.goal
 
-    def complete(self) -> dict[str, Any]:
+    def complete(self, note: str = "") -> dict[str, Any]:
         if self.goal is None:
             raise ValueError("there is no goal to complete")
         if self.goal.status == "completed":
@@ -159,6 +159,11 @@ class GoalStore:
                 "Use abandon(note=...) to stop without claiming the objective was met."
             )
         self.goal.status = "completed"
+        # A note was accepted when abandoning but not when succeeding, which had
+        # it backwards: the record of what achieving the objective actually
+        # consisted of is the one worth keeping.
+        if note:
+            self.goal.note = note
         self.goal.completed_at = _now()
         self.goal.updated_at = self.goal.completed_at
         self.save()

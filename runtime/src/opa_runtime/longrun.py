@@ -38,13 +38,16 @@ class _Goal:
             payload["token_budget"] = token_budget
         return (await host_request("goal.create", payload))["goal"]
 
-    async def complete(self) -> dict[str, Any]:
+    async def complete(self, note: str = "") -> dict[str, Any]:
         """End the goal because it was **achieved**.
 
         Not because you are stopping, and not because the budget is nearly gone -
         `abandon()` is for that.
+
+        `note` records what achieving it consisted of. Worth writing: the goal
+        outlives the session that set it, so this is what a later reader has.
         """
-        return await host_request("goal.complete")
+        return await host_request("goal.complete", {"note": note})
 
     async def abandon(self, note: str = "") -> dict[str, Any]:
         return await host_request("goal.abandon", {"note": note})
