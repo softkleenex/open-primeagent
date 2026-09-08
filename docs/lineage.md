@@ -140,13 +140,28 @@ Rebuilding it would contradict the premise — see the four rules in
 Code*. So nothing here supports "as fast as Prime Agent" or "as good as Prime
 Agent", and this repository does not say it.
 
-A head-to-head is the obvious missing experiment, and the honest reason it has
-not run is worth stating: upstream's own docs note that third-party harness use
-of an Anthropic subscription
-[draws on extra usage and is billed per token](https://github.com/PrimeIntellect-ai/prime-agent)
-rather than against plan limits, and it needs an interactive `/login`. So it
-costs real money and a human at a keyboard. Until someone runs it, the claim
-this repo makes is the narrower one:
+A head-to-head is the obvious missing experiment, and it is worth being precise
+about why it has not run, because "we did not get to it" and "it cannot be done"
+are very different claims. It can be done. Everything needed is there:
+
+| needed | upstream has it |
+|---|---|
+| headless invocation | `prime-agent --print` / `-p`, and `--mode json` for an event stream |
+| per-turn token accounting | session file records `Usage` per message: `input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, plus a cost breakdown |
+| sub-agent cost attribution | `child_usage_attributed` entries fold each RLM child's usage into the parent, with `childUsage` and `aggregateUsage` kept apart |
+
+That last row is better instrumentation than we had until recently — and note
+that upstream separates cache tokens from real input/output exactly as
+[our own benchmark had to learn to](../bench/README.md), which is a point in
+favour of the comparison being meaningful once someone runs it.
+
+What actually blocks it is mundane: `/login` is interactive, so a human has to
+sit down once, and upstream's docs note that third-party harness use of an
+Anthropic subscription draws on **extra usage, billed per token** rather than
+against plan limits. So the experiment costs real money on someone's card. That
+is a decision for whoever owns the card, not something to quietly spend.
+
+Until someone runs it, the claim this repo makes is the narrower one:
 
 > The protocol is the same, and that is checked by a test. The performance
 > comparison is open.
