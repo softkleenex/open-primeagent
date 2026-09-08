@@ -1,5 +1,10 @@
 # open-primeagent
 
+[![CI](https://github.com/softkleenex/open-primeagent/actions/workflows/ci.yml/badge.svg)](https://github.com/softkleenex/open-primeagent/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![Upstream compatibility](https://img.shields.io/badge/rlm%20protocol-pinned%20by%20test-8a2be2)](tests/test_upstream_compat.py)
+
 **Bring RLM to the coding agent you already use.**
 
 An MCP server that gives Claude Code / Codex / opencode three things they don't
