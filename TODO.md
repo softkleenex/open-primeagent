@@ -239,6 +239,95 @@ items and the active goal with the next call for each; a schedule peek does not
 consume; user- and agent-created entries stay distinguishable; the goal carries
 its own rules and refuses to complete on an exhausted budget.
 
+## Checking the inheritance claim (2026-09-08)
+
+The README's headline is that this speaks Prime Agent's RLM protocol, and
+nothing verified it. Comparing our types against the reference surface field by
+field found two real breaks in shipping, green code:
+
+**`rlm.delete_subagent` answered in a shape upstream cannot parse.** We returned
+`{"deleted": {id, name}}`; upstream reads `payload["subagent"]` and validates a
+whole record. An identically named request was mutually unintelligible.
+
+**`RLMSubagent` was missing `session_name`, `session_id`, `active_session_id`.**
+The last is a distinction we had collapsed without replacing: `status` says a
+child is running, not *which* session is live for one re-tasked across turns. We
+already held it as `native_session_id`.
+
+Everything else checked out — `HarnessEntry` matches field for field, our
+`ChildStatus` literals are exactly upstream's closed set, `RLMSpawnHandle` and
+`RefinementEvent` are supersets.
+
+**Upstream's own skills are a sharper test than its `__all__`.** Extracting every
+documented `await x.y(...)` from the 13 SKILL.md files found
+`agent_message.list_agents` missing — documented as the call to make *before*
+sending, so a pasted agent-message skill would fail at its first step.
+Implemented, answered per role: a parent sees its children, a child sees only the
+parent. Upstream also lists siblings; we do not, for the same reason
+`agent_message.send` has a role gate.
+
+`tests/test_upstream_compat.py` pins all of it. `_ref/` is not committed, so the
+contract is transcribed as data with `file:line` citations, including a
+reproduction of upstream's `_subagent_from_payload` acceptance rules that our own
+wire payloads now run through. Deliberate divergences are asserted too.
+
+**An interop limit no schema compatibility fixes.** Upstream filters unknown keys
+on load rather than failing, so our extra fields degrade gracefully — but if
+upstream *writes* the file back, the `before` snapshots `harness.rollback()`
+needs are dropped. Read-only interop is safe both ways; alternating writers is
+not. This is also why `HarnessEntry` is pinned as an exact match rather than a
+superset.
+
+**The head-to-head is possible and has not been run.** Upstream has `--print`/`-p`
+and `--mode json`, records per-message `Usage` with cache separated from
+input/output, and attributes RLM child usage to the parent. What blocks it is an
+interactive `/login` and the fact that third-party harness use of a subscription
+is billed per token from extra usage — someone's money, not a tooling gap. Every
+number we publish compares opa + Claude Code against bare Claude Code, and
+`docs/lineage.md` says so.
+
+**A goal could record why it was abandoned but not what achieving it meant.**
+Found by closing a real goal: `abandon(note=...)` took a note, `complete()` did
+not, and the record had an empty `note` field nothing could fill.
+
+**The README claimed more verification than codex has.** Both adapters sat under
+"verified by tests that spawn a real child agent", and only claude-code earns it.
+Codex was verified against the real binary by hand when written (`43db9fd`) and
+is covered against a stub CLI since; the auth here is expired so it is not being
+re-checked. Now stated as "verified once, not continuously".
+
+## The kernel benchmark, and the fifth wrong measurement (2026-09-08)
+
+`bench/depgraph.py`, with its prediction committed before any results ran.
+
+Designing it took five rounds, all before any agent ran, each removing a way to
+score well without doing the work: the most-depended-on module is a sink in any
+DAG so asking about its imports had no answer; ranking globally named modules
+root cannot reach, making the deletion question zero by definition; ranking by
+in-degree always landed on a late near-leaf; root's direct imports each head a
+subtree so one always won the cut-vertex question; and every module was
+reachable, making question one `ls | wc -l`. What survives has a trap that
+proves the chain cannot be shortcut — the pivot's closure is 195 but deleting it
+disconnects only 99, because the rest survive by a cross edge.
+
+**Then the instrumentation turned out to be wrong.** Two of seven baseline runs
+came in at 23–29k tokens on turn 1 against ~1.2k for the rest, and I read that
+as a variance finding. The data disagreed: those runs cost $0.005 per 1k tokens
+against $0.035 for the others, with the same tool-call count and wall clock.
+Tracing turn 1 thirteen times with `--output-format stream-json` produced no
+oversized tool result and no blowup at all. It was prompt-cache creation, and
+folding it into a token total measures the state of the cache and calls it the
+cost of the task.
+
+> An agent's token usage is not a property of the task alone. Any measurement
+> spanning separate CLI invocations is measuring cache state too, and has to say
+> which it means.
+
+`work_tokens`, `cache_write`, `cache_read` and `cost_usd` are now recorded
+separately. Upstream's own `Usage` draws the same distinction, which is mild
+evidence it is the right one. Old results kept as
+`depgraph-INVALID-cache-writes-counted-as-work.json`.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):
@@ -256,6 +345,7 @@ From a coverage audit (90% overall):
       material — the only case where fan-out should win. This is the missing
       experiment that would settle whether sub-agents earn their cost.
 - [ ] `codex` has no `child`-marked integration test; only `claude` does.
+      Now disclosed in the README rather than papered over (2026-09-08).
 - [ ] The user's codex auth is currently expired (`token_expired` on every run),
       so codex-backed measurements are unreliable until they sign in again.
 - [x] The push channel is wired into codex too, via `-c mcp_servers.*` overrides.
