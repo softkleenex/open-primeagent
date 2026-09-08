@@ -37,6 +37,7 @@ Read in this order; each layer depends on the one before it.
 
 | | |
 |---|---|
+| [Lineage](lineage.md) | what is inherited from Prime Agent, verified line by line |
 | [Architecture](architecture.md) | layers, the host bridge, projection |
 | [Roadmap](roadmap.md) | phases with executable exit criteria |
 | [Benchmarks](../bench/README.md) | measured results, including the ones we lost |

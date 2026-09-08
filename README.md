@@ -7,8 +7,9 @@ have: a **persistent Python kernel** as external working memory, **long-lived
 sub-agent sessions** you can re-task later, and a **continual harness** that
 accumulates what the project taught you.
 
-Ported from the architecture of
-[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent).
+Speaks the same `rlm` protocol as
+[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) — same request
+names, same field names, same state-file schema, [checked by a test](tests/test_upstream_compat.py).
 **You don't switch agents. You add one MCP server.**
 
 ```bash
@@ -16,6 +17,7 @@ claude mcp add opa -- uvx open-primeagent      # once 0.1.0 is on PyPI; until th
 ```
 
 [Install](#install) · [Why this is small](#why-this-is-only-3k-lines-and-not-170k) ·
+[Is it really the same RLM?](#is-it-really-the-same-rlm) ·
 [Sub-agents](#persistent-sub-agents-actually-work) ·
 [External memory](#context-is-for-deciding-not-for-storage) ·
 [Harness](#a-harness-that-learns-without-touching-your-files) ·
@@ -58,6 +60,38 @@ other 167k lines are one particular harness implementation.
 **So we delegate the harness to the agent you already run.** Sessions, auth,
 model selection, permissions, the UI — all of it stays yours. We build the RLM
 runtime and nothing else.
+
+## Is it really the same RLM?
+
+Fair question, and the kind that is usually answered with adjectives. Here it is
+answered by a CI test that reproduces upstream's own payload validator
+(`rlm/__init__.py:181`, which **raises** on a malformed record) and runs our
+wire payloads through it:
+
+| | |
+|---|---|
+| request names on the wire | `rlm.run` · `rlm.list_subagents` · `rlm.delete_subagent` — identical |
+| `RLMSubagent` / `RLMSpawnHandle` fields | all upstream fields present |
+| child status vocabulary | exactly `{running, completed, error}` |
+| `HarnessEntry` | **13/13 fields, field for field** |
+| `harness_state.json` | same `schema: 1`, entries-by-kind + refinements |
+
+That test found two breaks in code that was already shipping and green: our
+`delete_subagent` was answering in a shape upstream cannot parse, and
+`RLMSubagent` was missing three upstream fields. Both fixed. **Compatibility
+nobody tests is compatibility that is already broken.**
+
+Where we diverge — socket instead of Jupyter `comm`, your `claude`/`codex`
+instead of an in-process child, per-caller tokens instead of one trusted kernel
+— each divergence and what it costs is written down in
+**[docs/lineage.md](docs/lineage.md)**, along with the interop limit that matters
+in practice: upstream can *read* a state file we wrote, but if it writes it back,
+our rollback snapshots are dropped.
+
+**What this does not claim:** we have never benchmarked against Prime Agent
+itself. Every number below compares *opa + Claude Code* against *bare Claude
+Code*. The protocol equivalence is tested; the performance comparison is
+[open](docs/lineage.md#what-we-cannot-claim).
 
 ## Persistent sub-agents actually work
 
@@ -345,13 +379,18 @@ Start at **[docs/](docs/)**, or jump straight to:
 | [Quickstart](docs/quickstart.md) | running in two minutes |
 | [Persistent Python](docs/concepts/persistent-python.md) · [RLM](docs/concepts/rlm.md) · [Harness](docs/concepts/harness.md) · [Long-run](docs/concepts/long-run.md) | the concepts |
 | [MCP tools](docs/reference/tools.md) · [Kernel API](docs/reference/kernel-api.md) · [Configuration](docs/reference/configuration.md) | reference |
+| [Lineage](docs/lineage.md) | what is inherited, what diverges, what we cannot claim |
 | [Architecture](docs/architecture.md) · [Roadmap](docs/roadmap.md) | how and what next |
 | [Benchmarks](bench/README.md) | measured, including the losses |
 | [Security](docs/security.md) | **read this one** |
 
 ## License and relationship to Prime Agent
 
-Apache-2.0. This is an **independent reimplementation** inspired by Prime
-Agent's architecture, not a fork, and it contains no copied code. The `rlm` API
-names and the harness state schema are kept compatible on purpose, so upstream's
-documentation and skills stay applicable.
+Apache-2.0. This is an **independent reimplementation**, not a fork, and it
+contains no copied code — the reference checkout is git-ignored and read only to
+learn the contract. The `rlm` API names and the harness state schema are kept
+compatible on purpose, so upstream's documentation and skills stay applicable,
+and [a test](tests/test_upstream_compat.py) keeps that true.
+
+Full breakdown, with upstream `file:line` citations for every claim:
+**[docs/lineage.md](docs/lineage.md)**.
