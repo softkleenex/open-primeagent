@@ -30,15 +30,27 @@ claude mcp add opa -- uvx open-primeagent      # once 0.1.0 is on PyPI; until th
 ```
 ✅ L1  Persistent Python      kernel · external working memory · output truncation
 ✅ L2  RLM                    persistent sub-agents + agent-to-agent messaging
-                              adapters: claude-code · codex
+                              adapters: claude-code (in CI) · codex (by hand, once)
 ✅ L3  Continual Harness      prompts / memory / skills / sub-agent specs
                               + projection into the files your agent already reads
 ✅ L4  Long-run               goal / schedule / autonomous gate loop
 ✅ L5  Evolution              live tool-surface rewriting + harness.evolve()
 ```
 
-Everything marked ✅ is verified by tests that actually spawn a kernel and a real
-child agent. See [the roadmap](docs/roadmap.md) for the exit criteria of each phase.
+Every ✅ is verified by tests that boot a real IPython kernel, and the
+**claude-code** path is verified end to end by tests that spawn a real child
+agent (`pytest -m child`).
+
+One caveat we would rather state than have you find. The **codex** adapter was
+verified against the real CLI by hand when it was written (`43db9fd`, a child
+resumed with its context intact), and its wiring is covered by automated tests
+against a stub CLI — command construction, `thread_id` parsing, sandbox flags,
+malformed output. But no automated test drives the real `codex` binary, and the
+codex auth on this machine has since expired, so that one-time check is not
+being repeated. Treat claude-code as continuously verified and codex as verified
+once. If you run it against real codex, we would like to hear what breaks.
+
+See [the roadmap](docs/roadmap.md) for the exit criteria of each phase.
 
 ---
 
