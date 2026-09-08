@@ -20,6 +20,10 @@ that a reader can judge whether the design is fair rather than tuned:
 
 PRE-REGISTERED PREDICTION, recorded before the first run:
 
+    (Recorded after the fact, in the commit that fixed the instrumentation:
+    the prediction below was written against a token metric that included
+    cache writes. See bench/README.md for what the corrected numbers say.)
+
     The baseline rebuilds the graph every turn - roughly 20 lines of parsing
     re-emitted 8 times - while opa builds it once and then runs one-line
     queries. We expect opa to win on billed tokens, by less than the harness
@@ -43,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import random
 import subprocess
 import time
@@ -270,13 +275,44 @@ def expected(truth: Truth) -> list[str]:
     ]
 
 
+def _matches(want: str, answer: str) -> bool:
+    """Substring matching is not safe here.
+
+    A bare `"362" in answer` also matches the filename `mod_362.py` and the
+    number 3620, so an answer could be graded correct for containing a
+    coincidence. Require the value as a standalone token instead: not preceded
+    by a digit or underscore, not followed by a digit.
+    """
+    if not want:
+        return False
+    return re.search(rf"(?<![\d_]){re.escape(want)}(?!\d)", answer) is not None
+
+
 # ---------- runner ----------
 
 @dataclass
 class TurnMetrics:
+    """Token fields are kept apart on purpose.
+
+    An earlier version reported one `billed_tokens` = input + output +
+    cache_creation. That number made two runs look 20x more expensive than the
+    rest when they had in fact done identical work with identical tool calls -
+    they were simply the ones that paid to *write* the prompt cache rather than
+    read it. Cache writes are an artifact of what else ran on the machine
+    recently, not of the task, so a metric that includes them measures the
+    wrong thing.
+
+    `work_tokens` (input + output) is what the task cost. `cost_usd` is the
+    honest bottom line, since it prices cache reads and writes correctly.
+    """
+
     turn: int
     answer: str
-    billed_tokens: int
+    work_tokens: int
+    input_tokens: int
+    output_tokens: int
+    cache_write: int
+    cache_read: int
     cost_usd: float
     num_turns: int
     duration_ms: int
@@ -292,7 +328,11 @@ class RunMetrics:
     @property
     def totals(self) -> dict:
         return {
-            "billed_tokens": sum(t.billed_tokens for t in self.turns),
+            "work_tokens": sum(t.work_tokens for t in self.turns),
+            "input_tokens": sum(t.input_tokens for t in self.turns),
+            "output_tokens": sum(t.output_tokens for t in self.turns),
+            "cache_write": sum(t.cache_write for t in self.turns),
+            "cache_read": sum(t.cache_read for t in self.turns),
             "cost_usd": round(sum(t.cost_usd for t in self.turns), 4),
             "agent_turns": sum(t.num_turns for t in self.turns),
             "duration_ms": sum(t.duration_ms for t in self.turns),
@@ -350,15 +390,19 @@ def run_arm(arm: str, workspace: Path, model: str, timeout: float, truth: Truth)
         # excuse the answers that follow it. Where the chain broke is visible
         # in the per-turn record.
         want = answers[index]
-        ok = want in answer if want else False
+        ok = _matches(want, answer)
 
+        tin = int(usage.get("input_tokens", 0))
+        tout = int(usage.get("output_tokens", 0))
         metrics.turns.append(
             TurnMetrics(
                 turn=index + 1,
                 answer=answer[:200],
-                billed_tokens=int(usage.get("input_tokens", 0))
-                + int(usage.get("output_tokens", 0))
-                + int(usage.get("cache_creation_input_tokens", 0)),
+                work_tokens=tin + tout,
+                input_tokens=tin,
+                output_tokens=tout,
+                cache_write=int(usage.get("cache_creation_input_tokens", 0)),
+                cache_read=int(usage.get("cache_read_input_tokens", 0)),
                 cost_usd=float(payload.get("total_cost_usd") or 0.0),
                 num_turns=int(payload.get("num_turns") or 0),
                 duration_ms=elapsed,
@@ -366,7 +410,11 @@ def run_arm(arm: str, workspace: Path, model: str, timeout: float, truth: Truth)
             )
         )
         mark = "ok " if ok else "MISS"
-        print(f"    turn {index + 1} {mark} want={want!r:22} got={answer[:44]!r} ({elapsed}ms)")
+        t = metrics.turns[-1]
+        print(
+            f"    turn {index + 1} {mark} want={want!r:14} got={answer[:26]!r:28} "
+            f"work={t.work_tokens:>5} cw={t.cache_write:>6} ${t.cost_usd:.4f} ({elapsed}ms)"
+        )
 
     return metrics
 

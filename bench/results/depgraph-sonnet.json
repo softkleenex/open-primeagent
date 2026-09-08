@@ -1,0 +1,256 @@
+{
+  "truth": {
+    "reachable_from_root": 362,
+    "worst_cut": "mod_016.py",
+    "unreachable_if_deleted": 99,
+    "longest_path_to_it": 2,
+    "closure_of_it": 195,
+    "largest_of_those": "mod_164.py",
+    "longest_path_to_that": 7,
+    "edges_in_reachable_subgraph": 532
+  },
+  "runs": [
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "work_tokens": 628,
+          "input_tokens": 8,
+          "output_tokens": 620,
+          "cache_write": 29517,
+          "cache_read": 167418,
+          "cost_usd": 0.1577676,
+          "num_turns": 4,
+          "duration_ms": 11853,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "work_tokens": 940,
+          "input_tokens": 4,
+          "output_tokens": 936,
+          "cache_write": 30821,
+          "cache_read": 69978,
+          "cost_usd": 0.14664760000000002,
+          "num_turns": 2,
+          "duration_ms": 12584,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "work_tokens": 5,
+          "input_tokens": 2,
+          "output_tokens": 3,
+          "cache_write": 95,
+          "cache_read": 50955,
+          "cost_usd": 0.010605,
+          "num_turns": 1,
+          "duration_ms": 3626,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "work_tokens": 910,
+          "input_tokens": 6,
+          "output_tokens": 904,
+          "cache_write": 1070,
+          "cache_read": 153876,
+          "cost_usd": 0.0441072,
+          "num_turns": 3,
+          "duration_ms": 11485,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "work_tokens": 280,
+          "input_tokens": 4,
+          "output_tokens": 276,
+          "cache_write": 397,
+          "cache_read": 104318,
+          "cost_usd": 0.025219600000000002,
+          "num_turns": 2,
+          "duration_ms": 6038,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "work_tokens": 522,
+          "input_tokens": 4,
+          "output_tokens": 518,
+          "cache_write": 725,
+          "cache_read": 105135,
+          "cost_usd": 0.029115000000000002,
+          "num_turns": 2,
+          "duration_ms": 7692,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "work_tokens": 347,
+          "input_tokens": 4,
+          "output_tokens": 343,
+          "cache_write": 476,
+          "cache_read": 106574,
+          "cost_usd": 0.0266568,
+          "num_turns": 2,
+          "duration_ms": 6579,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "work_tokens": 399,
+          "input_tokens": 4,
+          "output_tokens": 395,
+          "cache_write": 525,
+          "cache_read": 107523,
+          "cost_usd": 0.0275626,
+          "num_turns": 2,
+          "duration_ms": 7281,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 4031,
+        "input_tokens": 36,
+        "output_tokens": 3995,
+        "cache_write": 63626,
+        "cache_read": 865777,
+        "cost_usd": 0.4677,
+        "agent_turns": 18,
+        "duration_ms": 67138,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "work_tokens": 593,
+          "input_tokens": 8,
+          "output_tokens": 585,
+          "cache_write": 24164,
+          "cache_read": 172806,
+          "cost_usd": 0.1370832,
+          "num_turns": 4,
+          "duration_ms": 15191,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "work_tokens": 972,
+          "input_tokens": 4,
+          "output_tokens": 968,
+          "cache_write": 1221,
+          "cache_read": 99460,
+          "cost_usd": 0.034464,
+          "num_turns": 2,
+          "duration_ms": 14695,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "work_tokens": 5,
+          "input_tokens": 2,
+          "output_tokens": 3,
+          "cache_write": 95,
+          "cache_read": 50879,
+          "cost_usd": 0.0105898,
+          "num_turns": 1,
+          "duration_ms": 4075,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "work_tokens": 1075,
+          "input_tokens": 6,
+          "output_tokens": 1069,
+          "cache_write": 1245,
+          "cache_read": 153764,
+          "cost_usd": 0.0464348,
+          "num_turns": 3,
+          "duration_ms": 15730,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "work_tokens": 369,
+          "input_tokens": 4,
+          "output_tokens": 365,
+          "cache_write": 486,
+          "cache_read": 104516,
+          "cost_usd": 0.0265052,
+          "num_turns": 2,
+          "duration_ms": 8870,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "work_tokens": 526,
+          "input_tokens": 4,
+          "output_tokens": 522,
+          "cache_write": 729,
+          "cache_read": 105511,
+          "cost_usd": 0.029246200000000003,
+          "num_turns": 2,
+          "duration_ms": 10264,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "work_tokens": 408,
+          "input_tokens": 4,
+          "output_tokens": 404,
+          "cache_write": 537,
+          "cache_read": 106958,
+          "cost_usd": 0.027587599999999997,
+          "num_turns": 2,
+          "duration_ms": 14996,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "work_tokens": 454,
+          "input_tokens": 4,
+          "output_tokens": 450,
+          "cache_write": 580,
+          "cache_read": 108029,
+          "cost_usd": 0.0284338,
+          "num_turns": 2,
+          "duration_ms": 9569,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 4402,
+        "input_tokens": 36,
+        "output_tokens": 4366,
+        "cache_write": 29057,
+        "cache_read": 901923,
+        "cost_usd": 0.3403,
+        "agent_turns": 18,
+        "duration_ms": 93390,
+        "correct": 8
+      }
+    }
+  ]
+}

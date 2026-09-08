@@ -1,0 +1,1204 @@
+{
+  "truth": {
+    "reachable_from_root": 362,
+    "worst_cut": "mod_016.py",
+    "unreachable_if_deleted": 99,
+    "longest_path_to_it": 2,
+    "closure_of_it": 195,
+    "largest_of_those": "mod_164.py",
+    "longest_path_to_that": 7,
+    "edges_in_reachable_subgraph": 532
+  },
+  "runs": [
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 29039,
+          "cost_usd": 0.1425582,
+          "num_turns": 3,
+          "duration_ms": 11250,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 3439,
+          "cost_usd": 0.0430016,
+          "num_turns": 2,
+          "duration_ms": 18378,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0106158,
+          "num_turns": 1,
+          "duration_ms": 4374,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 2640,
+          "cost_usd": 0.0487626,
+          "num_turns": 3,
+          "duration_ms": 15235,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 719,
+          "cost_usd": 0.025669200000000003,
+          "num_turns": 2,
+          "duration_ms": 6938,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2170,
+          "cost_usd": 0.035737000000000005,
+          "num_turns": 2,
+          "duration_ms": 11383,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1126,
+          "cost_usd": 0.0291116,
+          "num_turns": 2,
+          "duration_ms": 7993,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 758,
+          "cost_usd": 0.026811,
+          "num_turns": 2,
+          "duration_ms": 7334,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 39991,
+        "cost_usd": 0.3623,
+        "agent_turns": 17,
+        "duration_ms": 82885,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1411,
+          "cost_usd": 0.03838420000000001,
+          "num_turns": 3,
+          "duration_ms": 11537,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 2056,
+          "cost_usd": 0.033242,
+          "num_turns": 2,
+          "duration_ms": 12361,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0105198,
+          "num_turns": 1,
+          "duration_ms": 4197,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 2633,
+          "cost_usd": 0.0484408,
+          "num_turns": 3,
+          "duration_ms": 15709,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 719,
+          "cost_usd": 0.025476000000000002,
+          "num_turns": 2,
+          "duration_ms": 7204,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 1399,
+          "cost_usd": 0.030017800000000004,
+          "num_turns": 2,
+          "duration_ms": 8840,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 969,
+          "cost_usd": 0.0276888,
+          "num_turns": 2,
+          "duration_ms": 7700,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 1255,
+          "cost_usd": 0.029921800000000002,
+          "num_turns": 2,
+          "duration_ms": 9342,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 10542,
+        "cost_usd": 0.2437,
+        "agent_turns": 17,
+        "duration_ms": 76890,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1244,
+          "cost_usd": 0.047182,
+          "num_turns": 4,
+          "duration_ms": 13999,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 3433,
+          "cost_usd": 0.04286,
+          "num_turns": 2,
+          "duration_ms": 18488,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0106326,
+          "num_turns": 1,
+          "duration_ms": 4260,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 1843,
+          "cost_usd": 0.033007800000000004,
+          "num_turns": 2,
+          "duration_ms": 11888,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 631,
+          "cost_usd": 0.0249168,
+          "num_turns": 2,
+          "duration_ms": 7875,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2331,
+          "cost_usd": 0.03681500000000001,
+          "num_turns": 2,
+          "duration_ms": 13138,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1155,
+          "cost_usd": 0.0292008,
+          "num_turns": 2,
+          "duration_ms": 9058,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 1166,
+          "cost_usd": 0.029543000000000003,
+          "num_turns": 2,
+          "duration_ms": 10980,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 11903,
+        "cost_usd": 0.2542,
+        "agent_turns": 17,
+        "duration_ms": 89686,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1162,
+          "cost_usd": 0.036814,
+          "num_turns": 3,
+          "duration_ms": 12417,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 3122,
+          "cost_usd": 0.0409848,
+          "num_turns": 2,
+          "duration_ms": 20992,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0105844,
+          "num_turns": 1,
+          "duration_ms": 4396,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 1526,
+          "cost_usd": 0.0306714,
+          "num_turns": 2,
+          "duration_ms": 11289,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 655,
+          "cost_usd": 0.0249264,
+          "num_turns": 2,
+          "duration_ms": 7567,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 1012,
+          "cost_usd": 0.027509400000000003,
+          "num_turns": 2,
+          "duration_ms": 8265,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 793,
+          "cost_usd": 0.026244,
+          "num_turns": 2,
+          "duration_ms": 8129,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 952,
+          "cost_usd": 0.0275498,
+          "num_turns": 2,
+          "duration_ms": 16274,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 9322,
+        "cost_usd": 0.2253,
+        "agent_turns": 16,
+        "duration_ms": 89329,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1403,
+          "cost_usd": 0.048152600000000004,
+          "num_turns": 4,
+          "duration_ms": 12897,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 4626,
+          "cost_usd": 0.0807802,
+          "num_turns": 5,
+          "duration_ms": 24498,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 168,
+          "cost_usd": 0.0114792,
+          "num_turns": 1,
+          "duration_ms": 5214,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 2960,
+          "cost_usd": 0.051381800000000005,
+          "num_turns": 3,
+          "duration_ms": 15725,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 687,
+          "cost_usd": 0.0258904,
+          "num_turns": 2,
+          "duration_ms": 6439,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2153,
+          "cost_usd": 0.03605380000000001,
+          "num_turns": 2,
+          "duration_ms": 11574,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1171,
+          "cost_usd": 0.0298772,
+          "num_turns": 2,
+          "duration_ms": 7945,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 796,
+          "cost_usd": 0.0275206,
+          "num_turns": 2,
+          "duration_ms": 7038,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 13964,
+        "cost_usd": 0.3111,
+        "agent_turns": 21,
+        "duration_ms": 91330,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1730,
+          "cost_usd": 0.0503566,
+          "num_turns": 4,
+          "duration_ms": 12722,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 3283,
+          "cost_usd": 0.0420532,
+          "num_turns": 2,
+          "duration_ms": 16807,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 138,
+          "cost_usd": 0.011052000000000001,
+          "num_turns": 1,
+          "duration_ms": 4817,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 2746,
+          "cost_usd": 0.0495996,
+          "num_turns": 3,
+          "duration_ms": 14759,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 733,
+          "cost_usd": 0.025906400000000003,
+          "num_turns": 2,
+          "duration_ms": 6645,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2524,
+          "cost_usd": 0.03845900000000001,
+          "num_turns": 2,
+          "duration_ms": 12926,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1261,
+          "cost_usd": 0.0302776,
+          "num_turns": 2,
+          "duration_ms": 8252,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 912,
+          "cost_usd": 0.028121,
+          "num_turns": 2,
+          "duration_ms": 7324,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 13327,
+        "cost_usd": 0.2758,
+        "agent_turns": 18,
+        "duration_ms": 84252,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1267,
+          "cost_usd": 0.04719740000000001,
+          "num_turns": 4,
+          "duration_ms": 12684,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 2484,
+          "cost_usd": 0.036236000000000004,
+          "num_turns": 2,
+          "duration_ms": 14446,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0105456,
+          "num_turns": 1,
+          "duration_ms": 4912,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 1956,
+          "cost_usd": 0.04376540000000001,
+          "num_turns": 3,
+          "duration_ms": 12668,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 663,
+          "cost_usd": 0.024998,
+          "num_turns": 2,
+          "duration_ms": 6683,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 1367,
+          "cost_usd": 0.029732600000000005,
+          "num_turns": 2,
+          "duration_ms": 8694,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 771,
+          "cost_usd": 0.0261968,
+          "num_turns": 2,
+          "duration_ms": 6932,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 736,
+          "cost_usd": 0.026140200000000002,
+          "num_turns": 2,
+          "duration_ms": 6680,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 9344,
+        "cost_usd": 0.2448,
+        "agent_turns": 18,
+        "duration_ms": 73699,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1202,
+          "cost_usd": 0.036973400000000003,
+          "num_turns": 3,
+          "duration_ms": 9598,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 4084,
+          "cost_usd": 0.057156,
+          "num_turns": 3,
+          "duration_ms": 22046,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0107088,
+          "num_turns": 1,
+          "duration_ms": 4329,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 1718,
+          "cost_usd": 0.0322222,
+          "num_turns": 2,
+          "duration_ms": 11215,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 733,
+          "cost_usd": 0.0257624,
+          "num_turns": 2,
+          "duration_ms": 6366,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2105,
+          "cost_usd": 0.035277,
+          "num_turns": 2,
+          "duration_ms": 11104,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 955,
+          "cost_usd": 0.0279148,
+          "num_turns": 2,
+          "duration_ms": 8799,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 850,
+          "cost_usd": 0.027405,
+          "num_turns": 2,
+          "duration_ms": 6822,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 11747,
+        "cost_usd": 0.2534,
+        "agent_turns": 17,
+        "duration_ms": 80279,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 23632,
+          "cost_usd": 0.132241,
+          "num_turns": 4,
+          "duration_ms": 12155,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 6239,
+          "cost_usd": 0.0824674,
+          "num_turns": 4,
+          "duration_ms": 30079,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 191,
+          "cost_usd": 0.0113078,
+          "num_turns": 1,
+          "duration_ms": 4629,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 2336,
+          "cost_usd": 0.0476938,
+          "num_turns": 3,
+          "duration_ms": 14311,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 909,
+          "cost_usd": 0.027628800000000002,
+          "num_turns": 2,
+          "duration_ms": 8377,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2427,
+          "cost_usd": 0.03811060000000001,
+          "num_turns": 2,
+          "duration_ms": 12302,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 961,
+          "cost_usd": 0.028696799999999998,
+          "num_turns": 2,
+          "duration_ms": 7710,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 1132,
+          "cost_usd": 0.030102200000000003,
+          "num_turns": 2,
+          "duration_ms": 8647,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 37827,
+        "cost_usd": 0.3982,
+        "agent_turns": 20,
+        "duration_ms": 98210,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1269,
+          "cost_usd": 0.037562,
+          "num_turns": 3,
+          "duration_ms": 10619,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 2319,
+          "cost_usd": 0.035052400000000004,
+          "num_turns": 2,
+          "duration_ms": 13986,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.010526,
+          "num_turns": 1,
+          "duration_ms": 4054,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 1892,
+          "cost_usd": 0.033104600000000005,
+          "num_turns": 2,
+          "duration_ms": 10982,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 741,
+          "cost_usd": 0.0254856,
+          "num_turns": 2,
+          "duration_ms": 7080,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 1289,
+          "cost_usd": 0.029221800000000003,
+          "num_turns": 2,
+          "duration_ms": 8032,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1111,
+          "cost_usd": 0.028513200000000002,
+          "num_turns": 2,
+          "duration_ms": 7676,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 1027,
+          "cost_usd": 0.028184599999999997,
+          "num_turns": 2,
+          "duration_ms": 7602,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 9748,
+        "cost_usd": 0.2277,
+        "agent_turns": 16,
+        "duration_ms": 70031,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 963,
+          "cost_usd": 0.0363182,
+          "num_turns": 3,
+          "duration_ms": 11213,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 3176,
+          "cost_usd": 0.0413492,
+          "num_turns": 2,
+          "duration_ms": 17443,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99 (98 strictly dominated descendants + M itself).",
+          "billed_tokens": 118,
+          "cost_usd": 0.010779,
+          "num_turns": 1,
+          "duration_ms": 4487,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 3136,
+          "cost_usd": 0.0521794,
+          "num_turns": 3,
+          "duration_ms": 17019,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 791,
+          "cost_usd": 0.0262416,
+          "num_turns": 2,
+          "duration_ms": 7080,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2216,
+          "cost_usd": 0.036297800000000005,
+          "num_turns": 2,
+          "duration_ms": 12020,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1318,
+          "cost_usd": 0.030537199999999997,
+          "num_turns": 2,
+          "duration_ms": 9527,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 928,
+          "cost_usd": 0.028121,
+          "num_turns": 2,
+          "duration_ms": 7284,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 12646,
+        "cost_usd": 0.2618,
+        "agent_turns": 17,
+        "duration_ms": 86073,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1348,
+          "cost_usd": 0.047771400000000006,
+          "num_turns": 4,
+          "duration_ms": 11551,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 4083,
+          "cost_usd": 0.0475684,
+          "num_turns": 2,
+          "duration_ms": 20735,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.010709600000000001,
+          "num_turns": 1,
+          "duration_ms": 4170,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 2645,
+          "cost_usd": 0.0490994,
+          "num_turns": 3,
+          "duration_ms": 14351,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 713,
+          "cost_usd": 0.025814,
+          "num_turns": 2,
+          "duration_ms": 6622,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2332,
+          "cost_usd": 0.0370566,
+          "num_turns": 2,
+          "duration_ms": 11527,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1187,
+          "cost_usd": 0.029771599999999995,
+          "num_turns": 2,
+          "duration_ms": 8256,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 954,
+          "cost_usd": 0.028412200000000002,
+          "num_turns": 2,
+          "duration_ms": 7466,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 13362,
+        "cost_usd": 0.2762,
+        "agent_turns": 18,
+        "duration_ms": 84678,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1000,
+          "cost_usd": 0.035651,
+          "num_turns": 3,
+          "duration_ms": 10140,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 2107,
+          "cost_usd": 0.0335224,
+          "num_turns": 2,
+          "duration_ms": 13076,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0104786,
+          "num_turns": 1,
+          "duration_ms": 4418,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 2259,
+          "cost_usd": 0.045698,
+          "num_turns": 3,
+          "duration_ms": 13533,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 719,
+          "cost_usd": 0.025316400000000003,
+          "num_turns": 2,
+          "duration_ms": 7402,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 1322,
+          "cost_usd": 0.029448200000000004,
+          "num_turns": 2,
+          "duration_ms": 9001,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 929,
+          "cost_usd": 0.0272252,
+          "num_turns": 2,
+          "duration_ms": 7854,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 1218,
+          "cost_usd": 0.0294682,
+          "num_turns": 2,
+          "duration_ms": 9899,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 9654,
+        "cost_usd": 0.2368,
+        "agent_turns": 17,
+        "duration_ms": 75323,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "362",
+          "billed_tokens": 1456,
+          "cost_usd": 0.048513400000000005,
+          "num_turns": 4,
+          "duration_ms": 14945,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "mod_016.py",
+          "billed_tokens": 3687,
+          "cost_usd": 0.04466880000000001,
+          "num_turns": 2,
+          "duration_ms": 19714,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "99",
+          "billed_tokens": 100,
+          "cost_usd": 0.0106862,
+          "num_turns": 1,
+          "duration_ms": 4470,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "2",
+          "billed_tokens": 1995,
+          "cost_usd": 0.034149,
+          "num_turns": 2,
+          "duration_ms": 12938,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "195",
+          "billed_tokens": 767,
+          "cost_usd": 0.0260084,
+          "num_turns": 2,
+          "duration_ms": 10126,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "mod_164.py",
+          "billed_tokens": 2372,
+          "cost_usd": 0.03716380000000001,
+          "num_turns": 2,
+          "duration_ms": 13368,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "7",
+          "billed_tokens": 1318,
+          "cost_usd": 0.030490800000000002,
+          "num_turns": 2,
+          "duration_ms": 10172,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "532",
+          "billed_tokens": 876,
+          "cost_usd": 0.0277298,
+          "num_turns": 2,
+          "duration_ms": 8468,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "billed_tokens": 12571,
+        "cost_usd": 0.2594,
+        "agent_turns": 17,
+        "duration_ms": 94201,
+        "correct": 8
+      }
+    }
+  ]
+}
