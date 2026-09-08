@@ -67,6 +67,31 @@ been shipping and passing its own tests:
 Both fixed in `6f6f5e0`. Compatibility that nobody tests is compatibility that
 is already broken.
 
+## Do upstream's skills run here?
+
+A sharper question than "do the type names match", because upstream ships 13
+skills and a user may paste one in verbatim. Extracting every documented
+`await x.y(...)` call from `packages/coding-agent/skills/*/SKILL.md`:
+
+| upstream skill calls | here |
+|---|---|
+| `goal.get` · `goal.create` · `goal.complete` | ✅ same names, same arguments |
+| `rlm.list_subagents` · `rlm.delete_subagent` | ✅ |
+| `agent_message.send` · `agent_message.list_agents` | ✅ — `list_agents` was **missing until this check found it** |
+| `rlm_heartbeat.create/list/update/delete` | ⚠️ same concept, different name: ours is `schedule` |
+| `compact` · `refine` · `agent_observe` · `linear` · `notion` | ❌ host-harness features we delegate on purpose |
+
+This is how `agent_message.list_agents` was found. It is documented as the call
+to make *before* sending, so a pasted agent-message skill would have failed at
+its first step. Matching a module's exported names does not catch that; matching
+what the documentation tells a model to call does. Pinned now in
+[`tests/test_upstream_compat.py`](../tests/test_upstream_compat.py).
+
+Two notes on the ⚠️ and ❌ rows. `rlm_heartbeat` and our `schedule` are the same
+idea — recurring prompts the session collects later — and the naming gap is a
+real incompatibility we have not closed. The last row is not a gap at all: those
+are the 167k lines we delegate, and reimplementing them would break the premise.
+
 ## Diverged on purpose
 
 Each of these is a decision with a cost, not an oversight.
@@ -78,6 +103,7 @@ Each of these is a decision with a cost, not an oversight.
 | authority | one trusted kernel | per-caller tokens with `parent` / `child` roles | a child process holds the socket and can speak the protocol directly, whatever its MCP tool list says ([security](security.md)) |
 | harness scope | global store | project-scoped, with a `before` snapshot on every refinement | so a refinement is reversible; the snapshot is the extra field below |
 | child addressing | `rlm_child_id` | `rlm_child_id`, plus a human `name` for re-tasking | a child you re-task across a week needs an address you can type |
+| who a child may message | parent, siblings, children | parent only | a child that can address a sibling can re-task work it does not own. `list_agents` shows a child only the parent, so the address book matches the authority the bridge will actually grant |
 
 We also add fields upstream has no equivalent for: per-child `turns`, `tokens`,
 `cost_usd`, `adapter`, `last_error`, and `before` / `rollback_of` on refinements.

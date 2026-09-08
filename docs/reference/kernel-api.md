@@ -70,6 +70,22 @@ final answer.
 
 Collection is a **pull**, not a push: we do not own the host's turn loop.
 
+```python
+await agent_message.list_agents()
+# -> {"current": {"name", "id", "depth"},
+#     "entries": [{"relationship", "name", "id", "depth", "status"}, ...]}
+```
+
+Who you can address from here. From the parent kernel, `entries` holds the
+children sorted by name. From inside a child, it holds the parent and nothing
+else.
+
+That asymmetry is the point. Upstream's equivalent also lists siblings; ours
+does not, because a child that can discover a sibling by name has the first half
+of what it needs to re-task work it does not own — and `agent_message.send`
+would refuse the route anyway. The list shows the authority the bridge will
+actually grant rather than a family tree it will not act on.
+
 ## `harness`
 
 `H = (prompts, sub-agent specs, skills, memory)`. CRUD plus reversible
