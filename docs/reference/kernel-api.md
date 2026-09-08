@@ -1,7 +1,7 @@
 # Kernel API
 
 Symbols preloaded inside the persistent kernel, reachable from
-[`opa_python`](tools.md#opa_pythoncode-timeout1200). They are deliberately not
+[`opa_python`](tools.md#opapythoncode-timeout1200). They are deliberately not
 MCP tools.
 
 Every call is `await`-ed; IPython's autoawait handles top-level `await`
@@ -20,7 +20,7 @@ this does not wait for the child to finish.
 
 > **Cost.** A child is a full coding-agent session and costs roughly 36k tokens
 > before it reads any of your code
-> ([measured](../../bench/README.md#0-sub-agent-fan-out--opa-loses-badly)).
+> ([measured](../../bench/README.md#0-sub-agent-fan-out---opa-loses-badly)).
 > Spawn one only when the work would cost the parent more than that, and prefer
 > `agent_message.send` to an existing child over a new one. See
 > [when not to fan out](../concepts/rlm.md#when-not-to-fan-out).

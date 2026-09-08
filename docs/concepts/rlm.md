@@ -97,7 +97,7 @@ that pays for its own system prompt and tool schemas before it reads a single
 line of your code. We measured that startup at roughly **36,000 tokens per
 child**.
 
-To put that in scale: in [our benchmark](../../bench/README.md#0-sub-agent-fan-out--opa-loses-badly),
+To put that in scale: in [our benchmark](../../bench/README.md#0-sub-agent-fan-out---opa-loses-badly),
 reviewing an entire 12-file service cost a plain agent 34k tokens. *One child
 cost more than the whole job.* Fanning out to four specialists produced the same
 findings for **8.8x the cost and 3.4x the wall clock**.
@@ -120,7 +120,7 @@ Parallelism does not rescue it either — four cold sessions still have to boot,
 so the wall clock got worse, not better.
 
 Nor does a bigger codebase.
-[We tried](../../bench/README.md#0a-fan-out-on-a-large-codebase--it-loses-even-here):
+[We tried](../../bench/README.md#0a-fan-out-on-a-large-codebase---it-loses-even-here):
 444 files, four independent subsystems, one child each, nothing read twice — and
 fan-out was still 2.3x slower and 4.2x more expensive. The single agent answered
 using 42k tokens against a 135k-token repository, because it grepped instead of
@@ -128,7 +128,7 @@ reading. **Fan-out relieves a bottleneck a competent agent does not create.**
 
 Where children earn their cost is **reuse**, and that is measured too. Asking a
 follow-up of a child that had already read the file cost
-[**81% less than spawning a fresh one**](../../bench/README.md#0b-warm-child-vs-cold-child--reuse-wins-by-5x)
+[**81% less than spawning a fresh one**](../../bench/README.md#0b-warm-child-vs-cold-child---reuse-wins-by-5x)
 for the same question — 1,987 tokens against 23,058.
 
 Same fact, both directions: spawning is expensive, keeping is nearly free. So

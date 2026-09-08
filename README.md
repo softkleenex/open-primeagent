@@ -288,7 +288,7 @@ bug and a 30-second acceptance check, four specialists ran every check, every
 time (3/3 runs). One agent doing all four fixed the code correctly but verified
 everything only **once in three runs** — twice it decided inspection was enough
 and never ran a check, despite being told to. Same fixes either way, at 2.8x the
-tokens. [The write-up](bench/README.md#0--ownership-and-verification--the-finding-was-not-the-one-we-went-looking-for)
+tokens. [The write-up](bench/README.md#0--ownership-and-verification---the-finding-was-not-the-one-we-went-looking-for)
 also records that it took four attempts before the benchmark measured anything
 real.
 
@@ -314,16 +314,39 @@ root, one glance away: the harness entry becomes pure overhead, **+26% turns**.
 And on a three-turn corpus analysis that a `grep -c | sort` one-liner solves,
 attaching opa cost **+42% turns and +33% cost** versus plain Claude Code.
 
-That third result is a fair hit, and the benchmark is the thing at fault: a
-shell is *already* an external computer, so a task solvable by one-liners gives
-the persistent kernel nothing to persist. **We therefore have no measured
-evidence yet that the kernel saves tokens, and this README does not claim it
-does.**
+That third result is a fair hit. We blamed the benchmark — a shell is *already*
+an external computer, so a one-liner task gives the kernel nothing to persist —
+and then built the benchmark that diagnosis called for: an import graph over 600
+modules, eight adaptive questions that cannot be batched because each names a
+node the previous answer found, and the prediction
+[committed before the results](bench/depgraph.py).
+
+**The kernel still did not win.** Cost came out within 0.1%, turn counts
+identical, every range overlapping, all 8/8 answers correct in both arms. Tracing
+the baseline showed why:
+
+```
+turn 1  Bash: python3 -c "…parse 600 files, build the graph, BFS…"  → 3 chars back
+turn 2  Bash: python3 -c "…parse 600 files, build it again…"       → 16 chars back
+turn 3  (no tool call at all)                                       100 tokens
+```
+
+The baseline *does* rebuild the whole graph every turn. It costs nothing, because
+the rebuild happens in the shell and only the answer comes back.
+
+> A persistent kernel does not save you the data. It saves you re-emitting the
+> script. The data was never in your context to begin with.
+
+So: **four benchmarks have looked for a token saving from the kernel and none
+found one.** This README does not claim there is one. What is left untested is
+state that is expensive in *wall clock* rather than tokens — a loaded model, a
+warmed connection, a parsed multi-gigabyte dataset — which is where the kernel
+holds something a file cannot. [Full write-up.](bench/README.md#4-import-graph-adaptive-chain---opa-does-not-win--and-now-we-know-why)
 
 One of the sub-agent benchmarks was also invalid on the first attempt — the host
 agent kept answering from context instead of re-tasking the child, so it was
 measuring the wrong thing. That is
-[written up too](bench/README.md#0b-warm-child-vs-cold-child--reuse-wins-by-5x),
+[written up too](bench/README.md#0b-warm-child-vs-cold-child---reuse-wins-by-5x),
 along with the instrumentation that caught it.
 
 What survives is narrower and more useful than "opa makes things faster":

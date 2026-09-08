@@ -50,7 +50,7 @@ model they are noise that costs tokens.
 
 A shell is *already* an external computer. For anything a `grep -c | sort`
 one-liner solves, the kernel buys you nothing and costs you a tool round trip —
-we [measured that and published the loss](../../bench/README.md#3-multi-turn-corpus-analysis--opa-loses).
+we [measured that and published the loss](../../bench/README.md#3-multi-turn-corpus-analysis---opa-loses).
 
 The kernel earns its place when intermediate state is expensive to rebuild and
 gets reused across turns, and when it has to survive a compaction that your

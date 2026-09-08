@@ -344,10 +344,126 @@ tokens**, and the README does not claim there is.
 
 ---
 
+## 4. Import graph, adaptive chain  ❌ opa does not win — and now we know why
+
+`bench/depgraph.py`. **The prediction was committed before the results**
+(`091fe52`), which is the only thing that makes it a prediction.
+
+Benchmark 3 lost and we blamed the benchmark: a `grep -c | sort` task gives a
+persistent kernel nothing to persist. That diagnosis names three conditions, so
+this one was built to satisfy all three — an expensive structure (an import
+graph over 600 modules, where the pivot needs one reachability run per
+candidate), adaptive questions that cannot be batched into a script written in
+advance because each names a node the previous answer identified, and eight
+turns rather than three.
+
+| metric | baseline | opa | delta (median) |
+|---|---|---|---|
+| work tokens (input+output) | 5,084 | 4,410 | −13% |
+| cost (USD) | $0.340 | $0.340 | **+0.1%** |
+| agent turns | 17.5 | 17.5 | 0% |
+| wall clock | 84,468 ms | 71,022 ms | −16% |
+| n | 4 | 4 | all 8/8 correct, every run |
+
+Ranges overlap on every metric (work tokens: baseline 4,088–5,120, opa
+3,805–5,916). **There is no effect here.** The prediction — a token win smaller
+than 22%, a wall-clock loss — was wrong in both directions and wrong about the
+mechanism.
+
+### Why, traced rather than guessed
+
+Running a baseline session under `--output-format stream-json`:
+
+```
+turn 1  Bash: python3 -c "…parse 600 files, build graph, BFS…"  → 3 chars back
+        answer 362
+turn 2  Bash: python3 -c "…parse 600 files, build graph again…"  → 16 chars back
+        answer mod_016.py
+turn 3  (no tool call at all)                                     billed 100
+        answer 99
+```
+
+The baseline **does** rebuild the entire graph from scratch on turn 2 — exactly
+the waste the kernel is supposed to remove. It costs almost nothing, because the
+rebuild happens inside the shell and only a 16-character answer comes back.
+
+> A persistent kernel does not save you the data. It saves you re-*emitting the
+> script* — a few hundred tokens. The data was never in context to begin with,
+> because a competent agent computes over it out of process.
+
+Turn 3 is the same lesson from the other side: no tool call, 100 tokens, because
+turn 2's script had already printed the number. The agent's own context is
+already a cache.
+
+### What this rules in, and what is left
+
+The three conditions we derived from benchmark 3 were not enough, because they
+were about **recomputation cost measured in CPU**, and CPU is not what an agent
+pays for. Re-parsing 600 files takes 0.1 s and zero context.
+
+So the remaining live hypothesis is narrower and we have **not** tested it: state
+that is expensive to rebuild *in wall-clock*, not in tokens — a loaded ML model,
+a warmed database connection, a parsed multi-gigabyte dataset, an established
+network session. There the kernel holds something the filesystem cannot, and
+`python3 -c` genuinely has to pay for it again.
+
+**Until that is measured, this repository has no evidence that the persistent
+kernel saves tokens, and does not claim it does.** Four benchmarks have now
+looked and found nothing. That is a real result about our own product, and it is
+why the kernel is documented as external working memory rather than as a saving.
+
+### The fifth wrong measurement
+
+This benchmark reported one `billed_tokens` = input + output + cache_creation.
+Two of seven baseline runs came in at 23–29k on turn 1 against ~1.2k for the
+rest, and it was read as a variance finding — the kernel removing catastrophic
+outliers.
+
+The data disagreed. Those runs cost **$0.005 per 1k tokens against $0.035** for
+every other run, with identical tool-call counts and wall clock. Tracing turn 1
+thirteen times produced no oversized tool result and no blowup at all. It was
+prompt-cache creation: whether an invocation writes the cache or reads it depends
+on what else ran on the machine recently.
+
+> An agent's token usage is not a property of the task alone. Any measurement
+> spanning separate CLI invocations is measuring cache state too, and has to say
+> which it means.
+
+`work_tokens`, `cache_write`, `cache_read` and `cost_usd` are now recorded
+separately. Upstream Prime Agent's own `Usage` record draws the same distinction,
+which is mild evidence it is the right one. The old file is kept as
+`depgraph-INVALID-cache-writes-counted-as-work.json`.
+
+### Five design rounds, all before any agent ran
+
+Each removed a way to score well without doing the work, and each is a way a
+graph benchmark can quietly become trivial:
+
+1. The most-depended-on module is a **sink** in any DAG, so asking about its
+   imports had no answer and the last three questions collapsed.
+2. Ranking globally instead of within root's reachable set named modules root
+   cannot reach — making "how much would deleting it disconnect" zero by
+   definition.
+3. Ranking by in-degree always landed on a late near-leaf, because cross edges
+   accumulate on high indices: closure 2, disconnects nothing.
+4. Root's direct imports each head a whole subtree, so one of them always won the
+   cut-vertex question — guessable between three names.
+5. Every module was reachable, so question one was `ls | wc -l`.
+
+What survives carries a trap that confirms the chain cannot be shortcut: the
+pivot's transitive closure is 195, but deleting it disconnects only 99, because
+the other 96 survive by a cross edge. The naive answer is available and wrong.
+All eight ground-truth answers are cross-checked by an independent
+implementation — BFS against the generator's DFS, topological DP against its
+recursive longest-path.
+
+---
+
 ## What we are not claiming
 
 - No claim that opa reduces tokens in general. Benchmarks 0 and 3 show the
-  opposite.
+  opposite, and benchmark 4 — built specifically to let the kernel win — shows
+  no effect at all.
 - No claim that sub-agent fan-out is worth its cost on a codebase of any size we
   have actually measured. Reuse is measured and wins; fan-out is measured and
   loses.
