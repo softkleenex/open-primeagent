@@ -23,7 +23,14 @@ from pathlib import Path
 
 DEFAULT_BASE = "https://github.com/softkleenex/open-primeagent/blob/main/"
 SKIP_DIRS = {"_ref", ".venv", "node_modules", ".git"}
-LINK = re.compile(r"\]\((?!https?:|mailto:)([^)#]*)(#[^)]*)?\)")
+# A markdown link may carry a title: ](path "Title"). Without the optional
+# group the title lands in the path and every such link reads as missing.
+LINK = re.compile(r'\]\((?!https?:|mailto:)([^)#\s]*)(#[^)\s]*)?(?:\s+"[^"]*")?\)')
+
+# GitHub emits heading anchors for markdown, not for source files - a link to
+# `file.py#L10` is a line reference the browser resolves, and checking it
+# against heading ids would report every one of them as dead.
+ANCHORED = {".md", ".markdown"}
 
 
 def markdown_files(root: Path) -> list[Path]:
@@ -62,8 +69,16 @@ def main() -> int:
                 continue
             if args.offline or not frag or frag == "#":
                 continue
+            if target.suffix.lower() not in ANCHORED:
+                continue  # e.g. `file.py#L10` - a line reference, not a heading
 
-            rel = str(target.relative_to(root))
+            try:
+                rel = str(target.relative_to(root))
+            except ValueError:
+                # A link reaching outside the repository has no rendered page
+                # here to check against; report it rather than crashing on it.
+                problems.append(f"{here}: {path} resolves outside the repository")
+                continue
             if rel not in cache:
                 cache[rel] = rendered_anchors(args.base, rel)
             anchors = cache[rel]

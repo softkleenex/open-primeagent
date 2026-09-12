@@ -387,15 +387,23 @@ def run_arm(arm: str, workspace: Path, model: str, timeout: float, truth: Truth)
             cmd += ["--allowedTools", "Bash,Read,Grep,Glob"]
 
         started = time.monotonic()
-        proc = subprocess.run(
-            cmd, cwd=workspace, capture_output=True, timeout=timeout,
-            stdin=subprocess.DEVNULL, check=False,
-        )
+        try:
+            proc = subprocess.run(
+                cmd, cwd=workspace, capture_output=True, timeout=timeout,
+                stdin=subprocess.DEVNULL, check=False,
+            )
+            raw = proc.stdout
+            stderr = proc.stderr
+        except subprocess.TimeoutExpired:
+            # One slow turn used to abort main() before anything was written,
+            # discarding every completed run in the batch - which is an hour of
+            # real agent calls thrown away over a single hang.
+            raw, stderr = b"", b"<timed out>"
         elapsed = int((time.monotonic() - started) * 1000)
         try:
-            payload = json.loads(proc.stdout)
+            payload = json.loads(raw)
         except json.JSONDecodeError:
-            payload = {"result": f"<parse error: {proc.stderr.decode()[:200]}>", "usage": {}}
+            payload = {"result": f"<no answer: {stderr.decode()[:200]}>", "usage": {}}
 
         usage = payload.get("usage") or {}
         answer = (payload.get("result") or "").strip()

@@ -127,21 +127,29 @@ def build(root: Path) -> Truth:
     action_lat_sum: dict[str, int] = collections.defaultdict(int)
     action_lat_n: dict[str, int] = collections.defaultdict(int)
     amount_by_user: dict[str, int] = collections.defaultdict(int)
-    rows: list[tuple[int, str, str, str, int, int]] = []
 
-    with path.open(newline="") as handle:
-        reader = csv.reader(handle)
-        next(reader)
-        for ts, uid, region, action, amount, latency in reader:
-            amount_i, latency_i, ts_i = int(amount), int(latency), int(ts)
-            rows.append((ts_i, uid, region, action, amount_i, latency_i))
-            users.add(uid)
-            amount_by_region[region] += amount_i
-            latency_sum[(region, action)] += latency_i
-            latency_n[(region, action)] += 1
-            action_lat_sum[action] += latency_i
-            action_lat_n[action] += 1
-            amount_by_user[uid] += amount_i
+    def scan():
+        """Re-read the file instead of holding it.
+
+        Keeping the 8M parsed rows in a list cost a measured 2.4 GB, which put
+        the ground truth out of reach of an ordinary laptop before a single
+        agent turn ran - for a benchmark whose write-up invites people to copy
+        it. Three passes at ~6s each is the better trade.
+        """
+        with path.open(newline="") as handle:
+            reader = csv.reader(handle)
+            next(reader)
+            for ts, uid, region, action, amount, latency in reader:
+                yield int(ts), uid, region, action, int(amount), int(latency)
+
+    for _ts, uid, region, action, amount_i, latency_i in scan():
+        users.add(uid)
+        amount_by_region[region] += amount_i
+        latency_sum[(region, action)] += latency_i
+        latency_n[(region, action)] += 1
+        action_lat_sum[action] += latency_i
+        action_lat_n[action] += 1
+        amount_by_user[uid] += amount_i
 
     peak = max(amount_by_region.values())
     top_region = min(r for r, v in amount_by_region.items() if v == peak)
@@ -159,7 +167,7 @@ def build(root: Path) -> Truth:
 
     slow_events = 0
     per_user: dict[str, int] = collections.defaultdict(int)
-    for _, uid, _, action, _, latency in rows:
+    for _, uid, _, action, _, latency in scan():
         if action == slow_action and latency > cutoff:
             slow_events += 1
             per_user[uid] += 1
@@ -178,7 +186,7 @@ def build(root: Path) -> Truth:
     # day of it. Answerable from the header dates alone, without touching the
     # data. The busiest single day is not.
     per_day: dict[int, int] = collections.defaultdict(int)
-    for ts, uid, *_ in rows:
+    for ts, uid, *_ in scan():
         if uid == worst_user:
             per_day[ts // DAY] += 1
     busiest = max(per_day.values())
@@ -329,15 +337,23 @@ def run_arm(arm: str, workspace: Path, model: str, timeout: float, truth: Truth)
             cmd += ["--allowedTools", "Bash,Read,Grep,Glob"]
 
         started = time.monotonic()
-        proc = subprocess.run(
-            cmd, cwd=workspace, capture_output=True, timeout=timeout,
-            stdin=subprocess.DEVNULL, check=False,
-        )
+        try:
+            proc = subprocess.run(
+                cmd, cwd=workspace, capture_output=True, timeout=timeout,
+                stdin=subprocess.DEVNULL, check=False,
+            )
+            raw = proc.stdout
+            stderr = proc.stderr
+        except subprocess.TimeoutExpired:
+            # One slow turn used to abort main() before anything was written,
+            # discarding every completed run in the batch - which is an hour of
+            # real agent calls thrown away over a single hang.
+            raw, stderr = b"", b"<timed out>"
         elapsed = int((time.monotonic() - started) * 1000)
         try:
-            payload = json.loads(proc.stdout)
+            payload = json.loads(raw)
         except json.JSONDecodeError:
-            payload = {"result": f"<parse error: {proc.stderr.decode()[:200]}>", "usage": {}}
+            payload = {"result": f"<no answer: {stderr.decode()[:200]}>", "usage": {}}
 
         usage = payload.get("usage") or {}
         answer = (payload.get("result") or "").strip()

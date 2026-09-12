@@ -185,9 +185,27 @@ class GoalStore:
         }
 
     def abandon(self, note: str = "") -> dict[str, Any]:
-        """Stop pursuing a goal without claiming it was achieved."""
+        """Stop pursuing a goal without claiming it was achieved.
+
+        Refuses a goal that already finished, for the same reason `complete()`
+        refuses an abandoned one: the two share a `note` field, so abandoning a
+        completed goal replaces the record of what was achieved with the reason
+        it was given up on, and leaves `completed_at` set on an abandoned goal.
+
+        This is not hypothetical. A goal outlives the turn that set it, and an
+        agent that has lost the fact it already completed one - after a
+        compaction, say - has every reason to call this.
+        """
         if self.goal is None:
             raise ValueError("there is no goal to abandon")
+        if self.goal.status == "completed":
+            raise ValueError(
+                "this goal was already completed; abandoning it now would "
+                "replace the record of what was achieved with a reason for "
+                "giving up. Start a new goal instead."
+            )
+        if self.goal.status == "abandoned":
+            raise ValueError("this goal is already abandoned")
         self.goal.status = "abandoned"
         self.goal.note = note
         self.goal.updated_at = _now()

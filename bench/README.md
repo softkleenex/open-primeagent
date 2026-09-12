@@ -365,8 +365,8 @@ tokens**, and the README does not claim there is.
 (`091fe52`), which is the only thing that makes it a prediction.
 
 > **Corrected by [benchmark 5](#5-large-file-adaptive-chain---the-agent-never-used-the-kernel--in-either-benchmark).**
-> The opa arm of this benchmark never called `opa_python` — not once in 96
-> sessions. Everything below about what the kernel does or does not save is
+> The opa arm of this benchmark never called `opa_python` — not once across
+> its 96 turns (12 runs of 8). Everything below about what the kernel does or does not save is
 > therefore a statement about the *baseline*, not a measurement of the
 > kernel, which was never in the comparison. The numbers stand; the
 > attribution does not.
@@ -580,8 +580,8 @@ nothing, and one showing that a model given `awk` will reach for `awk`.
 
 - No claim that opa reduces tokens in general. Benchmarks 0 and 3 show the
   opposite, and benchmarks 4 and 5 show no effect at all.
-- **No claim about the persistent kernel in either direction.** Across 123
-  sessions in the two benchmarks built to test it, the agent never invoked it
+- **No claim about the persistent kernel in either direction.** Across 120
+  turns of the two benchmarks built to test it, the agent never invoked it
   once — so its value has not been measured, only the (negligible) cost of
   offering it.
 - No claim that sub-agent fan-out is worth its cost on a codebase of any size we

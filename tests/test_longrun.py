@@ -459,3 +459,26 @@ def test_an_abandoned_goal_cannot_then_be_completed(goals):
 def test_completing_without_a_note_leaves_no_stale_one(goals):
     goals.create("ship the thing")
     assert goals.complete()["goal"]["note"] == ""
+
+
+def test_a_completed_goal_cannot_then_be_abandoned(goals):
+    """The mirror of the previous test, and the same corruption.
+
+    `abandon` and `complete` write the same `note` field, so abandoning a
+    completed goal replaced "shipped in abc1234" with "blocked on upstream" and
+    left `completed_at` set on an abandoned goal. An agent that lost track of
+    having completed it - after a compaction, say - has every reason to call it.
+    """
+    goals.create("ship the migration")
+    goals.complete("shipped in abc1234")
+    with pytest.raises(ValueError, match="already completed"):
+        goals.abandon("blocked on upstream")
+    assert goals.goal.note == "shipped in abc1234"
+    assert goals.goal.status == "completed"
+
+
+def test_a_goal_cannot_be_abandoned_twice(goals):
+    goals.create("ship the migration")
+    goals.abandon("blocked")
+    with pytest.raises(ValueError, match="already abandoned"):
+        goals.abandon("blocked again")
