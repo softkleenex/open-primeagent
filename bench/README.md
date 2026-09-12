@@ -473,9 +473,14 @@ recursive longest-path.
 
 ## What would sharpen this
 
-- A benchmark where intermediate state is genuinely expensive to rebuild (an AST
-  or dependency graph queried across many turns), which is the real claim behind
-  the persistent kernel.
+- ~~A benchmark where intermediate state is genuinely expensive to rebuild (an
+  AST or dependency graph queried across many turns)~~ — done, twice.
+  [Benchmark 4](#4-import-graph-adaptive-chain---opa-does-not-win--and-now-we-know-why)
+  is the dependency graph and found nothing; benchmark 5 tests the wall-clock
+  version. What is still open after both is state that cannot be *serialised* at
+  all — a loaded model, an open connection, a GPU context — because a filesystem
+  turns out to be a good enough cache for everything else (see the rebuild vs
+  reload table in benchmark 5).
 - A run across a context compaction, where kernel state survives and context does
   not — the case opa is actually designed for.
 - A clean wall-clock comparison under serial blocking work. Benchmark 0- only
