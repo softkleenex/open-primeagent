@@ -255,6 +255,18 @@ parallelism — it is that **the child persists**, which is exactly what the
 registry exists for and what "a child is not disposable" was always supposed to
 mean.
 
+> [!note]
+> **These three tables report `billed tokens` = input + output + cache writes**,
+> the metric [benchmark 5](#5-large-file-adaptive-chain---the-agent-never-used-the-kernel--in-either-benchmark)
+> shows is partly an artifact of what else ran on the machine recently. The
+> `work tokens` rows were recomputed from the same raw files afterwards and are
+> the honest figure. The correction runs in both directions: it makes the
+> harness look considerably better (-22% becomes -64%) and makes opa look
+> considerably worse on benchmark 3 (+16% becomes +249%). Both are published.
+>
+> Benchmarks 1-3 report **means**; benchmarks 4 and 5 report **medians** with
+> ranges, which is the better practice and the one to copy.
+
 ## 1. Evolution — hard variant  ✅ the harness pays
 
 `bench/evolution.py --variant hard`
@@ -276,6 +288,7 @@ the projected harness.
 |---|---|---|---|
 | turns | 15.6 | 10.3 | **-34%** |
 | billed tokens | 25,278 | 19,693 | **-22%** |
+| work tokens (input+output) | 3,655 | 1,303 | **-64%** |
 | cost (USD) | $0.355 | $0.232 | **-35%** |
 | wall clock | 58,171 ms | 25,280 ms | **-57%** |
 | worst-case turns | 24 | 11 | **-54%** |
@@ -299,6 +312,7 @@ Rediscovering the rule now takes one glance.
 |---|---|---|---|
 | turns | 9.0 | 11.3 | +26% |
 | billed tokens | 18,611 | 19,234 | +3% |
+| work tokens (input+output) | 1,084 | 1,171 | +8% |
 | cost (USD) | $0.206 | $0.232 | +13% |
 | n | 3 | 3 | |
 
@@ -325,6 +339,7 @@ projection writes.
 |---|---|---|---|
 | turns | 6.3 | 9.0 | +42% |
 | billed tokens | 17,312 | 20,008 | +16% |
+| work tokens (input+output) | 440 | 1,346 | **+206%** |
 | cost (USD) | $0.183 | $0.243 | +33% |
 | wall clock | 22,504 ms | 37,094 ms | +65% |
 | n | 3 | 3 | |
