@@ -1,8 +1,8 @@
 [project]
 name = "open-primeagent"
-version = "0.1.1"
+version = "0.1.2"
 description = "Persistent Python, long-lived sub-agents and a continual harness for the coding agent you already use"
-readme = "README.md"
+dynamic = ["readme"]
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "softkleenex" }]
@@ -46,7 +46,7 @@ opa = "opa.server:main"
 opa-child = "opa.child_server:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 # Two top-level packages, one distribution. `opa_runtime` used to be a separate
@@ -79,3 +79,22 @@ addopts = "-m 'not child'"   # child tests run only when asked for with -m child
 dev = [
     "pytest-cov>=7.1.0",
 ]
+
+# The README is written with relative links so GitHub resolves them. PyPI
+# resolves them against pypi.org instead, so on the project page - which is
+# where `pip install` and the version badge land people - all 34 of them were
+# 404s, including "read this one" pointing at the security doc.
+#
+# Rewrite them to absolute GitHub URLs for the PyPI description only, leaving
+# the file itself alone. Pure `#anchor` links are excluded: those work inside
+# the rendered description, and sending them to GitHub would bounce the reader
+# off the page they are already reading.
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\]\((?!https?://|#)([^)]+)\)'
+replacement = '](https://github.com/softkleenex/open-primeagent/blob/main/\1)'
