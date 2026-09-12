@@ -441,3 +441,21 @@ async def test_a_scoped_run_still_cannot_leave_the_workspace(config):
     runner = AutonomousRunner(FakeRLM(config))
     with pytest.raises(ValueError, match="outside the workspace"):
         await runner.start("x", child_name="w", gate="exit 0", cwd="/etc")
+
+
+def test_an_abandoned_goal_cannot_then_be_completed(goals):
+    """Otherwise the reason it was given up on becomes the record of its success.
+
+    `abandon` writes its note to the same field `complete` reads, so completing
+    an abandoned goal produced status="completed" carrying "blocked on
+    upstream" - the exact confusion the note was added to prevent.
+    """
+    goals.create("ship the thing")
+    goals.abandon("blocked on upstream")
+    with pytest.raises(ValueError, match="abandoned"):
+        goals.complete()
+
+
+def test_completing_without_a_note_leaves_no_stale_one(goals):
+    goals.create("ship the thing")
+    assert goals.complete()["goal"]["note"] == ""

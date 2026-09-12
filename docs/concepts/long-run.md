@@ -142,7 +142,7 @@ Three implementation details that matter:
   this, and it is `null` outside a git repository, where there is nothing to
   compare.
 
-### ⚠️ Before you use this
+### ⚠ Before you use this
 
 An autonomous run **edits files and executes your gate command unsupervised**.
 That is not a side effect, it is the feature. Two runs cannot overlap, and

@@ -1,7 +1,7 @@
 # Kernel API
 
 Symbols preloaded inside the persistent kernel, reachable from
-[`opa_python`](tools.md#opapythoncode-timeout1200). They are deliberately not
+[`opa_python`](tools.md#opa_pythoncode-timeout1200). They are deliberately not
 MCP tools.
 
 Every call is `await`-ed; IPython's autoawait handles top-level `await`

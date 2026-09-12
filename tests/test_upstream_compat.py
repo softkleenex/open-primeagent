@@ -246,3 +246,28 @@ def test_we_add_fields_upstream_does_not_have():
     ours = {f.name for f in fields(RLMSubagent)}
     for extra in ("turns", "tokens", "cost_usd", "adapter", "last_error"):
         assert extra in ours
+
+
+def test_we_can_read_a_payload_in_upstreams_own_shape():
+    """Compatibility has to run both ways, or it is not a shared protocol.
+
+    Our parser required `name`, `adapter` and the three counters - all fields
+    upstream does not send - so a record in exactly the shape upstream produces
+    raised `KeyError: 'name'` while the README claimed we spoke its protocol.
+    """
+    from opa_runtime.rlm import _subagent
+
+    upstream_shaped = {
+        "rlm_child_id": "c-1",
+        "active_session_id": None,
+        "session_id": "s-1",
+        "session_name": "reviewer",
+        "session_dir": "/tmp/x",
+        "status": "completed",
+    }
+    got = _subagent(upstream_shaped)
+    assert got.rlm_child_id == "c-1"
+    assert got.session_name == "reviewer"
+    assert got.name == "reviewer", "our own field falls back to upstream's"
+    assert got.session_id == "s-1"
+    assert got.turns == 0 and got.cost_usd == 0.0, "our extras default, not explode"

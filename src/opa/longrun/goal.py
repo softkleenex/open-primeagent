@@ -158,12 +158,20 @@ class GoalStore:
                 "this goal ran out of budget; that is not completion. "
                 "Use abandon(note=...) to stop without claiming the objective was met."
             )
+        if self.goal.status == "abandoned":
+            raise ValueError(
+                "this goal was abandoned; completing it now would file the reason "
+                "it was given up on as the record of how it was achieved. "
+                "Start a new goal instead."
+            )
         self.goal.status = "completed"
         # A note was accepted when abandoning but not when succeeding, which had
         # it backwards: the record of what achieving the objective actually
         # consisted of is the one worth keeping.
-        if note:
-            self.goal.note = note
+        #
+        # Assigned rather than merged: a note left over from an earlier state
+        # would read as an account of the success.
+        self.goal.note = note
         self.goal.completed_at = _now()
         self.goal.updated_at = self.goal.completed_at
         self.save()

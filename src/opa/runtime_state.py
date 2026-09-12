@@ -466,16 +466,19 @@ class Runtime:
         self.bridge.register("rlm.run", rlm_run)
         self.bridge.register("rlm.list_subagents", rlm_list)
         self.bridge.register("rlm.delete_subagent", rlm_delete)
-        # The only thing a child may ask for. Everything else stays parent-only,
-        # because a child process holds the socket and can speak this protocol
-        # directly whatever its MCP tool list says.
+        # The entire child-reachable surface is these two, and nothing else.
+        # Everything above stays parent-only because a child process holds the
+        # socket and can speak this protocol directly whatever its MCP tool list
+        # says - the role on each registration is the boundary, not the tool
+        # list. Anything added here widens what a compromised child can reach,
+        # so add with that in mind.
         self.bridge.register("agent_message.send", message_send, roles=("parent", "child"))
-        self.bridge.register("agent_message.inbox", message_inbox)
-        # A child may ask who it can talk to; the answer it gets is just itself
-        # and the parent.
+        # ...and asking who it may talk to, which answers only "you, and the
+        # parent". See `message_list_agents` for why siblings are left out.
         self.bridge.register(
             "agent_message.list_agents", message_list_agents, roles=("parent", "child")
         )
+        self.bridge.register("agent_message.inbox", message_inbox)
 
     def _on_rlm_event(self, event: str, data: dict) -> None:
         """Record delegated work, and charge it to the goal.

@@ -67,17 +67,25 @@ class RLMSubagent:
 
 
 def _subagent(entry: dict[str, Any]) -> RLMSubagent:
+    """Parse one child record.
+
+    Only upstream's contract fields are required. Everything else is ours and
+    defaults, so a payload in exactly the shape upstream produces parses here
+    too - it used to raise `KeyError: 'name'`, which made the compatibility
+    one-directional while the README claimed a shared protocol.
+    """
+    name = entry.get("name") or entry.get("session_name") or ""
     return RLMSubagent(
         rlm_child_id=entry["rlm_child_id"],
-        name=entry["name"],
-        adapter=entry["adapter"],
+        name=name,
+        adapter=entry.get("adapter", ""),
         status=entry["status"],
-        turns=entry["turns"],
-        tokens=entry["tokens"],
-        cost_usd=entry["cost_usd"],
+        turns=int(entry.get("turns") or 0),
+        tokens=int(entry.get("tokens") or 0),
+        cost_usd=float(entry.get("cost_usd") or 0.0),
         model=entry.get("model"),
         session_dir=Path(entry["session_dir"]),
-        session_name=entry.get("session_name") or entry["name"],
+        session_name=entry.get("session_name") or name,
         session_id=entry.get("session_id"),
         active_session_id=entry.get("active_session_id"),
         last_error=entry.get("last_error"),

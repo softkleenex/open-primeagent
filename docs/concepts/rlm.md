@@ -128,8 +128,8 @@ reading. **Fan-out relieves a bottleneck a competent agent does not create.**
 
 Where children earn their cost is **reuse**, and that is measured too. Asking a
 follow-up of a child that had already read the file cost
-[**81% less than spawning a fresh one**](../../bench/README.md#0b-warm-child-vs-cold-child---reuse-wins-by-5x)
-for the same question — 1,987 tokens against 23,058.
+[**one fifth as much in dollars**](../../bench/README.md#0b-warm-child-vs-cold-child---reuse-wins-by-5x)
+for the same question, on one twelfth the tokens — 1,987 against 23,058.
 
 Same fact, both directions: spawning is expensive, keeping is nearly free. So
 the registry is not a convenience, it is where the value is.

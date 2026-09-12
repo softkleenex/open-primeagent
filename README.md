@@ -400,7 +400,7 @@ The mechanism was the easy part. The hard part is **evaluation** — without a
 measurable gate, "evolution" is just drift. We do not ship an automatic
 promotion path where nothing can be measured.
 
-## ⚠️ Not a sandbox
+## ⚠ Not a sandbox
 
 The kernel and every child agent run **with your OS permissions**. Upstream says
 the same about its kernel; we add child spawning on top, so the blast radius is

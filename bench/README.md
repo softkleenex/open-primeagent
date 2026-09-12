@@ -85,7 +85,7 @@ that the parent could not hold the material at all. Until we do, **there is no
 measured evidence that sub-agent fan-out is worth it**, and
 [the docs say so where people will read them](../docs/concepts/rlm.md#when-not-to-fan-out).
 
-## 0-. Ownership and verification  ⚠️ the finding was not the one we went looking for
+## 0-. Ownership and verification  ⚠ the finding was not the one we went looking for
 
 `bench/serial.py`, `bench/slowsuite.py`
 
