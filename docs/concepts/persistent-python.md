@@ -52,6 +52,33 @@ A shell is *already* an external computer. For anything a `grep -c | sort`
 one-liner solves, the kernel buys you nothing and costs you a tool round trip —
 we [measured that and published the loss](../../bench/README.md#3-multi-turn-corpus-analysis---opa-loses).
 
-The kernel earns its place when intermediate state is expensive to rebuild and
-gets reused across turns, and when it has to survive a compaction that your
-context does not.
+That limit turned out to be wider than we thought. We built two more benchmarks
+on the theory that the kernel earns its place once intermediate state is
+expensive to rebuild and gets reused across turns — an import graph over 600
+modules, then an 8-million-row file — and then counted what the agent had
+actually called:
+
+| benchmark | opa-arm sessions | sessions that ran `opa_python` |
+|---|---:|---:|
+| import graph | 96 | **0** |
+| 8M-row file | 27 | **0** |
+
+Given a shell, the agent reaches for `awk`, and a streaming aggregation never
+materialises the structure a kernel exists to hold. It was not a worse choice
+than the kernel; it was the right one.
+
+So the honest statement of what this is for:
+
+> The kernel is **external working memory**, not a speed-up. Its cost has been
+> measured and is approximately zero. Its benefit has not been measured at all,
+> because in 123 sessions across two benchmarks designed to elicit it, the agent
+> never once chose it.
+
+Where it is load-bearing regardless of that: `rlm` handles, the harness API and
+the long-run symbols live in this kernel, and they have to survive a compaction
+that your context does not. That is a correctness property rather than a
+performance one, and it is what the kernel is actually carrying today.
+
+Where it might still pay, untested: state that cannot be streamed out of a file
+— a loaded model, an open connection, a GPU context. If you have that case,
+[the benchmarks](../../bench/README.md) are designed to be copied.

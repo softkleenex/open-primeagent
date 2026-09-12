@@ -328,6 +328,60 @@ separately. Upstream's own `Usage` draws the same distinction, which is mild
 evidence it is the right one. Old results kept as
 `depgraph-INVALID-cache-writes-counted-as-work.json`.
 
+## The benchmark that found the benchmarks were wrong (2026-09-12)
+
+Benchmark 5 (`bench/bigdata.py`, 8M rows, 337 MB, eight adaptive questions) came
+out flat like benchmark 4. Before writing a third "no effect" paragraph I
+counted what the agent had actually invoked — kernel executions leave files on
+disk:
+
+    benchmark 4 (import graph)   96 opa-arm sessions   0 ran opa_python
+    benchmark 5 (8M-row file)    27 opa-arm sessions   0 ran opa_python
+
+**123 sessions, zero.** Tracing shows both arms doing the same thing:
+
+    turn 1  Bash: awk -F, 'NR>1{print $2}' events.csv | sort -u | wc -l
+    turn 2  Bash: awk -F, 'NR>1{sum[$3]+=$5} END{...}' events.csv
+
+So benchmarks 3, 4 and 5 never compared a kernel against a shell. They compared
+a shell against a shell with an unused MCP server attached, which is why every
+delta was noise. The conclusion published off benchmark 4 — "a kernel saves you
+re-emitting the script, not the data" — was right about the baseline and wrong
+as a measurement of the kernel, which was not in the comparison.
+
+Corrected in README.md, bench/README.md and docs/concepts/persistent-python.md.
+What the data supports:
+
+> The cost of *offering* the kernel is approximately zero. Its value is
+> unmeasured.
+
+The reason is not a bad tool description. `awk` is the right answer to those
+questions: a streaming aggregation never materialises the structure a kernel
+exists to hold, so our premise — that the agent builds state worth preserving —
+is what the task never called for.
+
+Measured before the run and standing on its own: a pickle reload costs 20-25% of
+a rebuild at 0.5M, 2M and 8M rows, so a filesystem is a good enough cache for
+anything serialisable. That bounds where a kernel could ever win.
+
+- [ ] **The kernel is still unmeasured.** Testing it needs state that cannot be
+      streamed out of a file — a loaded model, an open connection, a GPU
+      context. Everything else, the shell already does.
+- [ ] Whether an instruction in the projected block would change the agent's
+      choice, and whether it *should* — talking it out of `awk` when `awk` is
+      correct would be a worse product, not a better benchmark.
+
+Also this session: PyPI 0.1.0 → 0.1.2, and the two things only publishing could
+find. `uvx open-primeagent` did not work at all (uvx runs the executable named
+after the *package*; we shipped only `opa` and `opa-child`), and every one of the
+34 links on the PyPI project page was a 404 (relative links resolve against
+pypi.org there). Both now covered — the first by a test, the second by
+hatch-fancy-pypi-readme rewriting links for the published description only.
+
+`scripts/check_links.py` replaces the hand-rolled slugger that broke three
+anchors: it reads GitHub's own rendered HTML, because a reimplementation got
+both `_` and U+FE0F wrong and neither mistake is visible in the source.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):
