@@ -1,6 +1,6 @@
 [project]
 name = "open-primeagent"
-version = "0.1.0"
+version = "0.1.1"
 description = "Persistent Python, long-lived sub-agents and a continual harness for the coding agent you already use"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,6 +37,11 @@ Source = "https://github.com/softkleenex/open-primeagent"
 Issues = "https://github.com/softkleenex/open-primeagent/issues"
 
 [project.scripts]
+# `uvx <package>` runs the executable whose name matches the package, so
+# without this entry the install line every doc advertises -
+# `uvx open-primeagent` - fails with "an executable named `open-primeagent` is
+# not provided". `opa` stays the name you type once it is on your PATH.
+open-primeagent = "opa.server:main"
 opa = "opa.server:main"
 opa-child = "opa.child_server:main"
 

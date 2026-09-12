@@ -1,6 +1,7 @@
 # open-primeagent
 
 [![CI](https://github.com/softkleenex/open-primeagent/actions/workflows/ci.yml/badge.svg)](https://github.com/softkleenex/open-primeagent/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/open-primeagent)](https://pypi.org/project/open-primeagent/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Upstream compatibility](https://img.shields.io/badge/rlm%20protocol-pinned%20by%20test-8a2be2)](tests/test_upstream_compat.py)
@@ -18,7 +19,7 @@ names, same field names, same state-file schema, [checked by a test](tests/test_
 **You don't switch agents. You add one MCP server.**
 
 ```bash
-claude mcp add opa -- uvx open-primeagent      # once 0.1.0 is on PyPI; until then, see Install
+claude mcp add opa -- uvx open-primeagent
 ```
 
 [Install](#install) · [Why this is small](#why-this-is-only-3k-lines-and-not-170k) ·
@@ -201,10 +202,6 @@ it. `server.MAX_TOOLS = 4` and a test enforces the ceiling. When you want to add
 a tool, that is the signal to expose a kernel symbol instead.
 
 ## Install
-
-> **Not on PyPI yet.** `uvx open-primeagent` works from the first published
-> release; until then use the checkout form below. See
-> [docs/releasing.md](docs/releasing.md).
 
 <details open>
 <summary><b>Claude Code</b></summary>

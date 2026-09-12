@@ -187,3 +187,19 @@ def test_an_unknown_argument_is_refused_rather_than_ignored(capsys):
         main(["--wat"])
     assert exit_info.value.code == 2
     assert "--wat" in capsys.readouterr().err
+
+
+def test_a_console_script_is_named_after_the_distribution():
+    """`uvx open-primeagent` is the install line in the README and six docs.
+
+    uvx runs the executable matching the package name, so shipping only `opa`
+    made that line fail on the very first release with "an executable named
+    `open-primeagent` is not provided". Caught only by installing from PyPI,
+    which is too late - hence this test.
+    """
+    import tomllib
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+    assert pyproject["project"]["name"] in pyproject["project"]["scripts"]
