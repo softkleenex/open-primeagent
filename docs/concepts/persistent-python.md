@@ -58,10 +58,10 @@ expensive to rebuild and gets reused across turns — an import graph over 600
 modules, then an 8-million-row file — and then counted what the agent had
 actually called:
 
-| benchmark | opa-arm sessions | sessions that ran `opa_python` |
-|---|---:|---:|
-| import graph | 96 | **0** |
-| 8M-row file | 27 | **0** |
+| benchmark | opa-arm runs | turns with the kernel attached | turns that called it |
+|---|---:|---:|---:|
+| import graph | 12 | 96 | **0** |
+| 8M-row file | 3 | 24 | **0** |
 
 Given a shell, the agent reaches for `awk`, and a streaming aggregation never
 materialises the structure a kernel exists to hold. It was not a worse choice
@@ -71,7 +71,7 @@ So the honest statement of what this is for:
 
 > The kernel is **external working memory**, not a speed-up. Its cost has been
 > measured and is approximately zero. Its benefit has not been measured at all,
-> because in 123 sessions across two benchmarks designed to elicit it, the agent
+> because across 120 turns of two benchmarks designed to elicit it, the agent
 > never once chose it.
 
 Where it is load-bearing regardless of that: `rlm` handles, the harness API and

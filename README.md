@@ -320,13 +320,13 @@ and then built two more: an import graph over 600 modules, and an 8-million-row,
 
 Both came out flat. Then we counted what the agent had actually called:
 
-| benchmark | opa-arm sessions | sessions that ran `opa_python` |
-|---|---:|---:|
-| import graph | 96 | **0** |
-| 8M-row file | 27 | **0** |
+| benchmark | opa-arm runs | turns with the kernel attached | turns that called it |
+|---|---:|---:|---:|
+| import graph | 12 | 96 | **0** |
+| 8M-row file | 3 | 24 | **0** |
 
-**123 sessions, and the kernel was never invoked once.** Tracing shows what it
-did instead — the same thing in both arms:
+**120 turns with the kernel attached, and it was never invoked once.** Tracing
+shows what it did instead — the same thing in both arms:
 
 ```
 turn 1  Bash: awk -F, 'NR>1{print $2}' events.csv | sort -u | wc -l   → 8 chars back

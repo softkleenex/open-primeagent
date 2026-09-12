@@ -503,13 +503,18 @@ of the previous write-ups assumed.
 
 Counting kernel executions on disk across every session both benchmarks created:
 
-| benchmark | opa-arm sessions | sessions that ran `opa_python` |
-|---|---:|---:|
-| 4 — import graph | 96 | **0** |
-| 5 — 8M-row file | 27 | **0** |
+| benchmark | opa-arm runs | turns with the kernel attached | turns that called it |
+|---|---:|---:|---:|
+| 4 — import graph | 12 | 96 | **0** |
+| 5 — 8M-row file | 3 | 24 | **0** |
 
-**123 sessions, zero.** The tool was attached, described in the tool list, and
-never invoked. Tracing a session shows what happened instead:
+Counted from the kernel's own session directories on disk, one per CLI
+invocation. The import-graph figure includes runs later discarded for a token
+accounting fault — that fault does not touch which tool the agent reached for,
+and excluding them changes 96 to 32 and nothing else.
+
+**120 turns, zero calls.** The tool was attached and listed on every one of
+them. A further three turns, hand-traced afterwards, behaved the same way. Tracing a session shows what happened instead:
 
 ```
 turn 1  Bash: awk -F, 'NR>1{print $2}' events.csv | sort -u | wc -l   → 8 chars

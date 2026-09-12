@@ -335,10 +335,12 @@ out flat like benchmark 4. Before writing a third "no effect" paragraph I
 counted what the agent had actually invoked — kernel executions leave files on
 disk:
 
-    benchmark 4 (import graph)   96 opa-arm sessions   0 ran opa_python
-    benchmark 5 (8M-row file)    27 opa-arm sessions   0 ran opa_python
+    benchmark 4 (import graph)   12 runs / 96 turns   0 called opa_python
+    benchmark 5 (8M-row file)     3 runs / 24 turns   0 called opa_python
 
-**123 sessions, zero.** Tracing shows both arms doing the same thing:
+**120 turns, zero calls.** A session directory is created per CLI invocation,
+so these are turns rather than independent trials - each one a separate chance
+to reach for the kernel. Tracing shows both arms doing the same thing:
 
     turn 1  Bash: awk -F, 'NR>1{print $2}' events.csv | sort -u | wc -l
     turn 2  Bash: awk -F, 'NR>1{sum[$3]+=$5} END{...}' events.csv
