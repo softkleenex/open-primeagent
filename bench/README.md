@@ -250,7 +250,7 @@ does not work" is reading them too broadly; what they show is that **fan-out
 does not survive a per-child process boot**.
 
 Fanning out to four fresh specialists cost 8.8x. Re-tasking one that was already
-warm cost **one fifth** of starting a new one. So the value in sub-agents is not
+warm cost **one fifth** as much in dollars, on **one twelfth** the tokens. So the value in sub-agents is not
 parallelism — it is that **the child persists**, which is exactly what the
 registry exists for and what "a child is not disposable" was always supposed to
 mean.

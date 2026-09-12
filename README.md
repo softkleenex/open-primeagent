@@ -260,8 +260,9 @@ roughly 36k tokens of session startup. That one fact runs both ways:
 
 Fanning out on a 12-file service produced the same findings for 8.8x the price,
 because spawning one child cost more than the entire job. Re-tasking a child
-that had already read the file cost **one fifth** of a fresh one (23,058 → 1,987
-tokens, n=4, tiny variance).
+that had already read the file cost **one fifth** as much (-81%) and used **one
+twelfth** the tokens (23,058 → 1,987, n=4, tiny variance). The two figures differ
+because the cheap turn is mostly cache reads, which are billed but not free.
 
 We then built a benchmark specifically to let fan-out win — 444 files, ~135k
 tokens, four independent subsystems, children scoped so nothing is read twice —
