@@ -459,11 +459,98 @@ recursive longest-path.
 
 ---
 
+## 5. Large file, adaptive chain  ⚠ the agent never used the kernel — in either benchmark
+
+`bench/bigdata.py`. 8 million rows, 337 MB, eight adaptive questions. The
+prediction was committed before the run, in `7807f46`.
+
+Before building it, the boundary condition was measured directly, since a
+filesystem is itself a cache:
+
+| rows | csv | rebuild | pickle write | pickle read | reload/rebuild |
+|---:|---:|---:|---:|---:|---:|
+| 500,000 | 21 MB | 0.4s | 0.2s | 0.1s | 20% |
+| 2,000,000 | 84 MB | 1.6s | 1.0s | 0.3s | 21% |
+| 8,000,000 | 337 MB | 6.2s | 5.7s | 1.6s | 25% |
+
+The prediction: the baseline would rebuild every turn rather than cache, and opa
+would win wall clock by 25–40%.
+
+| metric | baseline | opa | delta (median) |
+|---|---|---|---|
+| wall clock | 154,575 ms | 147,681 ms | −4.5% |
+| work tokens | 2,456 | 2,134 | −13% |
+| cost (USD) | $0.233 | $0.279 | **+20%** |
+| n | 3 | 3 | all 8/8 correct |
+
+Ranges overlap on every metric. Another null — but the reason is not the one any
+of the previous write-ups assumed.
+
+### The agent never called `opa_python`. Not once.
+
+Counting kernel executions on disk across every session both benchmarks created:
+
+| benchmark | opa-arm sessions | sessions that ran `opa_python` |
+|---|---:|---:|
+| 4 — import graph | 96 | **0** |
+| 5 — 8M-row file | 27 | **0** |
+
+**123 sessions, zero.** The tool was attached, described in the tool list, and
+never invoked. Tracing a session shows what happened instead:
+
+```
+turn 1  Bash: awk -F, 'NR>1{print $2}' events.csv | sort -u | wc -l   → 8 chars
+turn 2  Bash: awk -F, 'NR>1{sum[$3]+=$5} END{...}' events.csv         → 85 chars
+turn 3  Bash: awk -F, 'NR>1 && $3=="apac"{...}' events.csv            → 102 chars
+```
+
+Both arms did this. Identical approach, identical tool, and the opa arm simply
+ignored the kernel sitting next to it.
+
+### What this means, and what it costs us
+
+Everything written above about the kernel has to be restated. These benchmarks
+did not compare a persistent kernel against a shell. They compared **a shell
+against a shell with an unused MCP server attached** — which is why the deltas
+are noise. The honest reading:
+
+> The agent never chose the kernel, so benchmarks 3, 4 and 5 measure the *cost
+> of offering* it, not the *value of using* it. That cost is approximately
+> zero, which is worth knowing. The value remains unmeasured.
+
+And the reason it was never chosen is not a failure of the tool description. It
+is that **`awk` is the right answer to these questions.** A streaming aggregation
+over a file never materialises an intermediate structure, so there is nothing for
+a kernel to hold. Our premise — that the agent builds state worth preserving —
+is what the task never called for.
+
+That also revises benchmark 4's conclusion. "A persistent kernel saves you
+re-emitting the script, not the data" was right about the baseline and wrong to
+present as a measurement of the kernel: the kernel was not in the comparison.
+
+### What would actually test it
+
+A task where the state cannot be streamed out of a file:
+
+- data that arrives from an API or a computation rather than a path `awk` can open
+- an index that takes minutes to build and is queried unpredictably
+- anything process-resident — a loaded model, an open connection, a GPU context
+
+Until one of those is measured, this repository has **no measurement of the
+persistent kernel at all**, and says so. What it does have is three benchmarks
+showing that attaching opa to a shell-friendly task costs nothing and gains
+nothing, and one showing that a model given `awk` will reach for `awk`.
+
+---
+
 ## What we are not claiming
 
 - No claim that opa reduces tokens in general. Benchmarks 0 and 3 show the
-  opposite, and benchmark 4 — built specifically to let the kernel win — shows
-  no effect at all.
+  opposite, and benchmarks 4 and 5 show no effect at all.
+- **No claim about the persistent kernel in either direction.** Across 123
+  sessions in the two benchmarks built to test it, the agent never invoked it
+  once — so its value has not been measured, only the (negligible) cost of
+  offering it.
 - No claim that sub-agent fan-out is worth its cost on a codebase of any size we
   have actually measured. Reuse is measured and wins; fan-out is measured and
   loses.

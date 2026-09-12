@@ -314,48 +314,37 @@ attaching opa cost **+42% turns and +33% cost** versus plain Claude Code.
 
 That third result is a fair hit. We blamed the benchmark — a shell is *already*
 an external computer, so a one-liner task gives the kernel nothing to persist —
-and then built the benchmark that diagnosis called for: an import graph over 600
-modules, eight adaptive questions that cannot be batched because each names a
-node the previous answer found, and the prediction
-[committed before the results](bench/depgraph.py).
+and then built two more: an import graph over 600 modules, and an 8-million-row,
+337 MB file with eight adaptive questions. Predictions
+[committed before the runs](bench/depgraph.py).
 
-**The kernel still did not win.** Cost came out within 0.1%, turn counts
-identical, every range overlapping, all 8/8 answers correct in both arms. Tracing
-the baseline showed why:
+Both came out flat. Then we counted what the agent had actually called:
+
+| benchmark | opa-arm sessions | sessions that ran `opa_python` |
+|---|---:|---:|
+| import graph | 96 | **0** |
+| 8M-row file | 27 | **0** |
+
+**123 sessions, and the kernel was never invoked once.** Tracing shows what it
+did instead — the same thing in both arms:
 
 ```
-turn 1  Bash: python3 -c "…parse 600 files, build the graph, BFS…"  → 3 chars back
-turn 2  Bash: python3 -c "…parse 600 files, build it again…"       → 16 chars back
-turn 3  (no tool call at all)                                       100 tokens
+turn 1  Bash: awk -F, 'NR>1{print $2}' events.csv | sort -u | wc -l   → 8 chars back
+turn 2  Bash: awk -F, 'NR>1{sum[$3]+=$5} END{...}' events.csv         → 85 chars back
 ```
 
-The baseline *does* rebuild the whole graph every turn. It costs nothing, because
-the rebuild happens in the shell and only the answer comes back.
+So these benchmarks never compared a kernel to a shell. They compared **a shell
+to a shell with an unused MCP server attached**, which is why every delta is
+noise. And the reason is not a bad tool description — `awk` is the right answer
+to these questions. A streaming aggregation never materialises the structure a
+kernel exists to hold.
 
-> A persistent kernel does not save you the data. It saves you re-emitting the
-> script. The data was never in your context to begin with.
+> The cost of *offering* the kernel is approximately zero. Its value is
+> **unmeasured**, and this README does not claim otherwise.
 
-So: **four benchmarks have looked for a token saving from the kernel and none
-found one.** This README does not claim there is one. What is left untested is
-state that is expensive in *wall clock* rather than tokens — a loaded model, a
-warmed connection, a parsed multi-gigabyte dataset — which is where the kernel
-holds something a file cannot. [Full write-up.](bench/README.md#4-import-graph-adaptive-chain---opa-does-not-win--and-now-we-know-why)
-
-One of the sub-agent benchmarks was also invalid on the first attempt — the host
-agent kept answering from context instead of re-tasking the child, so it was
-measuring the wrong thing. That is
-[written up too](bench/README.md#0b-warm-child-vs-cold-child---reuse-wins-by-5x),
-along with the instrumentation that caught it.
-
-What survives is narrower and more useful than "opa makes things faster":
-
-> Spawning a sub-agent is expensive; keeping one is nearly free.
->
-> A harness entry pays for itself in proportion to how expensive the knowledge
-> is to rediscover.
-
-Both are arguments for **persistence over creation** — which is the thesis this
-project inherited, now with numbers on it.
+Testing it needs state that cannot be streamed out of a file — something
+process-resident, like a loaded model or an open connection.
+[Full write-up.](bench/README.md#5-large-file-adaptive-chain---the-agent-never-used-the-kernel--in-either-benchmark)
 
 ## Can an agent evolve mid-session?
 

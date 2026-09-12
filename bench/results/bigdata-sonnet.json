@@ -1,0 +1,632 @@
+{
+  "truth": {
+    "distinct_users": 41237,
+    "top_region_by_amount": "apac",
+    "slowest_action_there": "refund",
+    "slow_events": 137168,
+    "worst_user": "u36433",
+    "worst_user_amount": 5821202,
+    "worst_user_peak_day": 20116,
+    "users_above": 397
+  },
+  "runs": [
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "41237",
+          "work_tokens": 536,
+          "cache_write": 29307,
+          "cache_read": 118394,
+          "cost_usd": 0.1472458,
+          "num_turns": 3,
+          "duration_ms": 20223,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "apac",
+          "work_tokens": 193,
+          "cache_write": 358,
+          "cache_read": 99177,
+          "cost_usd": 0.023165400000000003,
+          "num_turns": 2,
+          "duration_ms": 13983,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "refund",
+          "work_tokens": 237,
+          "cache_write": 414,
+          "cache_read": 99900,
+          "cost_usd": 0.023974000000000002,
+          "num_turns": 2,
+          "duration_ms": 15086,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "137168",
+          "work_tokens": 672,
+          "cache_write": 927,
+          "cache_read": 202367,
+          "cost_usd": 0.050837400000000005,
+          "num_turns": 4,
+          "duration_ms": 37830,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "u36433",
+          "work_tokens": 350,
+          "cache_write": 487,
+          "cache_read": 102582,
+          "cost_usd": 0.0259324,
+          "num_turns": 2,
+          "duration_ms": 15826,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "5821202",
+          "work_tokens": 156,
+          "cache_write": 272,
+          "cache_read": 103537,
+          "cost_usd": 0.0233234,
+          "num_turns": 2,
+          "duration_ms": 12959,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "20116",
+          "work_tokens": 229,
+          "cache_write": 367,
+          "cache_read": 104101,
+          "cost_usd": 0.0245462,
+          "num_turns": 2,
+          "duration_ms": 13605,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "397",
+          "work_tokens": 184,
+          "cache_write": 296,
+          "cache_read": 104811,
+          "cost_usd": 0.023954200000000002,
+          "num_turns": 2,
+          "duration_ms": 15021,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 2557,
+        "cache_write": 32428,
+        "cache_read": 934869,
+        "cost_usd": 0.343,
+        "agent_turns": 19,
+        "duration_ms": 144533,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "41237",
+          "work_tokens": 388,
+          "cache_write": 23795,
+          "cache_read": 123565,
+          "cost_usd": 0.124747,
+          "num_turns": 3,
+          "duration_ms": 19659,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "apac",
+          "work_tokens": 210,
+          "cache_write": 375,
+          "cache_read": 98873,
+          "cost_usd": 0.023342600000000005,
+          "num_turns": 2,
+          "duration_ms": 14819,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "refund",
+          "work_tokens": 245,
+          "cache_write": 422,
+          "cache_read": 99630,
+          "cost_usd": 0.024032,
+          "num_turns": 2,
+          "duration_ms": 14013,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "137168",
+          "work_tokens": 269,
+          "cache_write": 530,
+          "cache_read": 100592,
+          "cost_usd": 0.024896400000000003,
+          "num_turns": 2,
+          "duration_ms": 14217,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "u36433",
+          "work_tokens": 380,
+          "cache_write": 540,
+          "cache_read": 101534,
+          "cost_usd": 0.026234800000000003,
+          "num_turns": 2,
+          "duration_ms": 15994,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "5821202",
+          "work_tokens": 192,
+          "cache_write": 308,
+          "cache_read": 102595,
+          "cost_usd": 0.023639,
+          "num_turns": 2,
+          "duration_ms": 12773,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "20116",
+          "work_tokens": 231,
+          "cache_write": 389,
+          "cache_read": 103231,
+          "cost_usd": 0.0244802,
+          "num_turns": 2,
+          "duration_ms": 14158,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "397",
+          "work_tokens": 219,
+          "cache_write": 331,
+          "cache_read": 103985,
+          "cost_usd": 0.024279000000000002,
+          "num_turns": 2,
+          "duration_ms": 14084,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 2134,
+        "cache_write": 26690,
+        "cache_read": 834005,
+        "cost_usd": 0.2957,
+        "agent_turns": 17,
+        "duration_ms": 119717,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "41237",
+          "work_tokens": 386,
+          "cache_write": 563,
+          "cache_read": 146802,
+          "cost_usd": 0.036441400000000006,
+          "num_turns": 3,
+          "duration_ms": 27755,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "apac",
+          "work_tokens": 215,
+          "cache_write": 380,
+          "cache_read": 98867,
+          "cost_usd": 0.023411400000000002,
+          "num_turns": 2,
+          "duration_ms": 17932,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "refund",
+          "work_tokens": 249,
+          "cache_write": 426,
+          "cache_read": 99634,
+          "cost_usd": 0.0240888,
+          "num_turns": 2,
+          "duration_ms": 18326,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "137168",
+          "work_tokens": 290,
+          "cache_write": 459,
+          "cache_read": 100500,
+          "cost_usd": 0.024804,
+          "num_turns": 2,
+          "duration_ms": 18741,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "u36433",
+          "work_tokens": 424,
+          "cache_write": 560,
+          "cache_read": 101404,
+          "cost_usd": 0.026728800000000004,
+          "num_turns": 2,
+          "duration_ms": 19125,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "5821202",
+          "work_tokens": 193,
+          "cache_write": 309,
+          "cache_read": 102505,
+          "cost_usd": 0.023635000000000003,
+          "num_turns": 2,
+          "duration_ms": 17415,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "20116",
+          "work_tokens": 273,
+          "cache_write": 411,
+          "cache_read": 103143,
+          "cost_usd": 0.024970600000000003,
+          "num_turns": 2,
+          "duration_ms": 17595,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "397",
+          "work_tokens": 226,
+          "cache_write": 338,
+          "cache_read": 103941,
+          "cost_usd": 0.0243682,
+          "num_turns": 2,
+          "duration_ms": 17686,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 2256,
+        "cache_write": 3446,
+        "cache_read": 856796,
+        "cost_usd": 0.2084,
+        "agent_turns": 17,
+        "duration_ms": 154575,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "41237",
+          "work_tokens": 219,
+          "cache_write": 259,
+          "cache_read": 97652,
+          "cost_usd": 0.023761400000000002,
+          "num_turns": 2,
+          "duration_ms": 22031,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "apac",
+          "work_tokens": 257,
+          "cache_write": 385,
+          "cache_read": 98259,
+          "cost_usd": 0.023729800000000002,
+          "num_turns": 2,
+          "duration_ms": 14964,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "refund",
+          "work_tokens": 2043,
+          "cache_write": 2546,
+          "cache_read": 352785,
+          "cost_usd": 0.101059,
+          "num_turns": 7,
+          "duration_ms": 43998,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "137168",
+          "work_tokens": 318,
+          "cache_write": 567,
+          "cache_read": 104242,
+          "cost_usd": 0.026264400000000004,
+          "num_turns": 2,
+          "duration_ms": 19262,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "u36433",
+          "work_tokens": 442,
+          "cache_write": 579,
+          "cache_read": 105262,
+          "cost_usd": 0.0277564,
+          "num_turns": 2,
+          "duration_ms": 20149,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "5821202",
+          "work_tokens": 225,
+          "cache_write": 341,
+          "cache_read": 106401,
+          "cost_usd": 0.0248622,
+          "num_turns": 2,
+          "duration_ms": 19153,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "20116",
+          "work_tokens": 305,
+          "cache_write": 441,
+          "cache_read": 107103,
+          "cost_usd": 0.026202600000000003,
+          "num_turns": 2,
+          "duration_ms": 18513,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "397",
+          "work_tokens": 256,
+          "cache_write": 368,
+          "cache_read": 107961,
+          "cost_usd": 0.025592200000000002,
+          "num_turns": 2,
+          "duration_ms": 19477,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 4065,
+        "cache_write": 5486,
+        "cache_read": 1079665,
+        "cost_usd": 0.2792,
+        "agent_turns": 21,
+        "duration_ms": 177547,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "baseline",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "41237",
+          "work_tokens": 368,
+          "cache_write": 547,
+          "cache_read": 146810,
+          "cost_usd": 0.03621400000000001,
+          "num_turns": 3,
+          "duration_ms": 27046,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "apac",
+          "work_tokens": 213,
+          "cache_write": 378,
+          "cache_read": 98835,
+          "cost_usd": 0.023377000000000002,
+          "num_turns": 2,
+          "duration_ms": 17736,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "refund",
+          "work_tokens": 245,
+          "cache_write": 434,
+          "cache_read": 99598,
+          "cost_usd": 0.0240736,
+          "num_turns": 2,
+          "duration_ms": 16377,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "137168",
+          "work_tokens": 459,
+          "cache_write": 662,
+          "cache_read": 151084,
+          "cost_usd": 0.037406800000000004,
+          "num_turns": 3,
+          "duration_ms": 20136,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "u36433",
+          "work_tokens": 529,
+          "cache_write": 739,
+          "cache_read": 153052,
+          "cost_usd": 0.03880840000000001,
+          "num_turns": 3,
+          "duration_ms": 29308,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "5821202",
+          "work_tokens": 193,
+          "cache_write": 309,
+          "cache_read": 103249,
+          "cost_usd": 0.0237838,
+          "num_turns": 2,
+          "duration_ms": 16673,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "20116",
+          "work_tokens": 231,
+          "cache_write": 389,
+          "cache_read": 103887,
+          "cost_usd": 0.0246114,
+          "num_turns": 2,
+          "duration_ms": 17496,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "397",
+          "work_tokens": 218,
+          "cache_write": 330,
+          "cache_read": 104641,
+          "cost_usd": 0.0243962,
+          "num_turns": 2,
+          "duration_ms": 17955,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 2456,
+        "cache_write": 3788,
+        "cache_read": 961156,
+        "cost_usd": 0.2327,
+        "agent_turns": 19,
+        "duration_ms": 162727,
+        "correct": 8
+      }
+    },
+    {
+      "arm": "opa",
+      "model": "sonnet",
+      "turns": [
+        {
+          "turn": 1,
+          "answer": "41237",
+          "work_tokens": 214,
+          "cache_write": 253,
+          "cache_read": 97652,
+          "cost_usd": 0.023682400000000006,
+          "num_turns": 2,
+          "duration_ms": 20977,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "answer": "apac",
+          "work_tokens": 212,
+          "cache_write": 377,
+          "cache_read": 98247,
+          "cost_usd": 0.023245400000000003,
+          "num_turns": 2,
+          "duration_ms": 14050,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "answer": "refund",
+          "work_tokens": 250,
+          "cache_write": 427,
+          "cache_read": 99008,
+          "cost_usd": 0.0239776,
+          "num_turns": 2,
+          "duration_ms": 14831,
+          "correct": true
+        },
+        {
+          "turn": 4,
+          "answer": "137168",
+          "work_tokens": 452,
+          "cache_write": 647,
+          "cache_read": 150108,
+          "cost_usd": 0.037081600000000006,
+          "num_turns": 3,
+          "duration_ms": 22699,
+          "correct": true
+        },
+        {
+          "turn": 5,
+          "answer": "u36433",
+          "work_tokens": 347,
+          "cache_write": 516,
+          "cache_read": 101156,
+          "cost_usd": 0.0257332,
+          "num_turns": 2,
+          "duration_ms": 20992,
+          "correct": true
+        },
+        {
+          "turn": 6,
+          "answer": "5821202",
+          "work_tokens": 188,
+          "cache_write": 304,
+          "cache_read": 102169,
+          "cost_usd": 0.023497800000000003,
+          "num_turns": 2,
+          "duration_ms": 13707,
+          "correct": true
+        },
+        {
+          "turn": 7,
+          "answer": "20116",
+          "work_tokens": 231,
+          "cache_write": 389,
+          "cache_read": 102797,
+          "cost_usd": 0.024393400000000003,
+          "num_turns": 2,
+          "duration_ms": 13421,
+          "correct": true
+        },
+        {
+          "turn": 8,
+          "answer": "397",
+          "work_tokens": 209,
+          "cache_write": 321,
+          "cache_read": 103551,
+          "cost_usd": 0.024052200000000003,
+          "num_turns": 2,
+          "duration_ms": 27004,
+          "correct": true
+        }
+      ],
+      "totals": {
+        "work_tokens": 2103,
+        "cache_write": 3234,
+        "cache_read": 854688,
+        "cost_usd": 0.2057,
+        "agent_turns": 17,
+        "duration_ms": 147681,
+        "correct": 8
+      }
+    }
+  ]
+}
