@@ -349,6 +349,13 @@ tokens**, and the README does not claim there is.
 `bench/depgraph.py`. **The prediction was committed before the results**
 (`091fe52`), which is the only thing that makes it a prediction.
 
+> **Corrected by [benchmark 5](#5-large-file-adaptive-chain---the-agent-never-used-the-kernel--in-either-benchmark).**
+> The opa arm of this benchmark never called `opa_python` — not once in 96
+> sessions. Everything below about what the kernel does or does not save is
+> therefore a statement about the *baseline*, not a measurement of the
+> kernel, which was never in the comparison. The numbers stand; the
+> attribution does not.
+
 Benchmark 3 lost and we blamed the benchmark: a `grep -c | sort` task gives a
 persistent kernel nothing to persist. That diagnosis names three conditions, so
 this one was built to satisfy all three — an expensive structure (an import
@@ -387,9 +394,14 @@ The baseline **does** rebuild the entire graph from scratch on turn 2 — exactl
 the waste the kernel is supposed to remove. It costs almost nothing, because the
 rebuild happens inside the shell and only a 16-character answer comes back.
 
-> A persistent kernel does not save you the data. It saves you re-*emitting the
-> script* — a few hundred tokens. The data was never in context to begin with,
-> because a competent agent computes over it out of process.
+> Rebuilding costs the baseline almost nothing, because the data was never in
+> its context to begin with — a competent agent computes over it out of process.
+> What a kernel could save here is re-*emitting the script*, a few hundred
+> tokens.
+
+(Written at the time as "a persistent kernel does not save you the data, it
+saves you re-emitting the script". True of the baseline, but stated as though we
+had measured the kernel. We had not — see the banner above.)
 
 Turn 3 is the same lesson from the other side: no tool call, 100 tokens, because
 turn 2's script had already printed the number. The agent's own context is
@@ -409,8 +421,9 @@ network session. There the kernel holds something the filesystem cannot, and
 
 **Until that is measured, this repository has no evidence that the persistent
 kernel saves tokens, and does not claim it does.** Four benchmarks have now
-looked and found nothing. That is a real result about our own product, and it is
-why the kernel is documented as external working memory rather than as a saving.
+looked and found nothing — though benchmark 5 shows that what they found nothing
+*in* was a comparison the kernel never entered. Either way the kernel is
+documented as external working memory rather than as a saving.
 
 ### The fifth wrong measurement
 
