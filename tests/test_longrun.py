@@ -482,3 +482,69 @@ def test_a_goal_cannot_be_abandoned_twice(goals):
     goals.abandon("blocked")
     with pytest.raises(ValueError, match="already abandoned"):
         goals.abandon("blocked again")
+
+
+# ---------- the whole goal state machine, in one place ----------
+
+def _goal_in(tmp_path, state, name):
+    store = GoalStore(tmp_path / f"{name}.json")
+    store.create("objective", token_budget=100)
+    if state == "completed":
+        store.complete("achieved: shipped abc1234")
+    elif state == "abandoned":
+        store.abandon("gave up: blocked upstream")
+    elif state == "budget_exhausted":
+        store.spend(200)
+    return store
+
+
+# from-state -> operation -> expected outcome. "refused" means ValueError.
+#
+# Written as a table because the last two bugs here were both asymmetries: a
+# guard added to `complete` and not its mirror in `abandon`. Scattered tests let
+# that happen twice; a table makes a missing guard a hole you can see.
+TRANSITIONS = {
+    "active": {"complete": "completed", "abandon": "abandoned",
+               "spend": "active", "create": "refused"},
+    "completed": {"complete": "refused", "abandon": "refused",
+                  "spend": "completed", "create": "active"},
+    "abandoned": {"complete": "refused", "abandon": "refused",
+                  "spend": "abandoned", "create": "active"},
+    # complete() refuses an exhausted goal and names abandon() as the way out,
+    # so this transition is the documented escape hatch, not an oversight.
+    "budget_exhausted": {"complete": "refused", "abandon": "abandoned",
+                         "spend": "budget_exhausted", "create": "active"},
+}
+
+
+@pytest.mark.parametrize("state", sorted(TRANSITIONS))
+@pytest.mark.parametrize("op", ["complete", "abandon", "spend", "create"])
+def test_goal_state_machine(tmp_path, state, op):
+    store = _goal_in(tmp_path, state, f"{state}-{op}")
+    before = store.goal.note
+    run = {
+        "complete": lambda: store.complete("NEW"),
+        "abandon": lambda: store.abandon("NEW"),
+        "spend": lambda: store.spend(10),
+        "create": lambda: store.create("a second objective"),
+    }[op]
+
+    expected = TRANSITIONS[state][op]
+    if expected == "refused":
+        with pytest.raises(ValueError):
+            run()
+        assert store.goal.status == state, "a refused call must not change state"
+        assert store.goal.note == before, "a refused call must not touch the note"
+    else:
+        run()
+        assert store.goal.status == expected
+
+
+def test_spend_never_charges_a_finished_goal(tmp_path):
+    """Whatever finished it, later sub-agent turns must not move its counters."""
+    for state in ("completed", "abandoned", "budget_exhausted"):
+        store = _goal_in(tmp_path, state, f"spend-{state}")
+        used, note = store.goal.tokens_used, store.goal.note
+        store.spend(5_000)
+        assert store.goal.tokens_used == used, state
+        assert store.goal.note == note, state
