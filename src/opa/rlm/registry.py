@@ -81,6 +81,25 @@ class ChildRegistry:
             except (json.JSONDecodeError, TypeError, ValueError):
                 continue  # one corrupt record must not hide the other children
             self._records[record.rlm_child_id] = record
+
+        # A turn cannot outlive the process that awaited it. Anything still
+        # marked running was interrupted - the server was killed or crashed
+        # mid-turn - and nothing will ever come back to finish it, because the
+        # task that would have run the `finally` died with it.
+        #
+        # Left alone, that record claims work is in flight forever: `attention`
+        # says "still working" and tells you to wait for a report that cannot
+        # arrive, and `list_subagents` reports a live `active_session_id`. The
+        # child itself is still resumable - its session id is intact - so this
+        # only corrects the claim about a turn, not the child's usefulness.
+        for record in self._records.values():
+            if record.status == "running":
+                record.status = "error"
+                record.last_error = (
+                    "interrupted: the server stopped while this turn was in flight. "
+                    "The session is intact, so the child can still be re-tasked."
+                )
+                self._persist(record)
         return self
 
     def _persist(self, record: ChildRecord) -> None:

@@ -86,6 +86,12 @@ of what it needs to re-task work it does not own — and `agent_message.send`
 would refuse the route anyway. The list shows the authority the bridge will
 actually grant rather than a family tree it will not act on.
 
+> **A child left `running` by a server restart comes back as `error`.** A turn
+> cannot outlive the process awaiting it, so on load any record still marked
+> running is reconciled with `last_error` saying it was interrupted. The session
+> id is kept, so the child is still re-taskable with `agent_message.send` — what
+> is corrected is the claim that a turn is in flight, not the child itself.
+
 ## `harness`
 
 `H = (prompts, sub-agent specs, skills, memory)`. CRUD plus reversible

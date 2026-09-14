@@ -64,3 +64,47 @@ def test_turns_are_appended(registry, tmp_path):
     registry.record_turn(record.rlm_child_id, {"prompt": "a"})
     registry.record_turn(record.rlm_child_id, {"prompt": "b"})
     assert [t["prompt"] for t in registry.turns(record.rlm_child_id)] == ["a", "b"]
+
+
+def test_an_interrupted_turn_does_not_stay_running_forever(tmp_path):
+    """A turn cannot outlive the process that awaited it.
+
+    The task that would have run the `finally` dies with the server, so a record
+    left at "running" claims work is in flight forever: `attention` says "still
+    working" and points you at a report that can never arrive, and
+    `list_subagents` reports a live `active_session_id`.
+    """
+    registry = ChildRegistry(tmp_path / "children")
+    record = registry.add(
+        ChildRecord.new("reviewer", "claude-code", tmp_path, native_session_id="sess-1")
+    )
+    registry.update(record.rlm_child_id, status="running")
+
+    reborn = ChildRegistry(tmp_path / "children").load()
+    recovered = reborn.get("reviewer")
+    assert recovered.status == "error"
+    assert "interrupted" in (recovered.last_error or "")
+    assert recovered.native_session_id == "sess-1", "the child must stay re-taskable"
+
+
+def test_reconciliation_is_written_down_not_just_computed(tmp_path):
+    """Two restarts in a row must agree, and the second must not re-flag it."""
+    registry = ChildRegistry(tmp_path / "children")
+    record = registry.add(ChildRecord.new("worker", "claude-code", tmp_path))
+    registry.update(record.rlm_child_id, status="running")
+
+    first = ChildRegistry(tmp_path / "children").load().get("worker")
+    second = ChildRegistry(tmp_path / "children").load().get("worker")
+    assert first.status == second.status == "error"
+    assert first.last_error == second.last_error
+
+
+def test_a_finished_child_is_untouched_by_a_restart(tmp_path):
+    registry = ChildRegistry(tmp_path / "children")
+    for name, status in (("done", "completed"), ("failed", "error")):
+        rec = registry.add(ChildRecord.new(name, "claude-code", tmp_path))
+        registry.update(rec.rlm_child_id, status=status, last_error="original")
+
+    reborn = ChildRegistry(tmp_path / "children").load()
+    assert reborn.get("done").status == "completed"
+    assert reborn.get("failed").last_error == "original", "an existing error must survive"
