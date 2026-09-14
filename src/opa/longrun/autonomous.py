@@ -167,18 +167,29 @@ class AutonomousRunner:
             raise RuntimeError("an autonomous run is already in progress")
 
         result = RunResult(objective=objective.strip(), child_name=child_name, outcome="error")
+        # Claimed before the first await, so two concurrent starts cannot both
+        # get past the check above. Everything after it is inside the try: the
+        # setup below used to sit outside, and `_resolve_cwd` raising - which is
+        # what it is *for*, on a path outside the workspace - left this set with
+        # no `finally` to clear it. One rejected cwd then wedged autonomous for
+        # the life of the server, every later start failing with "already in
+        # progress". The guard added to make unsupervised runs safer was what
+        # bricked them.
         self.active = result
         started = time.monotonic()
-        # An autonomous run edits files and executes the gate unsupervised, and
-        # the docs tell you to keep it away from anything you care about. Until
-        # this could be scoped it always ran in the server's own workspace, which
-        # made that advice impossible to follow. Resolved through the same guard
-        # as a child's cwd, so it still cannot leave the workspace.
-        run_cwd = self.rlm._resolve_cwd(cwd)
-        prompt = objective.strip()
-        fingerprint = await asyncio.to_thread(worktree_fingerprint, run_cwd)
+        run_cwd: Path | None = None
 
         try:
+            # An autonomous run edits files and executes the gate unsupervised,
+            # and the docs tell you to keep it away from anything you care
+            # about. Until this could be scoped it always ran in the server's
+            # own workspace, which made that advice impossible to follow.
+            # Resolved through the same guard as a child's cwd, so it still
+            # cannot leave the workspace.
+            run_cwd = self.rlm._resolve_cwd(cwd)
+            prompt = objective.strip()
+            fingerprint = await asyncio.to_thread(worktree_fingerprint, run_cwd)
+
             for index in range(1, max_turns + 1):
                 if wall_clock_seconds and time.monotonic() - started > wall_clock_seconds:
                     result.outcome = "timeout"
@@ -237,7 +248,7 @@ class AutonomousRunner:
                 result.outcome = "max_turns"
                 result.detail = f"stopped after {max_turns} turns without passing the gate"
         finally:
-            result.cwd = str(run_cwd)
+            result.cwd = "" if run_cwd is None else str(run_cwd)
             result.duration_ms = int((time.monotonic() - started) * 1000)
             self.active = None
         return result.as_dict()

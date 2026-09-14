@@ -10,6 +10,7 @@ import pytest
 from opa.longrun.autonomous import AutonomousRunner, run_gate, worktree_fingerprint
 from opa.longrun.goal import GoalStore
 from opa.longrun.schedule import ScheduleStore
+from opa.runtime_state import Runtime
 
 # ---------- goal ----------
 
@@ -548,3 +549,26 @@ def test_spend_never_charges_a_finished_goal(tmp_path):
         store.spend(5_000)
         assert store.goal.tokens_used == used, state
         assert store.goal.note == note, state
+
+
+async def test_a_rejected_cwd_does_not_wedge_autonomous_forever(config, tmp_path):
+    """The guard that makes unsupervised runs safer used to brick them.
+
+    `self.active` was claimed before the setup that resolves cwd, and that
+    resolution raising - which is exactly what it is for, on a path outside the
+    workspace - skipped the `finally` that clears it. Every later start then
+    failed with "already in progress" for the life of the server.
+    """
+    runtime = Runtime(config)
+    runner = runtime.autonomous
+    try:
+        with pytest.raises(ValueError, match="outside the workspace"):
+            await runner.start("do a thing", child_name="w", cwd="/etc")
+        assert runner.active is None, "a rejected start must release the slot"
+
+        # and the slot is genuinely reusable, not merely reported as free
+        with pytest.raises(ValueError, match="objective"):
+            await runner.start("   ", child_name="w")
+        assert runner.active is None
+    finally:
+        await runtime.shutdown()
