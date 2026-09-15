@@ -238,6 +238,26 @@ class HarnessService:
         before: list[dict[str, Any]] = []
         summary: list[str] = []
         applied: list[tuple[str, HarnessEntry]] = []
+        # One write per store for the whole delta - including the undo and the
+        # refinement record - so a crash cannot persist half of it. See
+        # HarnessStore.batched. A delta touching both scopes is still two files
+        # and can split between them; a single-scope one, which is all of them
+        # in practice, cannot.
+        with self.local.batched(), self.global_.batched():
+            return self._apply_locked(changes, before, summary, applied,
+                                      trigger, evidence, rationale, expected_outcome)
+
+    def _apply_locked(
+        self,
+        changes: list[dict[str, Any]],
+        before: list[dict[str, Any]],
+        summary: list[str],
+        applied: list[tuple[str, HarnessEntry]],
+        trigger: str,
+        evidence: str,
+        rationale: str,
+        expected_outcome: str,
+    ) -> RefinementEvent:
         try:
             for change in changes:
                 op = change.get("op")

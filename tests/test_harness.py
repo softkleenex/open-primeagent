@@ -263,3 +263,70 @@ def test_a_comment_is_not_a_procedure_signature(harness, tmp_path):
         jsonl.append(trajectory, {"event": "python.exec", "ok": True,
                                   "code": "# same comment\nactual_call()"})
     assert harness.evidence(trajectory)["repeated_commands"][0]["signature"] == "actual_call()"
+
+
+def _count_writes(monkeypatch):
+    """Count atomic replaces, which is what actually lands on disk."""
+    from opa.harness import state
+
+    seen = {"n": 0}
+    real = state.os.replace
+
+    def counting(src, dst):
+        seen["n"] += 1
+        return real(src, dst)
+
+    monkeypatch.setattr(state.os, "replace", counting)
+    return seen
+
+
+def test_a_multi_change_apply_is_one_write(tmp_path, monkeypatch):
+    """Otherwise a crash mid-delta persists half of it with nothing to undo.
+
+    Each save is atomic on its own, but a save per change is not: the refinement
+    record — the only thing rollback can act on — is written last, so dying
+    partway left the harness changed and unrecoverable.
+    """
+    service = HarnessService(tmp_path / "local", tmp_path / "global")
+    writes = _count_writes(monkeypatch)
+
+    service.apply(
+        [
+            {"op": "create", "kind": "memory", "title": "first", "content": "a"},
+            {"op": "create", "kind": "memory", "title": "second", "content": "b"},
+            {"op": "create", "kind": "memory", "title": "third", "content": "c"},
+        ],
+        trigger="test",
+    )
+    assert writes["n"] == 1, "three changes plus the record must land in one replace"
+
+
+def test_a_failed_apply_still_leaves_disk_matching_memory(tmp_path, monkeypatch):
+    service = HarnessService(tmp_path / "local", tmp_path / "global")
+    service.create("memory", "existing", "x")
+    before = sum(len(v) for v in service.local.entries.values())
+
+    with pytest.raises(KeyError):
+        service.apply(
+            [
+                {"op": "create", "kind": "memory", "title": "doomed", "content": "d"},
+                {"op": "update", "id": "does-not-exist", "content": "x"},
+            ],
+            trigger="test",
+        )
+
+    assert sum(len(v) for v in service.local.entries.values()) == before
+    reloaded = HarnessService(tmp_path / "local", tmp_path / "global")
+    assert sum(len(v) for v in reloaded.local.entries.values()) == before
+    assert reloaded.local.refinements == []
+
+
+def test_batching_nests_without_writing_early(tmp_path, monkeypatch):
+    service = HarnessService(tmp_path / "local", tmp_path / "global")
+    writes = _count_writes(monkeypatch)
+    with service.local.batched():
+        service.create("memory", "one", "a")
+        with service.local.batched():
+            service.create("memory", "two", "b")
+        assert writes["n"] == 0, "the inner block must not flush"
+    assert writes["n"] == 1

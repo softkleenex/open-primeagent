@@ -21,6 +21,7 @@ import json
 import os
 import re
 import uuid
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from pathlib import Path
@@ -122,6 +123,8 @@ class HarnessStore:
         self.scope: HarnessScope = scope
         self.entries: dict[HarnessKind, dict[str, HarnessEntry]] = {k: {} for k in KINDS}
         self.refinements: list[RefinementEvent] = []
+        self._deferred = 0
+        self._dirty = False
         self.load()
 
     # ---------- persistence ----------
@@ -185,7 +188,33 @@ class HarnessStore:
         except TypeError:
             return None
 
+    @contextmanager
+    def batched(self):
+        """Hold writes until the block ends, then make exactly one.
+
+        Every CRUD call saves, so a multi-change `apply` wrote the state file
+        once per change. Each write is atomic on its own, but the sequence is
+        not: a crash between them leaves the harness half-changed *and* with no
+        refinement recorded, because the record is only written once the whole
+        delta succeeds. Nothing is left to roll back - the outcome `apply`'s own
+        docstring calls the worst possible one.
+
+        Batching makes the delta a single `os.replace`, so the file on disk is
+        either all of it or none of it.
+        """
+        self._deferred += 1
+        try:
+            yield self
+        finally:
+            self._deferred -= 1
+            if self._deferred == 0 and self._dirty:
+                self._dirty = False
+                self.save()
+
     def save(self) -> HarnessStore:
+        if self._deferred:
+            self._dirty = True
+            return self
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "schema": SCHEMA_VERSION,
