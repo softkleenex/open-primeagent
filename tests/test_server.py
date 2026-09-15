@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
@@ -203,3 +204,77 @@ def test_a_console_script_is_named_after_the_distribution():
     root = Path(__file__).resolve().parent.parent
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
     assert pyproject["project"]["name"] in pyproject["project"]["scripts"]
+
+
+# ---------- concurrency ----------
+
+async def test_concurrent_callers_boot_exactly_one_kernel(config):
+    """Two `opa_python` calls arriving together must not race the boot.
+
+    Listed as an untested gap in TODO.md. A second boot would leave an orphaned
+    kernel process and a second set of preloaded symbols, and the caller that
+    lost the race would be talking to a kernel nobody else could see.
+    """
+    from unittest.mock import patch
+
+    from opa.runtime_state import Runtime
+
+    runtime = Runtime(config)
+    starts = {"n": 0}
+
+    class FakeKernel:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def start(self):
+            starts["n"] += 1
+            await asyncio.sleep(0.05)  # a real boot is slow; the race needs the window
+
+        def info(self):
+            return type("Info", (), {"runtime_ok": True})()
+
+        async def stop(self):
+            pass
+
+    try:
+        with patch("opa.runtime_state.KernelManager", FakeKernel):
+            kernels = await asyncio.gather(*[runtime.kernel() for _ in range(12)])
+        assert starts["n"] == 1, "the lock must hold the boot to one"
+        assert len({id(k) for k in kernels}) == 1, "and everyone gets that one"
+    finally:
+        await runtime.shutdown()
+
+
+async def test_a_failed_boot_does_not_poison_later_calls(config):
+    """A kernel that fails to start must leave the slot retryable."""
+    from unittest.mock import patch
+
+    from opa.runtime_state import Runtime
+
+    runtime = Runtime(config)
+    attempts = {"n": 0}
+
+    class FlakyKernel:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def start(self):
+            attempts["n"] += 1
+            if attempts["n"] == 1:
+                raise RuntimeError("no free port")
+
+        def info(self):
+            return type("Info", (), {"runtime_ok": True})()
+
+        async def stop(self):
+            pass
+
+    try:
+        with patch("opa.runtime_state.KernelManager", FlakyKernel):
+            with pytest.raises(RuntimeError, match="no free port"):
+                await runtime.kernel()
+            assert runtime.kernel_if_started is None, "a failed boot must not be cached"
+            await runtime.kernel()
+        assert attempts["n"] == 2
+    finally:
+        await runtime.shutdown()

@@ -407,8 +407,11 @@ From a coverage audit (90% overall):
 - [x] The push channel is wired into codex too, via `-c mcp_servers.*` overrides.
       It only works when the sandbox is bypassed — headless codex cancels MCP
       tool calls otherwise — so the adapter gates it behind dangerous mode.
-- [ ] Concurrency: nothing tests two `opa_python` calls racing to boot the kernel,
-      although `Runtime.kernel()` locks for exactly that.
+- [x] Concurrency: two `opa_python` calls racing to boot the kernel. Tested
+      2026-09-15 and the lock was already correct — 12 concurrent callers, one
+      `start()`, one object handed to all of them. A failed boot is also not
+      cached, so the slot stays retryable. No bug; a guarantee that was simply
+      unverified.
 
 ## To investigate
 
