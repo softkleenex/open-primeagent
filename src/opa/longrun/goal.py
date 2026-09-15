@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from ..fsutil import atomic_write
+
 GoalStatus = Literal["active", "completed", "abandoned", "budget_exhausted"]
 PENDING: tuple[GoalStatus, ...] = ("active",)
 
@@ -93,10 +95,7 @@ class GoalStore:
         if self.goal is None:
             self.path.unlink(missing_ok=True)
         else:
-            self.path.write_text(
-                json.dumps(asdict(self.goal), indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            atomic_write(self.path, json.dumps(asdict(self.goal), indent=2, ensure_ascii=False))
         return self
 
     # ---------- API ----------

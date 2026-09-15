@@ -18,7 +18,6 @@ ways.
 from __future__ import annotations
 
 import json
-import os
 import re
 import uuid
 from contextlib import contextmanager
@@ -26,6 +25,8 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
+
+from ..fsutil import atomic_write
 
 HarnessKind = Literal["prompt", "memory", "skill", "subagent"]
 HarnessScope = Literal["local", "global"]
@@ -224,10 +225,7 @@ class HarnessStore:
             },
             "refinements": [asdict(e) for e in self.refinements],
         }
-        # Atomic replace, so a crash mid-write never leaves half a state file.
-        tmp = self.file_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, self.file_path)
+        atomic_write(self.file_path, json.dumps(data, indent=2, ensure_ascii=False))
         return self
 
     # ---------- CRUD ----------

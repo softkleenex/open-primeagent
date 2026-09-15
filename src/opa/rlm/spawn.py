@@ -185,24 +185,31 @@ class RLMService:
                 rlm_child_id=record.rlm_child_id, ok=False,
             )
             return
-        turn_token = self.issue_token(record.name) if self.issue_token else None
-        request = TurnRequest(
-            prompt=prompt,
-            cwd=Path(record.cwd),
-            session_dir=self.registry.child_dir(record.rlm_child_id),
-            session_id=record.native_session_id,
-            resume=resume,
-            model=record.model,
-            system_prompt=record.spec,
-            permission_mode=self.config.child_permission_mode,
-            allowed_tools=self.config.child_allowed_tools,
-            allow_dangerous=self.config.allow_dangerous_child,
-            child_name=record.name,
-            can_message_parent=record.can_message_parent,
-            host_socket=self.host_socket,
-            token=turn_token,
-        )
+        # Issued inside the try that owns the revoking finally. It used to sit
+        # outside, so anything raising while the request was built left a valid
+        # credential in the bridge for the life of the server - contradicting
+        # the invariant the comment below states. Low impact, since a token that
+        # was never handed to a process is a leak rather than a disclosure, but
+        # an invariant with an exception is not one.
+        turn_token: str | None = None
         try:
+            turn_token = self.issue_token(record.name) if self.issue_token else None
+            request = TurnRequest(
+                prompt=prompt,
+                cwd=Path(record.cwd),
+                session_dir=self.registry.child_dir(record.rlm_child_id),
+                session_id=record.native_session_id,
+                resume=resume,
+                model=record.model,
+                system_prompt=record.spec,
+                permission_mode=self.config.child_permission_mode,
+                allowed_tools=self.config.child_allowed_tools,
+                allow_dangerous=self.config.allow_dangerous_child,
+                child_name=record.name,
+                can_message_parent=record.can_message_parent,
+                host_socket=self.host_socket,
+                token=turn_token,
+            )
             try:
                 result = await adapter.run(request)
             finally:

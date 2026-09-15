@@ -390,3 +390,40 @@ async def test_list_agents_shows_a_child_only_the_parent(runtime, monkeypatch):
     assert payload["current"]["name"] == "worker"
     assert [e["relationship"] for e in payload["entries"]] == ["parent"]
     assert "sibling" not in {e["name"] for e in payload["entries"]}
+
+
+async def test_a_turn_token_is_never_left_valid_when_the_turn_fails(runtime):
+    """`The credential outlives nothing` has to hold on the failure paths too.
+
+    The token used to be issued before the try that owns its revoking finally,
+    so anything raising between the two left a valid credential in the bridge
+    for the life of the server.
+
+    The assertion counts issues as well as leaks: a test that only checked the
+    token table would pass just as well if no token had been issued at all,
+    which is the wrong reason to be green.
+    """
+    record = runtime.rlm.registry.add(
+        ChildRecord.new("doomed", "claude-code", Path(runtime.config.workspace))
+    )
+
+    issued: list[str] = []
+    original = runtime.rlm.issue_token
+
+    def watched(name: str) -> str:
+        token = original(name)
+        issued.append(token)
+        return token
+
+    runtime.rlm.issue_token = watched
+
+    class Exploding:
+        async def run(self, request):
+            raise RuntimeError("adapter failed once the token was already handed over")
+
+    before = len(runtime.bridge._tokens)
+    await runtime.rlm._run_turn_locked(record, "do a thing", Exploding(), resume=False)
+
+    assert issued, "the turn must actually have reached the point of issuing one"
+    assert len(runtime.bridge._tokens) == before, "and none may survive the failure"
+    assert runtime.rlm.registry.get("doomed").status == "error"

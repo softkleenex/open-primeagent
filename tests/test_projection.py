@@ -7,6 +7,11 @@ test, not in the documentation.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
+import pytest
+
 from opa.harness import projection
 from opa.harness.state import HarnessEntry
 
@@ -157,3 +162,69 @@ def test_the_block_is_budgeted_because_it_is_read_every_request(tmp_path):
 def test_counts_are_shown_so_nothing_looks_complete_when_it_is_not(tmp_path):
     body = projection.render([entry("prompt", f"r{i}", f"t{i}") for i in range(9)])
     assert "### Rules for this project (9)" in body
+
+
+def test_an_interrupted_projection_never_truncates_the_users_file(tmp_path, monkeypatch):
+    """The promise this project is built on is that your own file survives.
+
+    `Path.write_text` truncates on open, so a crash, a killed process or a full
+    disk between the truncate and the write left CLAUDE.md empty. Measured on
+    the old code: 2,160 bytes to 0.
+    """
+    target = tmp_path / "CLAUDE.md"
+    original = "# My notes\n\nHand-written and irreplaceable.\n" * 40
+    target.write_text(original, encoding="utf-8")
+
+    real_write = Path.write_text
+
+    def fail_on_temp(self, *args, **kwargs):
+        if self.name.endswith(".opa-tmp"):
+            raise OSError(28, "No space left on device")
+        return real_write(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", fail_on_temp)
+
+    with pytest.raises(OSError):
+        projection.apply(target, "some generated body")
+
+    assert target.read_text(encoding="utf-8") == original, "the user's file must be untouched"
+    assert not list(tmp_path.glob("*.opa-tmp")), "a failed write must not leave litter"
+
+
+def test_projection_replaces_by_rename_not_by_truncation(tmp_path, monkeypatch):
+    """Whatever a reader sees is a whole file: the old one or the new one."""
+    target = tmp_path / "CLAUDE.md"
+    target.write_text("# Mine\n", encoding="utf-8")
+
+    seen: list[tuple[str, str]] = []
+    real_replace = os.replace
+
+    def watched(src, dst):
+        seen.append((Path(src).name, Path(dst).name))
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", watched)
+    projection.apply(target, "generated body")
+
+    assert seen == [("CLAUDE.md.opa-tmp", "CLAUDE.md")]
+    assert "# Mine" in target.read_text(encoding="utf-8")
+
+
+def test_projecting_through_a_symlink_keeps_the_link(tmp_path):
+    """`CLAUDE.md -> AGENTS.md` is a real setup, and os.replace swaps the name.
+
+    Replacing the link itself would leave a regular file where the user had a
+    link, and their other tool would stop seeing the content. Caught by the
+    bootstrap suite the first time atomic writes went in, so it is pinned here
+    too, next to the helper that has to keep honouring it.
+    """
+    (tmp_path / "AGENTS.md").write_text("# Shared\n", encoding="utf-8")
+    link = tmp_path / "CLAUDE.md"
+    link.symlink_to("AGENTS.md")
+
+    projection.apply(link, "generated body")
+
+    assert link.is_symlink(), "the link must survive the write"
+    assert "generated body" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "# Shared" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert not list(tmp_path.glob("*.opa-tmp"))

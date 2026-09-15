@@ -15,12 +15,14 @@ user can always see, and clear, what the agent set up on its own.
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
+from ..fsutil import atomic_write
 from ..session import jsonl
 
 Kind = Literal["once", "interval"]
@@ -69,10 +71,17 @@ class ScheduleStore:
         return self
 
     def _rewrite(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text("", encoding="utf-8")
-        for entry in self.entries.values():
-            jsonl.append(self.path, asdict(entry))
+        """One replace, not a truncate followed by N appends.
+
+        The old form emptied the file and then appended each entry, so a crash
+        anywhere in that loop lost every schedule the user had - and the window
+        was as long as the list, not a single write.
+        """
+        lines = "".join(
+            json.dumps(asdict(entry), ensure_ascii=False) + "\n"
+            for entry in self.entries.values()
+        )
+        atomic_write(self.path, lines)
 
     # ---------- API ----------
 

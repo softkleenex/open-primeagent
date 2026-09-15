@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ..fsutil import atomic_write
 from .state import HarnessEntry
 
 BEGIN = "<!-- opa:begin — generated. Nothing outside this block is touched. -->"
@@ -121,8 +122,7 @@ def apply(target: Path, body: str) -> bool:
 
     if updated == existing:
         return False
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(updated, encoding="utf-8")
+    atomic_write(target, updated)
     return True
 
 
@@ -138,7 +138,7 @@ def remove(target: Path) -> bool:
     if not updated.strip():
         target.unlink()
         return True
-    target.write_text(updated.rstrip("\n") + "\n", encoding="utf-8")
+    atomic_write(target, updated.rstrip("\n") + "\n")
     return True
 
 
@@ -151,7 +151,7 @@ def write_memories(memory_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
         if entry.kind != "memory":
             continue
         path = _inside(memory_dir, f"{entry.id}.md")
-        path.write_text(f"# {entry.title}\n\n{entry.content.rstrip()}\n", encoding="utf-8")
+        atomic_write(path, f"# {entry.title}\n\n{entry.content.rstrip()}\n")
         written.append(path)
     for stale in memory_dir.glob("*.md"):
         if stale.stem not in wanted:
@@ -173,11 +173,14 @@ def write_skills(skills_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
         wanted.add(entry.id)
         directory = _inside(skills_dir, entry.id)
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / ".opa-managed").write_text(entry.id, encoding="utf-8")
-        (directory / "SKILL.md").write_text(
+        # The ownership marker is written before any content, so a directory
+        # we created is always recognisable as ours to prune - even if we die
+        # immediately after making it.
+        atomic_write(directory / ".opa-managed", entry.id)
+        atomic_write(
+            directory / "SKILL.md",
             f"---\nname: {entry.id}\ndescription: {_one_line(entry.title, 200)}\n---\n\n"
             f"{entry.content.rstrip()}\n",
-            encoding="utf-8",
         )
         written.append(directory / "SKILL.md")
 

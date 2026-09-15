@@ -267,16 +267,16 @@ def test_a_comment_is_not_a_procedure_signature(harness, tmp_path):
 
 def _count_writes(monkeypatch):
     """Count atomic replaces, which is what actually lands on disk."""
-    from opa.harness import state
+    from opa import fsutil
 
     seen = {"n": 0}
-    real = state.os.replace
+    real = fsutil.os.replace
 
     def counting(src, dst):
         seen["n"] += 1
         return real(src, dst)
 
-    monkeypatch.setattr(state.os, "replace", counting)
+    monkeypatch.setattr(fsutil.os, "replace", counting)
     return seen
 
 
