@@ -17,6 +17,7 @@ from pathlib import Path
 from .bridge import HostBridge
 from .bridge import current_caller as bridge_current_caller
 from .config import Config
+from .fsutil import atomic_write
 from .harness import bootstrap as bootstrap_mod
 from .harness.service import HarnessService
 from .kernel.manager import KernelManager
@@ -75,7 +76,8 @@ class Runtime:
         self._lock = asyncio.Lock()
         self._bridge_started = False
 
-        self.paths.meta.write_text(
+        atomic_write(
+            self.paths.meta,
             json.dumps(
                 {
                     "session_id": self.session_id,
@@ -85,7 +87,6 @@ class Runtime:
                 },
                 indent=2,
             ),
-            encoding="utf-8",
         )
 
     def _pick_socket_path(self) -> Path:

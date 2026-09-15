@@ -108,3 +108,28 @@ def test_a_finished_child_is_untouched_by_a_restart(tmp_path):
     reborn = ChildRegistry(tmp_path / "children").load()
     assert reborn.get("done").status == "completed"
     assert reborn.get("failed").last_error == "original", "an existing error must survive"
+
+
+def test_a_deleted_child_does_not_come_back_after_a_crash(tmp_path):
+    """`delete` writes a marker and then unlinks; dying between resurrected it.
+
+    The marker was written and never read, so it looked like a tombstone without
+    being one. It is honoured on load now, which also makes the order of those
+    two operations stop mattering.
+    """
+    registry = ChildRegistry(tmp_path / "children")
+    record = registry.add(ChildRecord.new("gone", "claude-code", tmp_path))
+    directory = registry.child_dir(record.rlm_child_id)
+
+    (directory / "deleted").write_text("2026-09-15T10:00:00Z", encoding="utf-8")
+    assert (directory / "child.json").exists(), "the crash leaves the record behind"
+
+    reborn = ChildRegistry(tmp_path / "children").load()
+    assert [r.name for r in reborn.list()] == []
+
+
+def test_a_completed_delete_also_stays_deleted(tmp_path):
+    registry = ChildRegistry(tmp_path / "children")
+    registry.add(ChildRecord.new("gone", "claude-code", tmp_path))
+    registry.delete("gone")
+    assert [r.name for r in ChildRegistry(tmp_path / "children").load().list()] == []

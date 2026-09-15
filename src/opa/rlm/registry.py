@@ -14,13 +14,13 @@ Layout:
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+from ..fsutil import atomic_write
 from ..session import jsonl
 
 ChildStatus = Literal["running", "completed", "error"]
@@ -75,6 +75,12 @@ class ChildRegistry:
         if not self.dir.exists():
             return self
         for record_file in sorted(self.dir.glob("*/child.json")):
+            # `delete` writes this marker and then unlinks child.json. Dying
+            # between the two left the record on disk, and a child the user had
+            # deleted came back on the next boot. The marker was written but
+            # never read, so it looked like a tombstone without being one.
+            if (record_file.parent / "deleted").exists():
+                continue
             try:
                 data = json.loads(record_file.read_text(encoding="utf-8"))
                 record = ChildRecord(**data)
@@ -106,10 +112,9 @@ class ChildRegistry:
         """Write atomically. A half-written child.json is a child nothing can find."""
         directory = self.child_dir(record.rlm_child_id)
         directory.mkdir(parents=True, exist_ok=True)
-        target = directory / "child.json"
-        tmp = directory / "child.json.tmp"
-        tmp.write_text(json.dumps(asdict(record), indent=2, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, target)
+        atomic_write(
+            directory / "child.json", json.dumps(asdict(record), indent=2, ensure_ascii=False)
+        )
 
     # ---------- CRUD ----------
 
