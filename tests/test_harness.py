@@ -330,3 +330,44 @@ def test_batching_nests_without_writing_early(tmp_path, monkeypatch):
             service.create("memory", "two", "b")
         assert writes["n"] == 0, "the inner block must not flush"
     assert writes["n"] == 1
+
+
+def test_an_unreadable_state_file_is_never_overwritten(tmp_path):
+    """Unreadable is not damaged, and the old code could not tell them apart.
+
+    `load` caught OSError and ValueError together and started empty, with a
+    comment saying the next save would rewrite the file cleanly. For a file that
+    was merely locked or unreadable that meant replacing intact data with
+    nothing. Measured on the old code: five accumulated memories lost to one
+    chmod.
+    """
+    path = tmp_path / "harness_state.json"
+    store = HarnessStore(path, scope="local")
+    for i in range(5):
+        store.create("memory", f"lesson {i}", f"learned the hard way #{i}")
+
+    path.chmod(0o000)
+    try:
+        reborn = HarnessStore(path, scope="local")
+        assert reborn.unreadable, "the store must know it could not read"
+        with pytest.raises(RuntimeError, match="refusing to write"):
+            reborn.create("memory", "new", "written after a failed read")
+    finally:
+        path.chmod(0o644)
+
+    survivor = HarnessStore(path, scope="local")
+    assert sum(len(v) for v in survivor.entries.values()) == 5, "all five must survive"
+
+
+def test_a_corrupt_state_file_is_kept_aside_rather_than_replaced(tmp_path):
+    """It is the only copy, and some of it may still be recoverable by hand."""
+    path = tmp_path / "harness_state.json"
+    path.write_text('{"schema": 1, "entries": {tru', encoding="utf-8")
+
+    store = HarnessStore(path, scope="local")
+    assert not store.unreadable, "corrupt is recoverable-from; the store may write again"
+    store.create("memory", "fresh", "after quarantine")
+
+    quarantined = list(tmp_path.glob("harness_state.json.corrupt-*"))
+    assert len(quarantined) == 1
+    assert quarantined[0].read_text(encoding="utf-8").startswith('{"schema": 1')

@@ -18,6 +18,7 @@ ways.
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
 from contextlib import contextmanager
@@ -126,6 +127,7 @@ class HarnessStore:
         self.refinements: list[RefinementEvent] = []
         self._deferred = 0
         self._dirty = False
+        self.unreadable: str | None = None
         self.load()
 
     # ---------- persistence ----------
@@ -136,10 +138,25 @@ class HarnessStore:
         if not self.file_path.exists():
             return self
         try:
-            data = json.loads(self.file_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            # A corrupt state file must not crash the kernel or block refinement.
-            # Treat it as empty; the next save() rewrites it cleanly.
+            raw = self.file_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            # The file is there and we cannot read it - permissions, a locked
+            # file, a transient I/O error. Starting empty would be harmless
+            # except that the next save() overwrites it, and an unreadable file
+            # is not a damaged one. Measured on the old code: five accumulated
+            # memories destroyed by one chmod.
+            #
+            # So the session continues with an empty harness in memory, but this
+            # store refuses to write until someone has looked.
+            self.unreadable = str(exc)
+            return self
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            # Genuinely corrupt. Keep the damaged file rather than overwriting
+            # it - whatever is left in there may still be recoverable by hand,
+            # and it is the only copy.
+            self._quarantine()
             return self
         if not isinstance(data, dict):
             return self
@@ -212,7 +229,23 @@ class HarnessStore:
                 self._dirty = False
                 self.save()
 
+    def _quarantine(self) -> None:
+        """Move a corrupt state file aside, keeping the newest few."""
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+        spoiled = self.file_path.with_name(f"{self.file_path.name}.corrupt-{stamp}")
+        try:
+            os.replace(self.file_path, spoiled)
+        except OSError:
+            self.unreadable = "the state file is corrupt and could not be set aside"
+
     def save(self) -> HarnessStore:
+        if self.unreadable:
+            raise RuntimeError(
+                f"refusing to write {self.file_path}: it could not be read "
+                f"({self.unreadable}). Writing now would replace a file that was "
+                f"never damaged. Fix the read problem, or move the file aside "
+                f"yourself, and start a new session."
+            )
         if self._deferred:
             self._dirty = True
             return self

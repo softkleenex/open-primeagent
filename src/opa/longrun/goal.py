@@ -11,6 +11,7 @@ it, so a host agent that lost its context still finds out what it was doing.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -79,18 +80,39 @@ class GoalStore:
 
     def load(self) -> GoalStore:
         self.goal = None
+        self.unreadable: str | None = None
         if not self.path.exists():
             return self
         try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return self  # a corrupt goal file must not block the session
+            raw = self.path.read_text(encoding="utf-8")
+        except OSError as exc:
+            # Unreadable is not damaged. Continuing with no goal is fine; what
+            # is not fine is the next save() replacing a file that was never
+            # broken, which is how the harness store used to lose five entries
+            # to one chmod.
+            self.unreadable = str(exc)
+            return self
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+            try:
+                os.replace(self.path, self.path.with_name(f"{self.path.name}.corrupt-{stamp}"))
+            except OSError:
+                self.unreadable = "the goal file is corrupt and could not be set aside"
+            return self
         if isinstance(data, dict) and isinstance(data.get("objective"), str):
             known = {f for f in Goal.__dataclass_fields__}
             self.goal = Goal(**{k: v for k, v in data.items() if k in known})
         return self
 
     def save(self) -> GoalStore:
+        if self.unreadable:
+            raise RuntimeError(
+                f"refusing to write {self.path}: it could not be read "
+                f"({self.unreadable}). Writing now would replace a file that was "
+                f"never damaged."
+            )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if self.goal is None:
             self.path.unlink(missing_ok=True)

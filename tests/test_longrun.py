@@ -572,3 +572,29 @@ async def test_a_rejected_cwd_does_not_wedge_autonomous_forever(config, tmp_path
         assert runner.active is None
     finally:
         await runtime.shutdown()
+
+
+def test_an_unreadable_goal_file_is_never_overwritten(tmp_path):
+    """Same split as the harness store: unreadable is not damaged."""
+    path = tmp_path / "goal.json"
+    store = GoalStore(path)
+    store.create("ship the migration", token_budget=1000)
+
+    path.chmod(0o000)
+    try:
+        reborn = GoalStore(path)
+        assert reborn.unreadable
+        with pytest.raises(RuntimeError, match="refusing to write"):
+            reborn.create("a different objective")
+    finally:
+        path.chmod(0o644)
+
+    assert GoalStore(path).goal.objective == "ship the migration"
+
+
+def test_a_corrupt_goal_file_is_kept_aside(tmp_path):
+    path = tmp_path / "goal.json"
+    path.write_text("{not json", encoding="utf-8")
+    store = GoalStore(path)
+    store.create("a fresh objective")
+    assert len(list(tmp_path.glob("goal.json.corrupt-*"))) == 1
