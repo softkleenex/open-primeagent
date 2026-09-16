@@ -384,6 +384,36 @@ hatch-fancy-pypi-readme rewriting links for the published description only.
 anchors: it reads GitHub's own rendered HTML, because a reimplementation got
 both `_` and U+FE0F wrong and neither mistake is visible in the source.
 
+## Do the tests defend the guards? (2026-09-17)
+
+Two rounds in a row, an existing test caught a mistake of mine - one where I had
+quietly turned a loud refusal into a silent skip. That makes the suite worth
+trusting, which makes it worth checking.
+
+294 tests, none without a real assertion and none tautological. Then the sharper
+question, which coverage cannot answer: a line can be executed by every test in
+the file and still have nothing asserting what it decides.
+
+`scripts/mutate_guards.py` breaks each safety guard in turn and runs the suite.
+All ten are defended by a failing test:
+
+    projection refuses writes outside its directory
+    projection only prunes directories it created
+    a child's cwd cannot leave the workspace
+    the bridge rejects a token it did not issue
+    an unknown token is not silently downgraded to a child
+    harness ids must be safe as a path component
+    durable writes go through a temp file and a rename
+    an unreadable state file is never written over
+    a turn interrupted by a restart is reconciled
+    a finished goal cannot be reopened
+
+Not in CI: it takes minutes and rewrites source files. Run it after touching
+anything on that list. An ANCHOR MISSING result means the code moved out from
+under a mutation, which needs fixing rather than ignoring - an unanchored
+mutation silently tests nothing, which is the failure this script exists to
+catch.
+
 ## Testing gaps worth closing
 
 From a coverage audit (90% overall):
