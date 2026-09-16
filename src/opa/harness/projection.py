@@ -48,7 +48,16 @@ def _inside(directory: Path, name: str) -> Path:
     """
     root = directory.resolve()
     candidate = (root / name).resolve()
-    if candidate != root and root not in candidate.parents:
+    if root not in candidate.parents:
+        # `candidate == root` used to pass. An id of "" or "." resolves to the
+        # directory itself, so an entry loaded from a hand-edited or
+        # upstream-written state file - ids are validated on creation, never on
+        # load - made us write `.opa-managed` and `SKILL.md` into the user's
+        # skills root. Our own uninstall only looks at child directories, so
+        # that litter was permanent, and the stray ownership marker claimed the
+        # whole directory.
+        #
+        # A caller asking for a name under a directory always means a child.
         raise ValueError(f"refusing to write {name!r} outside {root}")
     return candidate
 

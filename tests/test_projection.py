@@ -287,3 +287,56 @@ def test_a_skill_directory_we_did_not_create_is_never_touched(tmp_path):
     projection.remove_skills(skills)
 
     assert (theirs / "SKILL.md").read_text(encoding="utf-8") == "mine, not yours"
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["", ".", "..", "../outside", "../../../../etc/passwd", "/etc/passwd",
+     "ok/../../outside", "..//outside"],
+)
+def test_the_write_guard_refuses_anything_that_is_not_a_child(tmp_path, name):
+    from opa.harness.projection import _inside
+
+    with pytest.raises(ValueError, match="refusing to write"):
+        _inside(tmp_path, name)
+
+
+def test_the_write_guard_refuses_a_planted_symlink(tmp_path):
+    """A link inside the guarded directory must not be a way out of it."""
+    from opa.harness.projection import _inside
+
+    guarded = tmp_path / "skills"
+    guarded.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (guarded / "escape").symlink_to(outside)
+
+    with pytest.raises(ValueError, match="refusing to write"):
+        _inside(guarded, "escape/anything.md")
+
+
+def test_an_id_that_never_passed_validation_cannot_reach_the_filesystem(tmp_path):
+    """Ids are validated on creation and not on load.
+
+    A hand-edited or upstream-written state file could therefore hold an id of
+    "", which resolved to the skills directory itself: we wrote `.opa-managed`
+    and `SKILL.md` into the user's skills root, where our own uninstall - which
+    only inspects child directories - could never clean them up, and where the
+    stray marker claimed ownership of everything.
+
+    It is refused loudly rather than skipped. A forged entry is a signal, and
+    tests/test_security.py holds that line for the traversal cases; this is the
+    same line for the case that resolves to the root instead of past it.
+    """
+    skills = tmp_path / "skills"
+    for name in ("their-skill", "another-one"):
+        (skills / name).mkdir(parents=True)
+        (skills / name / "SKILL.md").write_text("hand written", encoding="utf-8")
+
+    smuggled = HarnessEntry(id="", kind="skill", title="t", content="c")
+    with pytest.raises(ValueError, match="refusing to write"):
+        projection.write_skills(skills, [smuggled])
+
+    assert not (skills / ".opa-managed").exists(), "no marker may land on the root"
+    assert not (skills / "SKILL.md").exists()
+    assert sorted(p.name for p in skills.iterdir()) == ["another-one", "their-skill"]
