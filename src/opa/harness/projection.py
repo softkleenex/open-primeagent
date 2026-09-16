@@ -16,6 +16,7 @@ do not change their environment. `tests/test_projection.py` enforces it.
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
 
 from ..fsutil import atomic_write
@@ -134,8 +135,20 @@ def remove(target: Path) -> bool:
     if not _BLOCK.search(existing):
         return False
     updated = _BLOCK.sub("", existing, count=1)
-    # If the file held nothing but our block, leave no trace behind.
+
     if not updated.strip():
+        # The file held nothing but our block, so leaving no trace is the
+        # tidiest outcome - but only when the name we were given is the file
+        # itself. `read_text` follows a symlink and the removal below does not,
+        # so uninstalling through `CLAUDE.md -> AGENTS.md` used to take out the
+        # user's link *and* leave our block sitting in the file it pointed at:
+        # wrong on both counts, from the one path whose whole job is to undo us.
+        #
+        # Through a link we empty the target and keep both. An empty file is not
+        # a loss; someone's symlink is.
+        if target.is_symlink():
+            atomic_write(target, "")
+            return True
         target.unlink()
         return True
     atomic_write(target, updated.rstrip("\n") + "\n")
@@ -157,6 +170,23 @@ def write_memories(memory_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
         if stale.stem not in wanted:
             stale.unlink()
     return written
+
+
+def _prune_managed(directory: Path) -> None:
+    """Take out a whole directory we own, in one call.
+
+    Deleting entry by entry looked safer and was not. Iteration order put
+    `.opa-managed` first, so a nested directory - anything the host or the user
+    drops beside our SKILL.md - raised partway through and left the worst
+    possible state: the ownership marker gone, the stale SKILL.md still there.
+    We could then never recognise the directory as ours again, so it was never
+    cleaned up, while the host went on loading the skill it still contained.
+
+    The marker is checked by the caller; `shutil.rmtree` removes bottom-up, so
+    the marker is among the last things to go and a failure leaves ownership
+    legible.
+    """
+    shutil.rmtree(directory)
 
 
 def write_skills(skills_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
@@ -188,9 +218,7 @@ def write_skills(skills_dir: Path, entries: list[HarnessEntry]) -> list[Path]:
         for directory in skills_dir.iterdir():
             managed = directory.is_dir() and (directory / ".opa-managed").exists()
             if managed and directory.name not in wanted:
-                for child in directory.iterdir():
-                    child.unlink()
-                directory.rmdir()
+                _prune_managed(directory)
     return written
 
 
@@ -201,8 +229,6 @@ def remove_skills(skills_dir: Path) -> int:
     removed = 0
     for directory in list(skills_dir.iterdir()):
         if directory.is_dir() and (directory / ".opa-managed").exists():
-            for child in directory.iterdir():
-                child.unlink()
-            directory.rmdir()
+            _prune_managed(directory)
             removed += 1
     return removed

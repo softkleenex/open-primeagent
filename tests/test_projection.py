@@ -228,3 +228,62 @@ def test_projecting_through_a_symlink_keeps_the_link(tmp_path):
     assert "generated body" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "# Shared" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert not list(tmp_path.glob("*.opa-tmp"))
+
+
+def test_uninstalling_through_a_symlink_keeps_the_link_and_clears_the_block(tmp_path):
+    """The one path whose job is to undo us used to do the opposite, twice.
+
+    `read_text` follows a symlink and the removal did not, so uninstalling
+    through `CLAUDE.md -> AGENTS.md` took out the user's link *and* left our
+    block sitting in the file it pointed at.
+    """
+    shared = tmp_path / "AGENTS.md"
+    link = tmp_path / "CLAUDE.md"
+    shared.write_text("", encoding="utf-8")
+    link.symlink_to("AGENTS.md")
+
+    projection.apply(link, "generated body")
+    assert projection.remove(link) is True
+
+    assert link.is_symlink(), "the user's link must survive an uninstall"
+    assert shared.exists()
+    assert "opa:begin" not in shared.read_text(encoding="utf-8"), "and our block must be gone"
+
+
+def test_a_plain_file_holding_only_our_block_is_still_tidied_away(tmp_path):
+    target = tmp_path / "CLAUDE.md"
+    projection.apply(target, "generated body")
+    assert projection.remove(target) is True
+    assert not target.exists()
+
+
+def test_pruning_survives_a_nested_directory_and_keeps_ownership_legible(tmp_path):
+    """Deleting entry by entry stripped the marker and then failed.
+
+    Iteration order put `.opa-managed` first, so anything nested raised partway
+    through: the ownership marker gone, the stale SKILL.md still present. The
+    directory could never be recognised as ours again, so it was never cleaned
+    up, while the host went on loading the skill it still held.
+    """
+    skills = tmp_path / "skills"
+    entry = HarnessEntry(id="my-skill", kind="skill", title="A skill", content="body")
+    projection.write_skills(skills, [entry])
+
+    nested = skills / "my-skill" / "references"
+    nested.mkdir()
+    (nested / "notes.md").write_text("something else put this here", encoding="utf-8")
+
+    projection.write_skills(skills, [])
+    assert not (skills / "my-skill").exists(), "the whole managed directory goes at once"
+
+
+def test_a_skill_directory_we_did_not_create_is_never_touched(tmp_path):
+    skills = tmp_path / "skills"
+    theirs = skills / "hand-written"
+    theirs.mkdir(parents=True)
+    (theirs / "SKILL.md").write_text("mine, not yours", encoding="utf-8")
+
+    projection.write_skills(skills, [])
+    projection.remove_skills(skills)
+
+    assert (theirs / "SKILL.md").read_text(encoding="utf-8") == "mine, not yours"
