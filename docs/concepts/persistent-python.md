@@ -91,5 +91,5 @@ writing down: a loaded model, an open connection, a GPU context. Compiled
 regexes are the one stdlib example — pickle stores the source and recompiles, so
 reload costs ~100% of build.
 
-[The workings](../../bench/README.md#6-where-a-persistent-kernel-could-matter-at-all--measured-not-benchmarked),
+[The workings](../../bench/README.md#6-where-a-persistent-kernel-could-matter-at-all---measured-not-benchmarked),
 and the benchmarks are designed to be copied if you have that case.
