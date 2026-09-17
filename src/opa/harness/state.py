@@ -128,6 +128,10 @@ class HarnessStore:
         self._deferred = 0
         self._dirty = False
         self.unreadable: str | None = None
+        # (kind, id) -> entry, or None for a delete. What *this* process changed
+        # since it last read the file, which is what has to survive a merge.
+        self._touched: dict[tuple[str, str], object] = {}
+        self._stamp: tuple[int, int] | None = None
         self.load()
 
     # ---------- persistence ----------
@@ -135,8 +139,11 @@ class HarnessStore:
     def load(self) -> HarnessStore:
         self.entries = {k: {} for k in KINDS}
         self.refinements = []
+        self._touched = {}
+        self._stamp = None
         if not self.file_path.exists():
             return self
+        self._stamp = self._file_stamp()
         try:
             raw = self.file_path.read_text(encoding="utf-8")
         except OSError as exc:
@@ -229,6 +236,40 @@ class HarnessStore:
                 self._dirty = False
                 self.save()
 
+    def _file_stamp(self) -> tuple[int, int] | None:
+        """Cheap identity for the file as we last saw it."""
+        try:
+            info = self.file_path.stat()
+        except OSError:
+            return None
+        return (info.st_mtime_ns, info.st_size)
+
+    def _merge_onto_disk(self) -> None:
+        """Re-read, then replay only what this process changed.
+
+        The global store exists to be shared between projects, so two servers
+        holding it open is the normal case, not an edge one. Each had loaded the
+        whole file and each wrote the whole file back, so whichever saved second
+        silently erased anything the other had added since. Measured: three
+        entries created, two on disk.
+
+        Merging by change-set rather than by union is what makes deletes work -
+        a union would resurrect every entry either side had removed.
+        """
+        mine = dict(self._touched)
+        my_refinements = list(self.refinements)
+        self.load()
+        for (kind, entry_id), entry in mine.items():
+            if entry is None:
+                self.entries[kind].pop(entry_id, None)
+            else:
+                self.entries[kind][entry_id] = entry
+        known = {event.id for event in self.refinements}
+        for event in my_refinements:
+            if event.id not in known:
+                self.refinements.append(event)
+        self._touched = mine
+
     def _quarantine(self) -> None:
         """Move a corrupt state file aside, keeping the newest few."""
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
@@ -249,6 +290,11 @@ class HarnessStore:
         if self._deferred:
             self._dirty = True
             return self
+        # No `is not None` guard: a store that loaded before the file existed
+        # has a stamp of None, and two servers starting fresh on a shared global
+        # store is exactly that case - the one the first version of this skipped.
+        if self._file_stamp() != self._stamp:
+            self._merge_onto_disk()
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "schema": SCHEMA_VERSION,
@@ -259,6 +305,8 @@ class HarnessStore:
             "refinements": [asdict(e) for e in self.refinements],
         }
         atomic_write(self.file_path, json.dumps(data, indent=2, ensure_ascii=False))
+        self._stamp = self._file_stamp()
+        self._touched = {}
         return self
 
     # ---------- CRUD ----------
@@ -276,6 +324,7 @@ class HarnessStore:
             id=entry_id, kind=kind, title=title.strip(), content=content, scope=self.scope, **kw
         )
         self.entries[kind][entry.id] = entry
+        self._touched[(kind, entry.id)] = entry
         self.save()
         return entry
 
@@ -303,6 +352,7 @@ class HarnessStore:
             setattr(entry, key, value)
         entry.updated_at = _now()
         entry.version += 1
+        self._touched[(entry.kind, entry.id)] = entry
         self.save()
         return entry
 
@@ -311,6 +361,7 @@ class HarnessStore:
         if entry is None:
             raise KeyError(f"no harness entry {entry_id!r}. {self._known()}")
         del self.entries[entry.kind][entry.id]
+        self._touched[(entry.kind, entry.id)] = None
         self.save()
         return entry
 

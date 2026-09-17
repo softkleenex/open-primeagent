@@ -80,6 +80,18 @@ MUTATIONS: list[tuple[str, str, str, str]] = [
         "            if False:",
     ),
     (
+        "a shared store merges instead of clobbering",
+        "src/opa/harness/state.py",
+        "        if self._file_stamp() != self._stamp:",
+        "        if False:",
+    ),
+    (
+        "a merge replays changes rather than unioning them",
+        "src/opa/harness/state.py",
+        "            if entry is None:\n                self.entries[kind].pop(entry_id, None)",
+        "            if False:\n                self.entries[kind].pop(entry_id, None)",
+    ),
+    (
         "a finished goal cannot be reopened",
         "src/opa/longrun/goal.py",
         '        if self.goal.status == "abandoned":',

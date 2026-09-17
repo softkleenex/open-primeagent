@@ -446,7 +446,12 @@ From a coverage audit (90% overall):
 ## To investigate
 
 - [ ] **opencode** headless / resume interface (`opencode run`? how does it resume?)
-- [ ] `global` scope conflicts when several projects share `~/.opa`
+- [x] `global` scope conflicts when several projects share `~/.opa`. Real, and
+      not an edge case: the global scope exists to be shared, so two servers
+      holding it is the normal state. Each wrote its whole in-memory copy back,
+      so the second save erased whatever the first had added. Measured: three
+      entries created, two on disk. Fixed 2026-09-18 by merging a change-set
+      onto the current file rather than overwriting it.
 
 ## Reference files
 

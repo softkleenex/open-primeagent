@@ -7,7 +7,7 @@ import json
 import pytest
 
 from opa.harness.service import HarnessService
-from opa.harness.state import STATE_FILE_NAME, HarnessStore
+from opa.harness.state import STATE_FILE_NAME, HarnessStore, RefinementEvent
 from opa.session import jsonl
 
 
@@ -371,3 +371,88 @@ def test_a_corrupt_state_file_is_kept_aside_rather_than_replaced(tmp_path):
     quarantined = list(tmp_path.glob("harness_state.json.corrupt-*"))
     assert len(quarantined) == 1
     assert quarantined[0].read_text(encoding="utf-8").startswith('{"schema": 1')
+
+
+def _global_titles(service):
+    return sorted(e.title for kind in service.global_.entries.values() for e in kind.values())
+
+
+def test_two_projects_sharing_the_global_store_do_not_erase_each_other(tmp_path):
+    """The global scope exists to be shared, so two servers holding it is normal.
+
+    Each had loaded the whole file and wrote the whole file back, so whichever
+    saved second silently erased anything the other added in between. Measured
+    on the old code: three entries created, two on disk.
+    """
+    shared = tmp_path / "global"
+    a = HarnessService(tmp_path / "a", shared)
+    a.create("memory", "lesson from A", "A learned this", global_=True)
+
+    b = HarnessService(tmp_path / "b", shared)  # starts with A's one entry
+    a.create("memory", "second lesson from A", "A learned more", global_=True)
+    b.create("memory", "lesson from B", "B learned this", global_=True)
+
+    reloaded = HarnessService(tmp_path / "c", shared)
+    assert _global_titles(reloaded) == [
+        "lesson from A",
+        "lesson from B",
+        "second lesson from A",
+    ]
+
+
+def test_the_merge_does_not_resurrect_a_delete(tmp_path):
+    """A union would be worse than the clobber it replaced.
+
+    B still holds the entry A removed, so merging by union would write it back.
+    Replaying only what each process changed is what makes a delete stick.
+    """
+    shared = tmp_path / "global"
+    a = HarnessService(tmp_path / "a", shared)
+    doomed = a.create("memory", "shared note", "both know this", global_=True)
+    a.create("memory", "only A", "A's own", global_=True)
+
+    b = HarnessService(tmp_path / "b", shared)  # sees both
+    a.delete(f"global:{doomed.id}")
+    b.create("memory", "only B", "B's own", global_=True)
+
+    reloaded = HarnessService(tmp_path / "c", shared)
+    assert _global_titles(reloaded) == ["only A", "only B"]
+
+
+def test_a_refinement_recorded_elsewhere_is_not_dropped(tmp_path):
+    """Refinement history is the only thing rollback can act on."""
+    shared = tmp_path / "global"
+    a = HarnessService(tmp_path / "a", shared)
+    b = HarnessService(tmp_path / "b", shared)
+
+    a.global_.record_refinement(
+        RefinementEvent(id="ref-aaa", trigger="A", changes=["one"])
+    )
+    b.global_.record_refinement(
+        RefinementEvent(id="ref-bbb", trigger="B", changes=["two"])
+    )
+
+    reloaded = HarnessService(tmp_path / "c", shared)
+    assert sorted(e.id for e in reloaded.global_.refinements) == ["ref-aaa", "ref-bbb"]
+
+
+def test_a_delete_survives_a_merge_triggered_by_someone_elses_write(tmp_path):
+    """The case the first version of this test missed entirely.
+
+    A delete only has to be *replayed* when the deleting process is itself the
+    one that merges - it deletes, finds the file changed underneath it, reloads
+    a copy that still contains the entry, and must remove it again. Mutation
+    testing caught that: disabling the replay left every test passing.
+    """
+    shared = tmp_path / "global"
+    a = HarnessService(tmp_path / "a", shared)
+    doomed = a.create("memory", "doomed", "about to go", global_=True)
+
+    b = HarnessService(tmp_path / "b", shared)  # loads while `doomed` still exists
+    a.create("memory", "written by A", "after B loaded", global_=True)
+
+    # B now deletes, and its save lands on a file A has changed since
+    b.delete(f"global:{doomed.id}")
+
+    reloaded = HarnessService(tmp_path / "c", shared)
+    assert _global_titles(reloaded) == ["written by A"], "the delete must not be undone"
