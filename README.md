@@ -342,8 +342,17 @@ kernel exists to hold.
 > The cost of *offering* the kernel is approximately zero. Its value is
 > **unmeasured**, and this README does not claim otherwise.
 
-Testing it needs state that cannot be streamed out of a file — something
-process-resident, like a loaded model or an open connection.
+How narrow is the regime where it could help? Measured rather than guessed: a
+shell rebuilds each turn and a kernel builds once, so over 8 turns the saving is
+`7 × rebuild` against ~120s of model time. Run-to-run spread here is ±20%, so
+**under ~2s of rebuild there is nothing to see.** And a filesystem is itself a
+cache — a parsed 8M-row file reloads at 25% of rebuild, so the shell keeps most
+of the win anyway.
+
+That leaves the intersection: state costing more than ~2s to rebuild *and*
+gaining nothing from disk. Loaded models, live connections, GPU contexts —
+compiled regexes are the one stdlib case, where pickle stores the source and
+recompiles at ~100%. Not parsed files, not indexes, not anything picklable.
 [Full write-up.](bench/README.md#5-large-file-adaptive-chain---the-agent-never-used-the-kernel--in-either-benchmark)
 
 ## Can an agent evolve mid-session?

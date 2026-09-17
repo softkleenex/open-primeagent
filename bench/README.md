@@ -576,6 +576,72 @@ nothing, and one showing that a model given `awk` will reach for `awk`.
 
 ---
 
+## 6. Where a persistent kernel could matter at all  📐 measured, not benchmarked
+
+Six benchmarks looked for a kernel effect and none found one. Rather than build
+a seventh and choose its scale until one appeared — which is what went wrong in
+[benchmark 4](#4-import-graph-adaptive-chain---opa-does-not-win--and-now-we-know-why)
+— the remaining question is answered arithmetically, from measurements.
+
+A shell rebuilds its state every turn; a kernel builds it once. Over `N` turns
+the saving is `(N-1) × rebuild`, against a total of roughly `N × 15s` of model
+time, which is what a turn cost across benchmarks 4 and 5.
+
+| rebuild cost | 3 turns | 8 turns | 20 turns |
+|---:|---:|---:|---:|
+| 0.02s | 0.1% | 0.1% | 0.1% |
+| 0.5s | 2.2% | 2.9% | 3.2% |
+| 2s | 8.5% | **11.5%** | 12.6% |
+| 6s | 23.5% | 33.3% | 37.3% |
+| 30s | 80% | 140% | 173% |
+
+Observed run-to-run spread in benchmarks 4 and 5 was around ±20%, so **anything
+under roughly two seconds of rebuild cannot be seen at all**, whatever the
+measurement says.
+
+### But rebuild cost is the wrong axis on its own
+
+A filesystem is also a cache, and for most state it is a good one:
+
+| state | rebuild | reload from disk | filesystem helps? |
+|---|---:|---:|---|
+| 8M-row CSV parsed into dicts | 6.2s | 1.6s (25%) | yes — shell keeps most of the win |
+| 150,000 compiled regexes | 3.5s | 3.6s (101%) | **no** — pickle stores the source and recompiles |
+| a loaded model's weights | seconds | the same seconds | **no** — every process start pays again |
+
+So the kernel's regime is the intersection of two conditions, and it is narrow:
+**state that costs more than ~2s to rebuild *and* gains nothing from being
+written to disk.** Live sessions, GPU contexts, loaded models. Not parsed files,
+not indexes, not anything picklable — those the shell amortises through the
+filesystem at a quarter of the price.
+
+### What this does and does not settle
+
+It bounds the question rather than answering it. It says a coding-agent task has
+to reach an unusual shape before a persistent kernel can show up in a
+measurement at all, and it explains all six nulls without appealing to any of
+them: the tasks we benchmarked were all under the threshold, on the wrong side
+of the serialisability line, or both.
+
+It does not say the kernel is useless. It is load-bearing for correctness —
+`rlm` handles, the harness API and the long-run symbols live in it and have to
+survive a compaction the context does not — and that is a different claim from
+a performance one, measured differently.
+
+The genuinely open question is no longer whether the kernel *can* help but
+whether an agent would *use* it when it could. Across benchmarks 4 and 5 it
+never did: 120 turns with the kernel attached, zero calls, because `awk` was the
+right answer both times. Testing that needs a task above the threshold where the
+shell has no good answer, and we have not built one — the honest reason being
+that at this point we would be choosing its shape to get a result, which is the
+mistake benchmark 4 already recorded.
+
+Reproduce all of it with `uv run python bench/threshold.py` — it takes the
+measurements rather than restating them, on the same machine as every other
+benchmark here.
+
+---
+
 ## What we are not claiming
 
 - No claim that opa reduces tokens in general. Benchmarks 0 and 3 show the

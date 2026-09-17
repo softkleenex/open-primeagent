@@ -79,6 +79,17 @@ the long-run symbols live in this kernel, and they have to survive a compaction
 that your context does not. That is a correctness property rather than a
 performance one, and it is what the kernel is actually carrying today.
 
-Where it might still pay, untested: state that cannot be streamed out of a file
-— a loaded model, an open connection, a GPU context. If you have that case,
-[the benchmarks](../../bench/README.md) are designed to be copied.
+Where it might still pay is now bounded rather than hand-waved. The saving over
+`N` turns is `(N-1) × rebuild`, against `N × ~15s` of model time, and the
+run-to-run spread is ±20% — so under about **two seconds of rebuild cost there
+is nothing measurable**. A filesystem also caches: a parsed 8M-row file reloads
+at a quarter of rebuild cost, so the shell keeps most of the benefit without a
+kernel at all.
+
+The regime that is left is the intersection of expensive *and* not worth
+writing down: a loaded model, an open connection, a GPU context. Compiled
+regexes are the one stdlib example — pickle stores the source and recompiles, so
+reload costs ~100% of build.
+
+[The workings](../../bench/README.md#6-where-a-persistent-kernel-could-matter-at-all--measured-not-benchmarked),
+and the benchmarks are designed to be copied if you have that case.
