@@ -96,7 +96,25 @@ async def host_request(
         if not raw:
             raise RuntimeError(f"host closed the connection without replying to {request_type}")
 
-        reply = json.loads(raw)
+        try:
+            reply = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            # Every other failure here arrives as a RuntimeError naming the
+            # request. This one used to surface as "Expecting value: line 1
+            # column 1", which tells the caller nothing about which call broke
+            # or that the host was the side that misbehaved.
+            raise RuntimeError(
+                f"host sent a reply to {request_type} that is not JSON: {exc}"
+            ) from exc
+        if not isinstance(reply, dict):
+            # Deliberately not a TypeError: this is the host breaking the
+            # protocol, not the caller passing a bad argument, and every other
+            # transport failure here is a RuntimeError the caller already
+            # catches as one.
+            raise RuntimeError(  # noqa: TRY004
+                f"host sent a reply to {request_type} that is not an object: "
+                f"{type(reply).__name__}"
+            )
         status = reply.get("status")
         if status == "ok":
             # Handler results arrive inside `result`, so they can never collide

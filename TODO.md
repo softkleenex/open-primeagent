@@ -418,7 +418,12 @@ catch.
 
 From a coverage audit (90% overall):
 
-- [ ] `opa_runtime` shim wrappers (53–83%) are only exercised through the bridge
+- [~] `opa_runtime` shim wrappers. `client.py` — the only path between kernel and
+      host — went 85% to 97% by testing its failure messages rather than its
+      coverage: a missing socket, a host that hangs up, one that never answers,
+      one that replies with garbage. The remaining two lines are the ignored
+      close on an already-broken connection. The thinner wrappers (harness,
+      longrun, message) are still only exercised through the bridge.
       handlers, not directly. Low risk, but the `harness.*` wrappers have no
       direct test.
 - [ ] `server.py` `main()` and the stdio path (67%) — only covered manually.
