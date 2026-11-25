@@ -11,15 +11,15 @@ Codex 什么都不知道。**
 而且只在写下它的那台机器上。open-primeagent 把代理学到的东西写进仓库的 `AGENTS.md` 和 `CLAUDE.md`
 里一个带标记的区块，所以它跟代码一起提交，Claude Code、Codex 和 opencode 读到的是同一份。
 
-![在新克隆的仓库上对比两个原生 Claude Code 会话：带着之前代理留下的 AGENTS.md 的那个，轮数少 26%，耗时少 26%](docs/assets/portable-demo.gif)
+![在规则很难重新发现的新克隆上对比两个原生 Claude Code 会话：带着之前代理留下的 AGENTS.md 的那个，轮数少 51%，耗时少 51%](docs/assets/portable-demo.gif)
 
-<sub>回放的是[实测数据](bench/results/portable-sonnet.json)（Sonnet，每组 n=6，取平均），不是摆拍。可以用 [`bench/demo_portable.py`](bench/demo_portable.py) 重新生成。</sub>
+<sub>回放的是[实测数据](bench/results/portable-deep-sonnet.json)（Sonnet，每组 n=6，取平均），不是摆拍。规则容易重新发现时，收益大约减半：[26%](bench/README.md#p-a-rule-learned-by-one-agent-used-by-the-next-one-without-us---wins-more-when-the-rule-is-hard)。可以用 [`bench/demo_portable.py`](bench/demo_portable.py) 重新生成。</sub>
 
 它只是一个 MCP 服务器，加到你正在用的那个代理上（三者任选）：
 
 - **跟着仓库走的规则。** 装了 open-primeagent 的 Claude Code 在一次会话里找到了仓库的隐藏规则并记录下来。
   一个只带着由此生成的 `AGENTS.md` 的新克隆，用完全没有 open-primeagent 的原生 Claude Code 打开，
-  完成同一个任务时轮数少 26%，耗时少 26%。区块可以用 `opa_bootstrap(remove=True)` 原样移除。
+  规则难以重新发现时，完成同一个任务的轮数和耗时都少 51%；规则容易发现时少 26%。区块可以用 `opa_bootstrap(remove=True)` 原样移除。
 - **跨代理的子代理。** 在 Claude Code 里可以留住一个 Codex 子代理，之后再追问它。
   Claude Code、Codex 和 opencode 现在都能恢复自己的子代理，但碰不到彼此的。
   （Codex 子代理用真实 CLI 手动验证过，CI 里用的是桩程序。）
@@ -36,7 +36,8 @@ claude mcp add opa -- uvx open-primeagent
 
 | 实验 | 结果 | |
 |---|---|---|
-| 用 open-primeagent 学到的规则，由没有它的新代理只通过 `AGENTS.md` 读到 | 轮数少 26%，耗时少 26% | 赢 |
+| 用 open-primeagent 学到的规则，由没有它的新代理只通过 `AGENTS.md` 读到（3 个干扰脚本会生成看似合理的错误结果） | 轮数少 51%，耗时少 51% | 赢 |
+| 同一实验，规则容易重新发现 | 轮数少 26%，耗时少 26% | 小胜 |
 | 同一实验的第一版：代理把规则存成了记忆，其他代理只看得到标题 | 关键事实 6 次里只传过去 4 次 | 输，修复后 6 次全中 |
 | 把藏在 16 个干扰脚本里的知识记成规则（8 月） | 耗时减少 57%，波动也变小 | 赢 |
 | 同一条规则，但答案一眼就能看到 | 轮数增加 26% | 输 |

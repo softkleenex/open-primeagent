@@ -1,4 +1,8 @@
-"""Render the cross-agent demo from bench/results/portable-sonnet.json.
+"""Render the cross-agent demo from bench/results/portable-deep-sonnet.json.
+
+The `deep` variant: three decoy scripts write plausible wrong output, so the
+rule is expensive to rediscover. Pass `--data results/portable-sonnet.json` for
+the easy variant, where the gain is about half as large.
 
 Two plain Claude Code sessions on a fresh clone of the same repo, no
 open-primeagent attached to either. The only difference: the right one's clone
@@ -21,15 +25,15 @@ from pathlib import Path
 from demo import BG, COLD, DIM, FG, FONT, FPS, RULE, WARM, _rect, _text
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "results" / "portable-sonnet.json"
+DATA = HERE / "results" / "portable-deep-sonnet.json"
 
 LENGTH = 15.0
 START = 1.5
 SLOW_ENDS = 11.0
 
 
-def means() -> dict:
-    rows = json.loads(DATA.read_text(encoding="utf-8"))
+def means(data: Path = DATA) -> dict:
+    rows = json.loads(data.read_text(encoding="utf-8"))
     out = {}
     for arm in ("control", "teammate", "learn"):
         runs = [r for r in rows if r["arm"] == arm]
@@ -55,7 +59,7 @@ def frame(t: float, d: dict, w: int) -> str:
         _text(
             48,
             64,
-            "Same repo, fresh clone, plain Claude Code, no open-primeagent",
+            "Fresh clone, plain Claude Code, a rule that is hard to rediscover",
             size=28,
             fill=FG,
         )
@@ -64,7 +68,7 @@ def frame(t: float, d: dict, w: int) -> str:
         _text(
             48,
             100,
-            f"replayed from bench/results/portable-sonnet.json - Sonnet, n={d['control']['n']} "
+            f"replayed from bench/results/{d['file']} - Sonnet, n={d['control']['n']} "
             f"per arm, means - time compressed {1 / scale:.1f}x",
             size=17,
             fill=DIM,
@@ -80,7 +84,7 @@ def frame(t: float, d: dict, w: int) -> str:
             [
                 "the tests fail: models_gen.py is stale",
                 "which of 16 scripts in tools/?",
-                "trying them",
+                "trying them; three write wrong output",
             ],
         ),
         (
@@ -156,8 +160,10 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--width", type=int, default=960)
     parser.add_argument("--still", type=float)
+    parser.add_argument("--data", type=Path, default=DATA)
     args = parser.parse_args()
-    d = means()
+    d = means(args.data)
+    d["file"] = args.data.name
     w, h = args.width, args.width * 9 // 16
     if args.still is not None:
         _magick(frame(args.still, d, w), w, h, args.out)

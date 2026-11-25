@@ -13,11 +13,11 @@ rediscover, re-tasking a warm child is far cheaper than a cold one, fan-out
 never won, and the kernel was never actually called.
 
 The newest result is the first one below: a rule learned with
-open-primeagent reached a fresh agent without it through `AGENTS.md` alone,
-for a modest gain on a task that is now easy to rediscover.
+open-primeagent reached a fresh agent without it through `AGENTS.md` alone:
+51% fewer turns when the rule was hard to rediscover, 26% when it was easy.
 
 The animation at the top of the main README is rendered from
-`results/portable-sonnet.json` by `demo_portable.py`, and the earlier one from
+`results/portable-deep-sonnet.json` by `demo_portable.py`, and the earlier one from
 `results/warm-sonnet.json` by `demo.py` (both need `magick` and `ffmpeg`). Both
 replay the means and state the time compression on screen.
 
@@ -49,7 +49,7 @@ uv run python bench/portable.py --repeat 6
 
 ---
 
-## P. A rule learned by one agent, used by the next one without us  ✅ modest win
+## P. A rule learned by one agent, used by the next one without us  ✅ wins, more when the rule is hard
 
 `bench/portable.py`
 
@@ -77,6 +77,22 @@ not run Codex or opencode; that they read it is their documented behaviour.
 
 Sonnet, n=6 per arm, `results/portable-sonnet.json`.
 
+**Deep variant: when rediscovery is expensive.** `--variant deep` keeps the same
+rule and makes three of the decoys real: each writes `models_gen.py` in a
+plausible wrong shape (sorted, with types, with an extra field), so running one
+looks like progress and the suite still fails.
+
+| metric | control | teammate | delta |
+|---|---|---|---|
+| agent turns | 9.5 | 4.7 | **-51%** |
+| wall clock | 19.4 s | 9.4 s | **-51%** |
+| tests pass | 6 / 6 | 6 / 6 | |
+| key fact recorded by the learn step | | 6 / 6 | |
+
+Sonnet, n=6 per arm, `results/portable-deep-sonnet.json`. Every one of the six
+pairs went the same way on both turns and time. Billed tokens fell only 8%:
+most of each run is the fixed session start, which a rule does not shorten.
+
 **The first run found a product bug, and it is kept.** In
 `results/portable-v1-rules-lost-in-memory-sonnet.json` the learn step recorded
 the generator in only 4 of 6 runs. Once it filed the rule as a `memory`, which
@@ -86,10 +102,10 @@ carry. Once it led with this machine's Python path and the block's 180, then
 800 characters, and the tool description says a rule others must follow is a
 `prompt` with no machine paths. Same benchmark, 6 of 6.
 
-**Why the win is modest.** Today's Sonnet rediscovers this rule in about six
-turns, so there is little to save. The gain grows with what rediscovery costs;
-the August evolution run below, on a setting that was harder for the model of
-the time, saved 57%. We have not built a harder cross-agent task yet.
+**Why the easy win is modest.** Today's Sonnet rediscovers the easy rule in
+about six turns, so there is little to save. The deep variant shows the gain
+growing with what rediscovery costs. We built the deep variant after seeing the
+easy result, and both are reported.
 
 ## 0. Sub-agent fan-out  ❌ opa loses badly
 

@@ -470,6 +470,11 @@ fact recorded 6 of 6 times, and the teammate's agent took 26% fewer turns and
 26% less time. A modest win, because current models rediscover this rule in
 about six turns.
 
+After the easy result we built a `deep` variant on purpose: the same rule, but
+three decoy scripts write plausible wrong output, the case a recorded rule is
+for. 51% fewer turns and 51% less time, every one of six pairs the same way.
+Both variants are reported, and the README says which one the demo replays.
+
 Two side findings. Claude Code 2.1.332 does read `AGENTS.md` natively, checked
 with every file tool disabled. And it does not load instruction files from its
 own session scratch directory, which briefly made that check look negative.

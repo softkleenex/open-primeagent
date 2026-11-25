@@ -12,15 +12,15 @@ Codex는 그중 아무것도 모릅니다.**
 `CLAUDE.md` 안, 표시해 둔 블록 하나에 적습니다. 그래서 코드와 함께 커밋되고,
 Claude Code도 Codex도 opencode도 똑같이 읽습니다.
 
-![새로 받은 저장소에서 맨 Claude Code 두 세션을 비교: 앞선 에이전트가 남긴 AGENTS.md가 있는 쪽이 턴 수 26% 감소, 시간 26% 감소](docs/assets/portable-demo.gif)
+![다시 찾기 어려운 규칙이 있는 새 클론에서 맨 Claude Code 두 세션을 비교: 앞선 에이전트가 남긴 AGENTS.md가 있는 쪽이 턴 수 51% 감소, 시간 51% 감소](docs/assets/portable-demo.gif)
 
-<sub>[측정 데이터](bench/results/portable-sonnet.json)(Sonnet, 조건당 n=6, 평균)를 재생한 화면이고, 연출한 게 아닙니다. [`bench/demo_portable.py`](bench/demo_portable.py)로 다시 만들 수 있습니다.</sub>
+<sub>[측정 데이터](bench/results/portable-deep-sonnet.json)(Sonnet, 조건당 n=6, 평균)를 재생한 화면이고, 연출한 게 아닙니다. 다시 찾기 쉬운 규칙에서는 효과가 절반 정도입니다: [26%](bench/README.md#p-a-rule-learned-by-one-agent-used-by-the-next-one-without-us---wins-more-when-the-rule-is-hard). [`bench/demo_portable.py`](bench/demo_portable.py)로 다시 만들 수 있습니다.</sub>
 
 지금 쓰는 에이전트(셋 중 무엇이든)에 MCP 서버 하나만 추가하면 됩니다.
 
 - **저장소와 함께 옮겨 가는 규칙.** open-primeagent를 붙인 Claude Code가 한 세션에서 저장소의 숨은 규칙을
   찾아 기록했습니다. 그렇게 만들어진 `AGENTS.md` 하나만 들어 있는 새 클론을, open-primeagent가 전혀 없는
-  맨 Claude Code로 열었더니 같은 과제를 턴 수 26%, 시간 26% 덜 써서 끝냈습니다.
+  맨 Claude Code로 열었더니, 다시 찾기 어려운 규칙에서는 턴 수와 시간을 51% 덜 써서, 쉬운 규칙에서는 26% 덜 써서 같은 과제를 끝냈습니다.
   블록은 `opa_bootstrap(remove=True)`로 그대로 걷어낼 수 있습니다.
 - **에이전트를 넘나드는 서브에이전트.** Claude Code에서 Codex 서브에이전트를 띄워 두고, 나중에 후속 질문을
   보낼 수 있습니다. 이제 Claude Code, Codex, opencode 모두 자기 서브에이전트는 다시 부를 수 있지만,
@@ -38,7 +38,8 @@ claude mcp add opa -- uvx open-primeagent
 
 | 실험 | 결과 | |
 |---|---|---|
-| open-primeagent로 배운 규칙을, open-primeagent 없는 새 에이전트가 `AGENTS.md`로만 읽음 | 턴 수 26% 감소, 시간 26% 감소 | 이김 |
+| open-primeagent로 배운 규칙을, open-primeagent 없는 새 에이전트가 `AGENTS.md`로만 읽음 (미끼 스크립트 3개가 그럴듯하게 틀린 결과를 냄) | 턴 수 51% 감소, 시간 51% 감소 | 이김 |
+| 같은 실험, 다시 찾기 쉬운 규칙 | 턴 수 26% 감소, 시간 26% 감소 | 조금 이김 |
 | 같은 실험의 첫 버전: 에이전트가 규칙을 메모리로 저장해서 다른 에이전트에게는 제목만 보임 | 핵심 사실이 6번 중 4번만 전달됨 | 짐, 고친 뒤 6번 중 6번 |
 | 미끼 스크립트 16개 사이에 숨어 있던 지식을 규칙으로 기록 (8월) | 걸린 시간 57% 감소, 편차도 줄어듦 | 이김 |
 | 같은 규칙인데 답이 바로 보이는 경우 | 턴 수 26% 증가 | 짐 |

@@ -12,16 +12,16 @@ Codex は `~/.codex` に、それも書いたマシンの上にだけ残しま�
 リポジトリの `AGENTS.md` と `CLAUDE.md` の中の、目印で囲んだブロック 1 つに書きます。だからコードと一緒に
 コミットされ、Claude Code も Codex も opencode も同じものを読みます。
 
-![新しくクローンしたリポジトリで素の Claude Code を 2 セッション比較：前のエージェントが残した AGENTS.md がある方がターン数 26% 減、時間 26% 減](docs/assets/portable-demo.gif)
+![見つけ直しにくいルールのある新しいクローンで素の Claude Code を 2 セッション比較：前のエージェントが残した AGENTS.md がある方がターン数 51% 減、時間 51% 減](docs/assets/portable-demo.gif)
 
-<sub>[実測データ](bench/results/portable-sonnet.json)（Sonnet、各 n=6、平均）を再生したもので、演出ではありません。[`bench/demo_portable.py`](bench/demo_portable.py) で作り直せます。</sub>
+<sub>[実測データ](bench/results/portable-deep-sonnet.json)（Sonnet、各 n=6、平均）を再生したもので、演出ではありません。見つけ直しやすいルールでは効果はおよそ半分です：[26%](bench/README.md#p-a-rule-learned-by-one-agent-used-by-the-next-one-without-us---wins-more-when-the-rule-is-hard)。[`bench/demo_portable.py`](bench/demo_portable.py) で作り直せます。</sub>
 
 いま使っているエージェント（3 つのどれでも）に MCP サーバーを 1 つ足すだけです。
 
 - **リポジトリと一緒に移るルール。** open-primeagent をつないだ Claude Code が、1 回のセッションで
   リポジトリの隠れたルールを見つけて記録しました。そこからできた `AGENTS.md` だけを入れた新しいクローンを、
-  open-primeagent をまったく使わない素の Claude Code で開くと、同じタスクをターン数 26% 減、時間 26% 減で
-  終えました。ブロックは `opa_bootstrap(remove=True)` でそのまま取り除けます。
+  open-primeagent をまったく使わない素の Claude Code で開くと、見つけ直しにくいルールではターン数と時間が
+  51% 減、見つけ直しやすいルールでは 26% 減で同じタスクを終えました。ブロックは `opa_bootstrap(remove=True)` でそのまま取り除けます。
 - **エージェントをまたぐサブエージェント。** Claude Code から Codex のサブエージェントを残しておき、
   あとで追加の質問を送れます。Claude Code、Codex、opencode はどれも自分のサブエージェントは再開できますが、
   互いのものには届きません。（Codex の子は実際の CLI で手作業で確認済み。CI はスタブを使います。）
@@ -38,7 +38,8 @@ claude mcp add opa -- uvx open-primeagent
 
 | 実験 | 結果 | |
 |---|---|---|
-| open-primeagent で学んだルールを、それを持たない新しいエージェントが `AGENTS.md` だけで読む | ターン数 26% 減、時間 26% 減 | 勝ち |
+| open-primeagent で学んだルールを、それを持たない新しいエージェントが `AGENTS.md` だけで読む（おとりスクリプト 3 つがもっともらしい誤った出力を出す） | ターン数 51% 減、時間 51% 減 | 勝ち |
+| 同じ実験で、見つけ直しやすいルール | ターン数 26% 減、時間 26% 減 | 小さく勝ち |
 | 同じ実験の最初の版：エージェントがルールをメモリとして保存し、他のエージェントにはタイトルしか見えなかった | 肝心の事実が届いたのは 6 回中 4 回 | 負け、修正後 6 回中 6 回 |
 | 16 個のおとりスクリプトに埋もれた知識をルールとして記録（8 月） | かかった時間 57% 減、ばらつきも縮小 | 勝ち |
 | 同じルールで、答えがすぐ目に入る場合 | ターン数 26% 増 | 負け |

@@ -127,7 +127,7 @@ def fanout_chart(out: Path) -> None:
 
 def social_preview(out: Path) -> None:
     w, h = 1280, 640
-    port = json.loads((RESULTS / "portable-sonnet.json").read_text(encoding="utf-8"))
+    port = json.loads((RESULTS / "portable-deep-sonnet.json").read_text(encoding="utf-8"))
 
     def mean(arm: str, key: str) -> float:
         rows = [r[key] for r in port if r["arm"] == arm]
@@ -152,7 +152,7 @@ def social_preview(out: Path) -> None:
         (
             f"{turns:.0%} fewer",
             "turns for a fresh agent",
-            "using what another learned",
+            "given a hard-to-find rule",
             "#3fb950",
         ),
         (f"{fan:.0%} more", "cost to fan out to", "4 fresh sub-agents (we lost)", MANY),

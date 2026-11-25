@@ -21,17 +21,17 @@ open-primeagent writes what your agent learned into the repo's `AGENTS.md` and
 `CLAUDE.md`, inside one marked block, so it is committed with the code and read
 by Claude Code, Codex and opencode alike.
 
-![Two plain Claude Code sessions on a fresh clone. The one whose clone has the AGENTS.md an earlier agent wrote takes 26% fewer turns and 26% less time](docs/assets/portable-demo.gif)
+![Two plain Claude Code sessions on a fresh clone with a rule that is hard to rediscover. The one whose clone has the AGENTS.md an earlier agent wrote takes 51% fewer turns and 51% less time](docs/assets/portable-demo.gif)
 
-<sub>Replayed from [measured data](bench/results/portable-sonnet.json) (Sonnet, n=6 per arm, means), not staged. [`bench/demo_portable.py`](bench/demo_portable.py) renders it.</sub>
+<sub>Replayed from [measured data](bench/results/portable-deep-sonnet.json) (Sonnet, n=6 per arm, means), not staged. On a rule that is easy to rediscover the gain is about half: [26%](bench/README.md#p-a-rule-learned-by-one-agent-used-by-the-next-one-without-us---wins-more-when-the-rule-is-hard). [`bench/demo_portable.py`](bench/demo_portable.py) renders it.</sub>
 
 It is one MCP server, added to whichever of the three you run:
 
 - **Rules that travel with the repo.** In one session, Claude Code with
   open-primeagent found a repo's hidden rule and recorded it. A fresh clone
   carrying only the resulting `AGENTS.md`, opened by plain Claude Code with no
-  open-primeagent at all, finished the same task with 26% fewer turns and 26%
-  less time. The block comes back out cleanly with `opa_bootstrap(remove=True)`.
+  open-primeagent at all, finished the same task with 51% fewer turns and 51%
+  less time when the rule was hard to rediscover, and 26% fewer when it was easy. The block comes back out cleanly with `opa_bootstrap(remove=True)`.
 - **Sub-agents across agents.** From Claude Code you can keep a Codex sub-agent
   and come back to it with a follow-up. Claude Code, Codex and opencode can each
   resume their own sub-agents now; none of them can reach the others'. (The
@@ -50,7 +50,8 @@ claude mcp add opa -- uvx open-primeagent
 
 | experiment | result | |
 |---|---|---|
-| a rule learned with open-primeagent, read from `AGENTS.md` by a fresh agent without it | 26% fewer turns, 26% less time | won |
+| a rule learned with open-primeagent, read from `AGENTS.md` by a fresh agent without it, when three decoys write plausible wrong output | 51% fewer turns, 51% less time | won |
+| the same, when the rule is easy to rediscover | 26% fewer turns, 26% less time | won, modestly |
 | the same, first version: the agent filed the rule as a memory, which other agents only see as a title | the key fact reached the next agent in 4 of 6 runs | lost, fixed: 6 of 6 |
 | a recorded rule, when the knowledge was hidden among 16 decoy scripts (August) | 57% less wall clock, variance collapsed | won |
 | the same rule, when the knowledge was one glance away | 26% more turns | lost |
