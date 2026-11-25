@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ..fsutil import atomic_write
 from ..session import jsonl
 
 PARENT = "parent"
@@ -54,8 +55,36 @@ class Mailbox:
         jsonl.append(self.path(to), record)
         return record
 
+    # ---- read position ----
+    # The mailbox is an append-only log, so "unread" needs a cursor beside it.
+    # Without one the per-sender cap counted every message a child had *ever*
+    # sent, including the final answer of each turn: after 20 turns a child
+    # could never report mid-run again, however often the parent read.
+
+    def _cursor_path(self, name: str) -> Path:
+        return self.path(name).with_suffix(".read")
+
+    def cursor(self, name: str = PARENT) -> int:
+        try:
+            return int(self._cursor_path(name).read_text(encoding="utf-8").strip() or 0)
+        except (FileNotFoundError, ValueError):
+            return 0
+
+    def _advance(self, name: str, upto: int) -> None:
+        if upto > self.cursor(name):
+            atomic_write(self._cursor_path(name), str(upto))
+
+    def unread(self, name: str = PARENT) -> list[dict]:
+        return self.read(name, since=self.cursor(name))
+
+    def consume(self, name: str = PARENT, *, since: int = 0) -> list[dict]:
+        """What `agent_message.inbox` returns; everything returned counts as read."""
+        records, end = jsonl.read_to_end(self.path(name), since=since)
+        self._advance(name, end)
+        return records
+
     def pending_from(self, sender: str, *, to: str = PARENT) -> int:
-        return sum(1 for m in self.read(to) if m.get("sender") == sender)
+        return sum(1 for m in self.unread(to) if m.get("sender") == sender)
 
     def accepts_from(self, sender: str, *, to: str = PARENT) -> bool:
         """Whether `sender` may add another message, or has said enough unread."""

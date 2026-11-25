@@ -129,7 +129,7 @@ def build_server(config: Config | None = None) -> MCPServer:
                 }
                 for r in runtime.rlm.registry.list()
             ],
-            "mailbox_unread": runtime.rlm.mailbox.count(),
+            "mailbox_unread": len(runtime.rlm.mailbox.unread()),
             "goal": runtime.goals.get(),
             "schedule": {
                 "entries": len(runtime.schedule.list()),

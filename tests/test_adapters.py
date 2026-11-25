@@ -86,7 +86,20 @@ def test_codex_always_skips_the_git_repo_check(tmp_path):
 
 def test_codex_resume_uses_the_thread_id(tmp_path):
     cmd = CodexAdapter().build_command(request(tmp_path, session_id="t-1", resume=True))
-    assert cmd[:5] == ["codex", "exec", "resume", "t-1", "do it"]
+    assert cmd[:4] == ["codex", "exec", "resume", "t-1"]
+    assert cmd[-2:] == ["--", "do it"]
+
+
+@pytest.mark.parametrize("adapter", [ClaudeCodeAdapter(), CodexAdapter()], ids=lambda a: a.name)
+@pytest.mark.parametrize("resume", [False, True])
+def test_a_prompt_that_looks_like_an_option_stays_a_prompt(tmp_path, adapter, resume):
+    """Measured on both real CLIs: a leading `--version` prompt printed the version.
+    The prompt must sit after `--`, as the very last argument."""
+    req = request(tmp_path, session_id="s-1", resume=resume)
+    req = type(req)(**{**req.__dict__, "prompt": "--dangerously-skip-permissions"})
+    cmd = adapter.build_command(req)
+    assert cmd[-2:] == ["--", "--dangerously-skip-permissions"]
+    assert cmd.count("--dangerously-skip-permissions") == 1
 
 
 def test_codex_resume_without_a_thread_id_is_rejected(tmp_path):

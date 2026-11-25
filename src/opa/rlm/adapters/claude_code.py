@@ -14,7 +14,6 @@ Security: `--dangerously-skip-permissions` only when Config.allow_dangerous_chil
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import shutil
@@ -23,7 +22,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .base import TurnRequest, TurnResult
+from .base import TurnRequest, TurnResult, run_cli
 
 CLI = "claude"
 CHILD_SERVER_NAME = "opa_child"
@@ -80,7 +79,7 @@ class ClaudeCodeAdapter:
         return str(uuid.uuid4())
 
     def build_command(self, request: TurnRequest) -> list[str]:
-        cmd = [CLI, "-p", request.prompt, "--output-format", "json"]
+        cmd = [CLI, "-p", "--output-format", "json"]
         if request.resume:
             cmd += ["--resume", request.session_id or ""]
         else:
@@ -107,7 +106,11 @@ class ClaudeCodeAdapter:
             # Without this a headless child is blocked on an approval prompt for
             # every shell command, so it edits code it can never test.
             cmd += ["--allowedTools", ",".join(allowed)]
-        return cmd
+        # The prompt goes last, after `--`. As a leading argument a prompt that
+        # starts with `-` - a markdown list, an issue body pasted through - was
+        # parsed as options: measured, a prompt of `--version` printed the
+        # version, and `--dangerously-skip-permissions` would have been a flag.
+        return [*cmd, "--", request.prompt]
 
     def _env(self, request: TurnRequest) -> dict[str, str]:
         """Build the child's environment, rather than handing it ours.
@@ -138,20 +141,9 @@ class ClaudeCodeAdapter:
     async def run(self, request: TurnRequest) -> TurnResult:
         started = time.monotonic()
         cmd = self.build_command(request)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            cwd=str(request.cwd),
-            # Close stdin - left open as a pipe, the CLI reads it as extra input.
-            stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=self._env(request),
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=request.timeout)
-        except TimeoutError:
-            proc.kill()
-            await proc.wait()
+        out = await run_cli(cmd, cwd=request.cwd, env=self._env(request), timeout=request.timeout)
+        stdout, stderr = out.stdout, out.stderr
+        if out.timed_out:
             return TurnResult(
                 ok=False,
                 text="",
@@ -165,13 +157,13 @@ class ClaudeCodeAdapter:
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         raw_path.write_bytes(stdout or b"")
 
-        if proc.returncode != 0 and not stdout:
+        if out.returncode != 0 and not stdout:
             return TurnResult(
                 ok=False,
                 text="",
                 session_id=request.session_id,
                 error=(stderr or b"").decode(errors="replace").strip()[:2000]
-                or f"{CLI} exited with {proc.returncode}",
+                or f"{CLI} exited with {out.returncode}",
                 raw_path=raw_path,
                 duration_ms=duration_ms,
             )

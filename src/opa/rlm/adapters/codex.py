@@ -19,13 +19,12 @@ JSONL event schema:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import shutil
 import sys
 import time
 
-from .base import TurnRequest, TurnResult
+from .base import TurnRequest, TurnResult, run_cli
 from .claude_code import CHILD_SERVER_NAME, ClaudeCodeAdapter
 
 CLI = "codex"
@@ -47,9 +46,9 @@ class CodexAdapter:
         if request.resume:
             if not request.session_id:
                 raise ValueError("cannot resume a codex session without a thread id")
-            cmd = [CLI, "exec", "resume", request.session_id, request.prompt]
+            cmd = [CLI, "exec", "resume", request.session_id]
         else:
-            cmd = [CLI, "exec", request.prompt]
+            cmd = [CLI, "exec"]
         cmd += ["--json", "--skip-git-repo-check"]
         if request.model:
             cmd += ["-m", request.model]
@@ -64,7 +63,8 @@ class CodexAdapter:
                 "-c", f'mcp_servers.{CHILD_SERVER_NAME}.command={json.dumps(sys.executable)}',
                 "-c", f'mcp_servers.{CHILD_SERVER_NAME}.args=["-m", "opa.child_server"]',
             ]
-        return cmd
+        # Prompt last, after `--`: see ClaudeCodeAdapter.build_command.
+        return [*cmd, "--", request.prompt]
 
     @staticmethod
     def push_available(request: TurnRequest) -> bool:
@@ -90,20 +90,9 @@ class CodexAdapter:
     async def run(self, request: TurnRequest) -> TurnResult:
         started = time.monotonic()
         cmd = self.build_command(request)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            cwd=str(request.cwd),
-            # stdin must be closed; left open, codex blocks waiting on it.
-            stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=self._env(request),
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=request.timeout)
-        except TimeoutError:
-            proc.kill()
-            await proc.wait()
+        out = await run_cli(cmd, cwd=request.cwd, env=self._env(request), timeout=request.timeout)
+        stdout, stderr = out.stdout, out.stderr
+        if out.timed_out:
             return TurnResult(
                 ok=False,
                 text="",
@@ -118,13 +107,13 @@ class CodexAdapter:
         raw_path.write_bytes(stdout or b"")
 
         result = self.parse_stream(stdout, request, raw_path, duration_ms)
-        if not result.text and proc.returncode != 0:
+        if not result.text and out.returncode != 0:
             return TurnResult(
                 ok=False,
                 text="",
                 session_id=result.session_id,
                 error=(stderr or b"").decode(errors="replace").strip()[:2000]
-                or f"{CLI} exited with {proc.returncode}",
+                or f"{CLI} exited with {out.returncode}",
                 raw_path=raw_path,
                 duration_ms=duration_ms,
             )

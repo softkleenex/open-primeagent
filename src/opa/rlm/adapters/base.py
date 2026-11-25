@@ -15,6 +15,10 @@ So `preassign_session_id()` may return None, and the real id surfaces through
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import os
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -49,6 +53,55 @@ class TurnResult:
     raw_path: Path | None = None       # raw backend output (the full event stream)
     error: str | None = None
     duration_ms: int = 0
+
+
+@dataclass(frozen=True)
+class CliOutput:
+    returncode: int | None
+    stdout: bytes
+    stderr: bytes
+    timed_out: bool = False
+
+
+def _kill_group(proc: asyncio.subprocess.Process) -> None:
+    # The child CLI spawns its own tools (a Bash call, a test run). Killing only
+    # the CLI leaves those running, so the whole session group goes.
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(proc.pid, signal.SIGKILL)
+    with contextlib.suppress(ProcessLookupError):
+        proc.kill()
+
+
+async def run_cli(cmd: list[str], *, cwd: Path, env: dict[str, str], timeout: float) -> CliOutput:
+    """Run one child CLI turn and never leave it behind.
+
+    Only a timeout used to kill the process. A cancelled task - server shutdown,
+    `rlm.delete_subagent` - let `CancelledError` through and the CLI ran on,
+    still holding a token that a new child of the same name would inherit.
+    """
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        cwd=str(cwd),
+        # Closed stdin: left open as a pipe, claude reads it as extra input and
+        # codex blocks waiting on it.
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=env,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        _kill_group(proc)
+        await proc.wait()
+        return CliOutput(proc.returncode, b"", b"", timed_out=True)
+    except BaseException:
+        _kill_group(proc)
+        with contextlib.suppress(BaseException):
+            await asyncio.shield(proc.wait())
+        raise
+    return CliOutput(proc.returncode, stdout or b"", stderr or b"")
 
 
 class AgentAdapter(Protocol):

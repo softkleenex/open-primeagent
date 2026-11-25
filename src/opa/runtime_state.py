@@ -158,6 +158,9 @@ class Runtime:
             if not isinstance(target, str) or not target.strip():
                 raise ValueError("target must be a non-empty string")
             record = self.rlm.registry.delete(target.strip())
+            # A deleted child must stop working, not finish its turn unobserved
+            # while holding a token a new child of the same name would inherit.
+            await self.rlm.cancel_child(record.rlm_child_id)
             # `subagent` is upstream's key and carries the whole record. We used
             # to return `{"deleted": {id, name}}`, which meant an identically
             # named request answered in a shape upstream's validator rejects.
@@ -241,7 +244,7 @@ class Runtime:
                     raise ValueError(
                         f"{record.name!r} already has "
                         f"{self.rlm.mailbox.pending_from(record.name)} unread messages; "
-                        "the parent has to read them before it sends more."
+                        "they count as read once the parent calls agent_message.inbox()."
                     )
                 self.rlm.mailbox.deliver(
                     to=PARENT, sender=record.name, message=message.strip(),
@@ -272,7 +275,7 @@ class Runtime:
         async def message_inbox(payload: dict) -> dict:
             since = int(payload.get("since") or 0)
             name = payload.get("name") or PARENT
-            return {"messages": self.rlm.mailbox.read(name, since=since)}
+            return {"messages": self.rlm.mailbox.consume(name, since=since)}
 
         # ---- long-run (L4) ----
 
@@ -537,12 +540,12 @@ class Runtime:
         """
         items: list[dict] = []
 
-        unread = self.rlm.mailbox.count()
+        unread = self.rlm.mailbox.unread()
         if unread:
-            senders = sorted({m["sender"] for m in self.rlm.mailbox.read()})
+            senders = sorted({m["sender"] for m in unread})
             items.append({
                 "kind": "mailbox",
-                "detail": f"{unread} message(s) from {', '.join(senders)}",
+                "detail": f"{len(unread)} unread message(s) from {', '.join(senders)}",
                 "next": "await agent_message.inbox()",
             })
 

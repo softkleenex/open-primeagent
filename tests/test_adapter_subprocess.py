@@ -131,3 +131,47 @@ async def test_codex_garbage_lines_do_not_break_parsing(bin_dir, tmp_path):
     )
     result = await CodexAdapter().run(request(tmp_path))
     assert result.text == "ok"
+
+
+async def test_a_cancelled_turn_takes_the_child_and_its_tools_with_it(bin_dir, tmp_path):
+    """Server shutdown and `rlm.delete_subagent` cancel the task. Only a timeout
+    used to kill the CLI, so a cancelled child ran on - and so did whatever
+    shell command it had started."""
+    import asyncio
+
+    pids = tmp_path / "pids"
+    fake_cli(
+        bin_dir,
+        "claude",
+        "import os, subprocess, time\n"
+        "kid = subprocess.Popen(['sleep', '60'])\n"
+        f"open({str(pids)!r}, 'w').write(f'{{os.getpid()}} {{kid.pid}}')\n"
+        "time.sleep(60)\n",
+    )
+    task = asyncio.create_task(ClaudeCodeAdapter().run(request(tmp_path, session_id="s")))
+    for _ in range(100):
+        if pids.exists() and pids.read_text().strip():
+            break
+        await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    def alive(pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        # A zombie still answers kill(0); it is dead for our purposes.
+        import subprocess
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)],
+                               capture_output=True, text=True, check=False).stdout.strip()
+        return bool(state) and not state.startswith("Z")
+
+    cli_pid, tool_pid = map(int, pids.read_text().split())
+    for _ in range(40):
+        if not alive(cli_pid) and not alive(tool_pid):
+            break
+        await asyncio.sleep(0.05)
+    assert not alive(cli_pid), "the child CLI outlived its cancelled turn"
+    assert not alive(tool_pid), "the child's own subprocess outlived the turn"

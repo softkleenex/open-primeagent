@@ -31,3 +31,15 @@ def test_jsonl_skips_corrupt_lines(tmp_path):
 
 def test_jsonl_read_missing_file_is_empty(tmp_path):
     assert list(jsonl.read(tmp_path / "nope.jsonl")) == []
+
+
+def test_a_torn_last_line_does_not_swallow_the_next_record(tmp_path):
+    """A crash mid-append leaves no newline; the next append must not glue onto it."""
+    from opa.session import jsonl
+
+    log = tmp_path / "log.jsonl"
+    jsonl.append(log, {"n": 1})
+    with log.open("a", encoding="utf-8") as fh:
+        fh.write('{"n": 2, "trunc')
+    jsonl.append(log, {"n": 3})
+    assert [r["n"] for r in jsonl.read(log)] == [1, 3]

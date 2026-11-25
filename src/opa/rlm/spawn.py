@@ -11,6 +11,7 @@ results arrive in the mailbox. So these two lines really do run in parallel:
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
@@ -29,6 +30,8 @@ ADAPTERS: dict[str, type] = {
 # Arguments rlm(...) accepts. Unknown ones are **rejected, not silently dropped**.
 # If `rlm(prompt, name="x", moodel="opus")` just passed, the run would continue on
 # the default model with nobody aware the override never applied.
+logger = logging.getLogger(__name__)
+
 SPAWN_KWARGS = frozenset(
     {"adapter", "cwd", "model", "system_prompt", "can_message_parent"}
 )
@@ -40,6 +43,7 @@ class RLMService:
         self.registry = ChildRegistry(children_dir).load()
         self.mailbox = Mailbox(mailbox_dir)
         self._tasks: set[asyncio.Task] = set()
+        self._child_tasks: dict[str, set[asyncio.Task]] = {}
         self._adapters: dict[str, AgentAdapter] = {}
         # One turn at a time per child. Two concurrent `--resume` calls on the same
         # session id race over the session file and corrupt its context. Messages
@@ -88,6 +92,7 @@ class RLMService:
                 f"unexpected argument(s) {', '.join(unknown)}. "
                 f"rlm() accepts: name, {', '.join(sorted(SPAWN_KWARGS))}"
             )
+        self._check_name(name)
         adapter = self.adapter(kwargs.get("adapter"))
         cwd = self._resolve_cwd(kwargs.get("cwd"))
 
@@ -137,6 +142,22 @@ class RLMService:
 
     # ---------- internals ----------
 
+    def _check_name(self, name: str) -> None:
+        """Mailbox files are named after a sanitised name, so two names can be one file.
+
+        `parent` would make a child's mail the parent's own inbox, and `a b` and
+        `a_b` would read each other's messages.
+        """
+        box = self.mailbox.path(name)
+        if box == self.mailbox.path(PARENT):
+            raise ValueError(f"{name!r} is reserved for the parent's mailbox; pick another name")
+        for other in self.registry.list():
+            if other.name != name and self.mailbox.path(other.name) == box:
+                raise ValueError(
+                    f"{name!r} would share a mailbox with existing sub-agent {other.name!r}; "
+                    "pick a name that differs in letters, digits, '-' or '_'"
+                )
+
     def _resolve_cwd(self, raw: str | None) -> Path:
         """A child's cwd cannot escape the workspace (docs/security.md).
 
@@ -160,12 +181,26 @@ class RLMService:
     def _launch(self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool) -> None:
         task = asyncio.create_task(self._run_turn(record, prompt, adapter, resume=resume))
         self._tasks.add(task)
+        self._child_tasks.setdefault(record.rlm_child_id, set()).add(task)
         task.add_done_callback(self._on_task_done)
 
     def _on_task_done(self, task: asyncio.Task) -> None:
         self._tasks.discard(task)
-        if not task.cancelled():
-            task.exception()  # unretrieved, it would vanish behind a "never retrieved" warning
+        for tasks in self._child_tasks.values():
+            tasks.discard(task)
+        if not task.cancelled() and (exc := task.exception()) is not None:
+            # Retrieving it is not enough: swallowed here, a turn that failed
+            # after its answer was computed left `completed`, an empty inbox and
+            # no trace anywhere.
+            logger.error("sub-agent turn failed", exc_info=exc)
+
+    async def cancel_child(self, rlm_child_id: str) -> None:
+        """Stop every turn running or queued for one child, and wait for it."""
+        tasks = self._child_tasks.pop(rlm_child_id, set())
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _run_turn(
         self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool
@@ -227,6 +262,22 @@ class RLMService:
             )
             return
 
+        # The answer is the one thing the parent cannot get back, so it is
+        # delivered before any bookkeeping that touches the disk and can fail.
+        self.mailbox.deliver(
+            to=PARENT,
+            sender=record.name,
+            message=result.text or (result.error or "(empty response)"),
+            rlm_child_id=record.rlm_child_id,
+            ok=result.ok,
+            tokens=result.tokens,
+        )
+        try:
+            self._finish_turn(record, prompt, result, resume=resume)
+        except Exception:
+            logger.exception("recording a finished turn for %r failed", record.name)
+
+    def _finish_turn(self, record: ChildRecord, prompt: str, result, *, resume: bool) -> None:
         self._safe_update(
             record.rlm_child_id,
             status="completed" if result.ok else "error",
@@ -258,14 +309,6 @@ class RLMService:
                 "duration_ms": result.duration_ms,
                 "raw": str(result.raw_path) if result.raw_path else None,
             },
-        )
-        self.mailbox.deliver(
-            to=PARENT,
-            sender=record.name,
-            message=result.text or (result.error or "(empty response)"),
-            rlm_child_id=record.rlm_child_id,
-            ok=result.ok,
-            tokens=result.tokens,
         )
 
     def _safe_update(self, rlm_child_id: str, **changes) -> None:

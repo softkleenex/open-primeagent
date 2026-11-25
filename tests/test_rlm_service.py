@@ -212,3 +212,47 @@ async def test_cwd_check_survives_symlinked_workspaces(config, tmp_path):
     assert svc._resolve_cwd("sub") == (real / "sub").resolve()
     with pytest.raises(ValueError, match="outside the workspace"):
         svc._resolve_cwd(str(tmp_path / "elsewhere"))
+
+
+# --- Found by review (2026-11-25)
+
+
+async def test_a_child_cannot_take_the_parents_mailbox(service):
+    with pytest.raises(ValueError, match="reserved"):
+        await service.run("x", name="parent")
+
+
+async def test_two_names_that_sanitise_alike_are_refused(service):
+    await service.run("x", name="a b")
+    with pytest.raises(ValueError, match="share a mailbox"):
+        await service.run("x", name="a_b")
+    await drain(service)
+
+
+async def test_cancel_child_stops_its_running_turn(config, monkeypatch):
+    class Hanging(FakeAdapter):
+        async def run(self, request):
+            self.calls.append(request)
+            await asyncio.sleep(60)
+
+    fake = Hanging()
+    monkeypatch.setitem(spawn_module.ADAPTERS, "fake", lambda: fake)
+    svc = RLMService(config, config.root / "children", config.root / "mailbox")
+    svc.config = config.__class__(**{**config.__dict__, "default_adapter": "fake"})
+    handle = await svc.run("x", name="stuck")
+    await asyncio.sleep(0.01)
+    svc.registry.delete("stuck")
+    await asyncio.wait_for(svc.cancel_child(handle["rlm_child_id"]), timeout=2)
+    assert not svc._tasks
+
+
+async def test_the_answer_survives_a_failure_in_the_bookkeeping_after_it(service, monkeypatch):
+    """A disk error while recording a finished turn used to lose the answer:
+    status `completed`, an empty inbox, and nothing logged."""
+    def broken(*a, **k):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(service.registry, "record_turn", broken)
+    await service.run("work", name="w")
+    await drain(service)
+    assert [m["message"] for m in service.mailbox.read()] == ["done"]

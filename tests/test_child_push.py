@@ -179,6 +179,20 @@ async def test_a_child_cannot_bury_the_mailbox(runtime, monkeypatch):
         )
 
 
+async def test_reading_the_inbox_frees_the_quota(runtime, monkeypatch):
+    """The cap is on *unread* messages. It used to count every message ever
+    sent, so a child that had finished 20 turns could never report again."""
+    from opa.rlm.message import MAX_PENDING_PER_SENDER
+
+    child_env(runtime, "chatty", monkeypatch)
+    for i in range(MAX_PENDING_PER_SENDER):
+        await host_request("agent_message.send", {"message": f"n{i}", "receiver_role": "parent"})
+    assert len(runtime.rlm.mailbox.consume()) == MAX_PENDING_PER_SENDER
+    assert runtime.rlm.mailbox.unread() == []
+    await host_request("agent_message.send", {"message": "after reading", "receiver_role": "parent"})
+    assert [m["message"] for m in runtime.rlm.mailbox.unread()] == ["after reading"]
+
+
 async def test_parent_to_child_still_works(runtime):
     """The new branch must not have broken the original direction."""
     with pytest.raises(RuntimeError, match="no sub-agent named"):
