@@ -1,5 +1,17 @@
 # Claude Code
 
+As a plugin, which also installs the `rlm`, `goal` and `refine` skills:
+
+```
+/plugin install open-primeagent --marketplace softkleenex/open-primeagent
+```
+
+The plugin pins the server to its own release (`uvx open-primeagent@<version>`),
+so updating the plugin is what updates the server. Use one route or the other,
+not both — two registrations means two servers.
+
+Or the server alone:
+
 ```bash
 claude mcp add opa -- uvx open-primeagent
 ```

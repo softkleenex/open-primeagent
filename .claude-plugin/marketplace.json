@@ -1,0 +1,20 @@
+{
+  "name": "open-primeagent",
+  "owner": {
+    "name": "softkleenex"
+  },
+  "metadata": {
+    "description": "open-primeagent: RLM for the coding agent you already use."
+  },
+  "plugins": [
+    {
+      "name": "open-primeagent",
+      "description": "Persistent sub-agents you can re-task, a harness that learns the project into CLAUDE.md, and a persistent Python kernel - one MCP server, four tools.",
+      "version": "0.1.3",
+      "author": {
+        "name": "softkleenex"
+      },
+      "source": "./"
+    }
+  ]
+}

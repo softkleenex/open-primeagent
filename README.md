@@ -22,6 +22,8 @@ One MCP server for Claude Code, Codex and opencode:
 
 ```bash
 claude mcp add opa -- uvx open-primeagent
+# or, with its skills, as a Claude Code plugin:
+# /plugin install open-primeagent --marketplace softkleenex/open-primeagent
 ```
 
 ### We publish the benchmarks we lost
@@ -233,6 +235,15 @@ a tool, that is the signal to expose a kernel symbol instead.
 
 <details open>
 <summary><b>Claude Code</b></summary>
+
+As a plugin — the server plus the `rlm`, `goal` and `refine` skills, ~200
+always-on tokens:
+
+```
+/plugin install open-primeagent --marketplace softkleenex/open-primeagent
+```
+
+Or the server alone:
 
 ```bash
 claude mcp add opa -- uvx open-primeagent

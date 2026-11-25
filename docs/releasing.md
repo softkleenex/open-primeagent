@@ -46,9 +46,13 @@ The extra index is needed because the dependencies live on real PyPI.
 
 ## Release
 
-1. Bump `version` in `pyproject.toml` and in `runtime/pyproject.toml`. They must
-   match; `opa.__version__` reads the installed metadata, so nothing else needs
-   touching.
+1. Bump `version` in `pyproject.toml`, `runtime/pyproject.toml`, and the
+   Claude Code plugin: `.claude-plugin/plugin.json` (its `version` and the
+   `open-primeagent@<version>` pin in `mcpServers`) and
+   `.claude-plugin/marketplace.json`. `tests/test_plugin.py` fails until all of
+   them agree - the plugin pins an exact server version because `uvx` never
+   upgrades a cached one on its own. `opa.__version__` reads the installed
+   metadata, so nothing else needs touching.
 2. Commit, then tag:
 
    ```bash

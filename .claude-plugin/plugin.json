@@ -1,0 +1,18 @@
+{
+  "name": "open-primeagent",
+  "version": "0.1.3",
+  "description": "Persistent sub-agents you can re-task, a harness that learns the project into CLAUDE.md, and a persistent Python kernel - one MCP server, four tools.",
+  "author": {
+    "name": "softkleenex"
+  },
+  "homepage": "https://github.com/softkleenex/open-primeagent",
+  "repository": "https://github.com/softkleenex/open-primeagent",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "sub-agents", "memory", "harness", "rlm", "python-kernel"],
+  "mcpServers": {
+    "opa": {
+      "command": "uvx",
+      "args": ["open-primeagent@0.1.3"]
+    }
+  }
+}
