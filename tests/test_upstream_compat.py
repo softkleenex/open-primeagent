@@ -6,10 +6,16 @@ and the payload keys that upstream's runtime validates. Code written against
 prime-agent has to keep working against us, and the only way to keep that true
 is to fail a test when it stops being true.
 
-Transcribed from, and citations point at, the read-only reference checkout:
+Transcribed from two readings of upstream. Citations without a version point
+at the read-only reference checkout, snapshot f8f0036 (2026-08-18):
 
     _ref/prime-agent/prime-agent-runtime/src/rlm/__init__.py
     _ref/prime-agent/prime-agent-runtime/src/rlm/harness.py
+
+Citations marked v0.10.5 point at upstream's live `rlm/__init__.py` as read on
+2026-11-25, after its rewrite to a Rust host. Between the two, upstream renamed
+`rlm.run` to `rlm.spawn` (the wire type stayed "rlm.run") and added a
+`cancelled` status.
 
 `_ref/` is deliberately not committed, so the contract lives here as data
 instead of being imported. If upstream changes it, this file is what has to be
@@ -43,12 +49,16 @@ UPSTREAM_SUBAGENT_FIELDS = (
     "session_dir",
     "status",
 )
-# rlm/__init__.py:200  if status not in {...}
-UPSTREAM_STATUSES = frozenset({"running", "completed", "error"})
-# rlm/__init__.py:28 class RLMSpawnHandle
-UPSTREAM_HANDLE_FIELDS = ("rlm_child_id", "session_dir", "status", "model")
-# rlm/__init__.py:317 __all__
-UPSTREAM_RLM_CALLABLES = ("run", "list_subagents", "delete_subagent")
+# v0.10.5 rlm/__init__.py:422  if status not in {...}  (the snapshot lacked "cancelled")
+UPSTREAM_STATUSES = frozenset({"running", "completed", "error", "cancelled"})
+# rlm/__init__.py:28 class RLMSpawnHandle, unchanged in v0.10.5. This used to
+# list "status" instead of "name" and passed only because our handle has both.
+UPSTREAM_HANDLE_FIELDS = ("rlm_child_id", "name", "session_dir", "model")
+# v0.10.5: what upstream's docs tell a model to call
+UPSTREAM_RLM_CALLABLES = ("spawn", "list_subagents", "delete_subagent")
+# The request types on the wire. v0.10.5 rlm/__init__.py:304 keeps "rlm.run"
+# for spawn "so kernels and hosts of different versions stay compatible".
+UPSTREAM_REQUEST_TYPES = ("rlm.run", "rlm.list_subagents", "rlm.delete_subagent")
 # What upstream's own shipped skills call, extracted from
 # packages/coding-agent/skills/*/SKILL.md. This is a sharper test than the
 # module's __all__: these are the calls that upstream documentation tells a
@@ -139,9 +149,25 @@ def test_harness_entry_matches_upstream_field_for_field():
     assert {f.name for f in fields(HarnessEntry)} == set(UPSTREAM_HARNESS_ENTRY_FIELDS)
 
 
-def test_status_vocabulary_is_exactly_upstreams():
-    """A status outside this set makes upstream's validator raise, not warn."""
-    assert set(ChildStatus.__args__) == UPSTREAM_STATUSES
+def test_every_status_we_emit_is_one_upstream_accepts():
+    """A status outside this set makes upstream's validator raise, not warn.
+
+    A subset, not equality: we never cancel a child into a separate state, and
+    upstream accepting one more value does not make ours unreadable.
+    """
+    assert set(ChildStatus.__args__) <= UPSTREAM_STATUSES
+
+
+def test_we_read_upstreams_cancelled_status():
+    from opa_runtime.rlm import _subagent
+
+    row = {
+        "rlm_child_id": "c-9",
+        "session_name": "w",
+        "session_dir": "/tmp/w",
+        "status": "cancelled",
+    }
+    assert _subagent(row).status == "cancelled"
 
 
 def test_rlm_exposes_upstreams_callables():
@@ -173,8 +199,8 @@ def test_upstream_skills_find_the_calls_they_document():
 
 def test_upstream_request_type_names_are_registered(runtime):
     """Same names on the wire, so a port is a transport swap and not a rewrite."""
-    for name in UPSTREAM_RLM_CALLABLES:
-        assert f"rlm.{name}" in runtime.bridge.types
+    for name in UPSTREAM_REQUEST_TYPES:
+        assert name in runtime.bridge.types
 
 
 # ---------- the inherited wire shapes validate ----------
@@ -274,3 +300,42 @@ def test_we_can_read_a_payload_in_upstreams_own_shape():
     assert got.name == "reviewer", "our own field falls back to upstream's"
     assert got.session_id == "s-1"
     assert got.turns == 0 and got.cost_usd == 0.0, "our extras default, not explode"
+
+
+# ---------- upstream's current spelling ----------
+
+
+async def test_spawn_with_upstreams_signature_reaches_the_same_request(monkeypatch):
+    """`rlm.spawn(prompt, name=..., model=..., cwd=..., thinking=...)` from
+    Prime Agent v0.10 code arrives as the "rlm.run" request we already serve."""
+    import importlib
+
+    rlm_module = importlib.import_module("opa_runtime.rlm")
+
+    sent = {}
+
+    async def fake_request(kind, payload=None):
+        sent["kind"], sent["payload"] = kind, payload
+        return {
+            "rlm_child_id": "c-1",
+            "name": "worker",
+            "adapter": "claude-code",
+            "session_dir": "/tmp/w",
+            "model": "sonnet",
+            "status": "running",
+        }
+
+    monkeypatch.setattr(rlm_module, "host_request", fake_request)
+    handle = await rlm_module.rlm.spawn(
+        "sub-task", name="worker", model="sonnet", cwd="api", thinking="high"
+    )
+    assert sent["kind"] == "rlm.run"
+    assert sent["payload"]["kwargs"] == {"name": "worker", "model": "sonnet", "cwd": "api"}
+    assert handle.name == "worker"
+
+
+async def test_a_child_kind_we_do_not_have_fails_loudly():
+    from opa_runtime.rlm import rlm
+
+    with pytest.raises(NotImplementedError, match="decision"):
+        await rlm.spawn("decide", name="d", kind="decision")

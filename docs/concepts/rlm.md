@@ -28,8 +28,8 @@ stays.
 ## It does not block
 
 ```python
-api = await rlm("audit the API layer", name="api-reviewer")
-test = await rlm("map test coverage gaps", name="test-reviewer")
+api = await rlm.spawn("audit the API layer", name="api-reviewer")
+test = await rlm.spawn("map test coverage gaps", name="test-reviewer")
 ```
 
 Both return in well under a second, with handles. The children keep working.
@@ -88,7 +88,7 @@ Resume-by-session-id is the entire mechanism. It also means model choice is
 delegated to the CLI, so mixed setups are free:
 
 ```python
-await rlm("refactor this module", name="refactorer", adapter="codex")
+await rlm.spawn("refactor this module", name="refactorer", adapter="codex")
 ```
 
 ## When not to fan out
@@ -171,7 +171,7 @@ A child that can only speak at the end goes dark for the whole run. With
 push progress into the parent mailbox mid-run:
 
 ```python
-await rlm("audit the payments path", name="security", can_message_parent=True)
+await rlm.spawn("audit the payments path", name="security", can_message_parent=True)
 
 for note in await agent_message.inbox():
     if note["mid_run"]:

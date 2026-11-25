@@ -61,7 +61,7 @@ it on purpose and check that a test fails.
 
 <!-- i18n:end -->
 
-[Install](#install) · [Why this is small](#why-this-is-under-4k-lines-of-code-and-not-170k) ·
+[Install](#install) · [Why not just use Prime Agent](#why-it-plugs-into-your-agent-instead-of-replacing-it) ·
 [Is it really the same RLM?](#is-it-really-the-same-rlm) ·
 [Sub-agents](#persistent-sub-agents-actually-work) ·
 [External memory](#context-is-for-deciding-not-for-storage) ·
@@ -92,24 +92,21 @@ Phase exit criteria are in [the roadmap](docs/roadmap.md).
 
 ---
 
-## Why this is under 4k lines of code and not 170k
+## Why it plugs into your agent instead of replacing it
 
-Upstream Prime Agent is a full agent harness. We measured it:
+[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) is a whole coding
+agent: its own terminal UI, provider layer, login and daemon. To use its ideas
+you move into it. When this project started (upstream snapshot `f8f0036`,
+2026-08-18) that agent was about 170k lines of TypeScript, and the `rlm`
+runtime the model actually talks to was 1,536 of them. Upstream has since been
+rewritten in Rust and keeps growing (v0.10.5, November 2026); the proportion is
+the point, not the exact count. The idea is small. The agent around it is big.
 
-| package | LOC | what it is |
-|---|---:|---|
-| `packages/coding-agent` | 117,690 | host harness, sessions, TUI, CLI |
-| `packages/ai` | 35,332 | providers + OAuth + MCP |
-| `packages/tui` | 14,635 | terminal UI |
-| `prime-agent-runtime` | **1,536** | ← the `rlm` kernel shim. All of it. |
-
-`rlm/__init__.py` is 348 lines, and almost every line is a thin
-`await host_request("rlm.run", ...)` RPC wrapper. The concept lives there; the
-other 167k lines are one particular harness implementation.
-
-**So we delegate the harness to the agent you already run.** Sessions, auth,
-model selection, permissions and the UI all stay yours. We build the RLM
-runtime and nothing else.
+You already have an agent around it. Claude Code, Codex and opencode each
+bring sessions, auth, model choice, permissions, plugins and a UI you are used
+to. So open-primeagent builds only the small part, about 4,800 lines of Python
+(6,100 counting blank lines and comments), and leaves everything else to the
+agent you already run. Which also means the same harness serves all three.
 
 ## Is it really the same RLM?
 
@@ -120,9 +117,10 @@ wire payloads through it:
 
 | | |
 |---|---|
-| request names on the wire | `rlm.run` · `rlm.list_subagents` · `rlm.delete_subagent`, identical |
+| request names on the wire | `rlm.run` · `rlm.list_subagents` · `rlm.delete_subagent`, identical (upstream kept `rlm.run` on the wire when it renamed the call) |
+| the call a model makes | `rlm.spawn(prompt, name=..., model=..., cwd=...)`, upstream's v0.10 signature. `rlm(...)` and `rlm.run(...)` still work here |
 | `RLMSubagent` / `RLMSpawnHandle` fields | all upstream fields present |
-| child status vocabulary | exactly `{running, completed, error}` |
+| child status vocabulary | every status we emit is one upstream accepts; we read its newer `cancelled` |
 | `HarnessEntry` | **13/13 fields, field for field** |
 | `harness_state.json` | same `schema: 1`, entries-by-kind + refinements |
 
@@ -131,7 +129,14 @@ That test found two breaks in code that was already shipping and green: our
 `RLMSubagent` was missing three upstream fields. Both fixed. **Compatibility
 nobody tests is compatibility that is already broken.**
 
-We diverge in three places: a socket instead of Jupyter `comm`, your
+The contract was transcribed from the August snapshot and re-checked against
+upstream v0.10.5 on 2026-11-25. That re-check found our test had pinned one
+handle field wrong and that upstream had renamed `rlm.run` to `rlm.spawn`; both
+are fixed. What upstream has added since and we do not have: factory
+workflows, the Decision API child, `rlm.collect`, an inbox API, persistent
+`bash()` shells and in-process children that start far cheaper than a CLI.
+
+We diverge in three places: a socket instead of upstream's host channel, your
 `claude`/`codex` instead of an in-process child, and per-caller tokens instead
 of one trusted kernel. Each divergence and what it costs is written down in
 **[docs/lineage.md](docs/lineage.md)**, along with the interop limit that matters
@@ -157,7 +162,7 @@ we verified it:
 Here is a real run, copied from the integration test:
 
 ```python
-await rlm("Reply with exactly: ALPHA-7", name="probe", model="sonnet")
+await rlm.spawn("Reply with exactly: ALPHA-7", name="probe", model="sonnet")
 # → <rlm child 'probe' (claude-code) running>      returns in 0.6s, child keeps working
 
 await agent_message.inbox()
@@ -180,14 +185,14 @@ await agent_message.inbox()
 results arrive in a mailbox. So these two lines really do run in parallel:
 
 ```python
-api = await rlm("audit the API layer for security problems", name="api-reviewer")
-test = await rlm("map the gaps in our test coverage", name="test-reviewer")
+api = await rlm.spawn("audit the API layer for security problems", name="api-reviewer")
+test = await rlm.spawn("map the gaps in our test coverage", name="test-reviewer")
 ```
 
 Mixed backends work too, with the parent on Claude Code and the child on Codex:
 
 ```python
-await rlm("refactor this module", name="refactorer", adapter="codex")
+await rlm.spawn("refactor this module", name="refactorer", adapter="codex")
 ```
 
 ## Context is for deciding, not for storage

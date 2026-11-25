@@ -1,10 +1,14 @@
 """`rlm` - the API surface visible from the kernel, shaped like upstream's.
 
-    api = await rlm("audit the API layer", name="api-reviewer")
+    api = await rlm.spawn("audit the API layer", name="api-reviewer")
     children = await rlm.list_subagents()
     await rlm.delete_subagent("api-reviewer")
 
-`rlm(...)` does not wait for a result. It returns a handle and the child keeps
+`rlm.spawn` is upstream's current name (Prime Agent v0.10). `rlm(...)` and
+`rlm.run(...)` are the older spellings; upstream now raises on both, we keep
+them working because our own docs and users' notebooks used them.
+
+Spawning does not wait for a result. It returns a handle and the child keeps
 running; collect results with `await agent_message.inbox()`.
 """
 
@@ -118,7 +122,40 @@ async def run(prompt: str, **kwargs: Any) -> RLMSpawnHandle:
     )
 
 
+async def spawn(
+    prompt: str,
+    *,
+    name: str,
+    model: str | None = None,
+    cwd: str | None = None,
+    thinking: str | None = None,
+    kind: str | None = None,
+    **kwargs: Any,
+) -> RLMSpawnHandle:
+    """Upstream's signature, so code written for Prime Agent v0.10 runs here.
+
+    `thinking` is accepted and not forwarded: the host CLI picks the reasoning
+    level, and none of them takes it per call. `kind="decision"` is upstream's
+    Decision API child, which we do not have, so it fails loudly rather than
+    quietly spawning an ordinary child. Our own options (`adapter`,
+    `system_prompt`, `can_message_parent`) pass through as keywords.
+    """
+    if kind is not None:
+        raise NotImplementedError(
+            f"kind={kind!r} is a Prime Agent child kind open-primeagent does not provide"
+        )
+    del thinking
+    if model is not None:
+        kwargs["model"] = model
+    if cwd is not None:
+        kwargs["cwd"] = cwd
+    return await run(prompt, name=name, **kwargs)
+
+
 class _RLM:
+    async def spawn(self, prompt: str, **kwargs: Any) -> RLMSpawnHandle:
+        return await spawn(prompt, **kwargs)
+
     async def run(self, prompt: str, **kwargs: Any) -> RLMSpawnHandle:
         return await run(prompt, **kwargs)
 
@@ -127,10 +164,13 @@ class _RLM:
         payload = await host_request("rlm.list_subagents")
         return [_subagent(entry) for entry in payload["subagents"]]
 
-    async def delete_subagent(self, target: str | RLMSubagent) -> RLMSubagent:
+    async def delete_subagent(self, target: str | RLMSubagent | RLMSpawnHandle) -> RLMSubagent:
         """Drop one child. Returns the record as it was when it went away."""
         # Address by id, not name: names can be reused, ids cannot.
-        selector = target.rlm_child_id if isinstance(target, RLMSubagent) else str(target).strip()
+        if isinstance(target, RLMSubagent | RLMSpawnHandle):
+            selector = target.rlm_child_id
+        else:
+            selector = str(target).strip()
         payload = await host_request("rlm.delete_subagent", {"target": selector})
         return _subagent(payload["subagent"])
 

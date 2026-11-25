@@ -12,8 +12,13 @@ natively.
 ## `rlm`
 
 ```python
-await rlm(prompt, *, name, model=None, adapter=None, cwd=None, system_prompt=None)
+await rlm.spawn(prompt, *, name, model=None, adapter=None, cwd=None, system_prompt=None)
 ```
+
+`rlm.spawn` is Prime Agent's current spelling (v0.10). The older `rlm(...)` and
+`rlm.run(...)` still work here and do the same thing. Upstream's `thinking=` is
+accepted and ignored, because the host CLI picks the reasoning level; its
+`kind="decision"` child does not exist here and raises `NotImplementedError`.
 
 Create an independent agent session and return **as soon as it is admitted** —
 this does not wait for the child to finish.

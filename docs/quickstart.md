@@ -28,7 +28,7 @@ written to a file whose path you get.
 ## 2. Sub-agents that stay
 
 ```python
-await rlm("audit the API layer for security problems", name="api-reviewer")
+await rlm.spawn("audit the API layer for security problems", name="api-reviewer")
 ```
 
 That returns immediately — the child keeps working. Collect results when you

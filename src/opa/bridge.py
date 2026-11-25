@@ -1,6 +1,7 @@
 """HostBridge - the door through which the kernel, skills and children call the host.
 
-Upstream uses a Jupyter comm (`host.request`); we use a Unix domain socket.
+Upstream used a Jupyter comm (`host.request`) and now a stdin-pipe REPL to its
+Rust host; we use a Unix domain socket.
 See ARCHITECTURE section 2: the socket is independent of kernel restarts, and
 processes that are not the kernel (skill subprocesses, child agents) can use the
 same door.
@@ -16,8 +17,10 @@ own `status` key shadow the protocol's - and it did: `rlm.run` returned
 A naming convention would break again later, so this is made structurally
 impossible instead.
 
-Request type names match upstream (rlm.run / rlm.list_subagents /
-rlm.delete_subagent / rlm.find_models) so upstream docs and skills still apply.
+Request type names match upstream for what we implement (rlm.run /
+rlm.list_subagents / rlm.delete_subagent), so upstream's calls for those land
+here unchanged. Upstream has more (rlm.find_models, rlm.collect, inbox, factory)
+that we do not serve; tests/test_upstream_compat.py lists the boundary.
 """
 
 from __future__ import annotations

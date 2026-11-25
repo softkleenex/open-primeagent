@@ -28,7 +28,14 @@ Upstream is a complete agent harness. Measured on the reference checkout:
 `await host_request("rlm.run", ...)` RPC wrappers. **RLM is a protocol, not an
 engine.** The other 167k lines are one particular host for it.
 
-So the interesting question is not "can this be reimplemented in 4k lines" — it
+> **Dated.** These numbers are from upstream snapshot `f8f0036` (2026-08-18).
+> Upstream has since been rewritten around a Rust host (v0.10.5, 2026-11-18):
+> `rlm/__init__.py` is now 1,106 lines and `harness.py` 1,381, and the runtime
+> gained factory workflows, its own REPL, persistent shells and MCP support. It
+> is no longer a thin shim. The argument below still holds for the version we
+> inherited from; it is not a description of upstream today.
+
+So the interesting question is not "can this be reimplemented in a few thousand lines" — it
 is "does the reimplementation actually speak the same protocol". Below.
 
 ## Inherited exactly
@@ -98,7 +105,7 @@ Each of these is a decision with a cost, not an oversight.
 
 | | upstream | here | why |
 |---|---|---|---|
-| transport | Jupyter `comm` on the control channel | Unix domain socket, one JSON line per request | the host is a separate process we do not own, so we cannot ride its kernel's comm |
+| transport | Jupyter `comm` on the control channel (snapshot); a stdin-pipe REPL to a Rust host (v0.10) | Unix domain socket, one JSON line per request | the host is a separate process we do not own, so we cannot ride its kernel's comm |
 | who runs a child | in-process, inside its own harness | shells out to your `claude` / `codex` | so we never have to own your sessions, auth or model choice — **this is what buys "don't switch agents", and it costs ~36k tokens of cold CLI boot per child** ([measured](../bench/README.md)) |
 | authority | one trusted kernel | per-caller tokens with `parent` / `child` roles | a child process holds the socket and can speak the protocol directly, whatever its MCP tool list says ([security](security.md)) |
 | harness scope | global store | project-scoped, with a `before` snapshot on every refinement | so a refinement is reversible; the snapshot is the extra field below |

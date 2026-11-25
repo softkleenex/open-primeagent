@@ -19,7 +19,7 @@ Consequences:
 |---|---|---|
 | host | its own TS harness (117k LOC) | **the agent you already run** |
 | system prompt | owns it | cannot touch it → works around it via *projection* |
-| kernel bridge | Jupyter comm → TS host | Unix socket → MCP server |
+| kernel bridge | Jupyter comm → TS host (snapshot); stdin-pipe REPL → Rust host (v0.10) | Unix socket → MCP server |
 | child sessions | its own session manager | the host CLI's `--session-id` / `resume` |
 | model selection | its own provider layer | delegated to the host CLI (`--model`) |
 
@@ -43,6 +43,13 @@ is a CRUD store over `harness_state.json`.
 
 **The conceptual core of RLM fits in 1.5k lines; the rest is one harness
 implementation.** Delegating the harness makes this project a realistic size.
+
+> **Dated.** These numbers are from upstream snapshot `f8f0036` (2026-08-18).
+> Upstream has since been rewritten around a Rust host (v0.10.5, 2026-11-18):
+> `rlm/__init__.py` is now 1,106 lines and `harness.py` 1,381, and the runtime
+> gained factory workflows, its own REPL, persistent shells and MCP support. It
+> is no longer a thin shim. The argument below still holds for the version we
+> inherited from; it is not a description of upstream today.
 
 ---
 
@@ -166,8 +173,8 @@ agent the user already has. So the surface is capped at **four**.
 ```python
 # this is all the host agent actually does
 opa_python("""
-api  = await rlm("audit the API layer", name="api-reviewer")
-test = await rlm("map test coverage gaps", name="test-reviewer")
+api  = await rlm.spawn("audit the API layer", name="api-reviewer")
+test = await rlm.spawn("map test coverage gaps", name="test-reviewer")
 """)
 ```
 

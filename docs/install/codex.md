@@ -22,7 +22,7 @@ Codex also works as a **child** backend, so a Claude Code parent can drive Codex
 children:
 
 ```python
-await rlm("refactor this module", name="refactorer", adapter="codex", model="gpt-5.4")
+await rlm.spawn("refactor this module", name="refactorer", adapter="codex", model="gpt-5.4")
 ```
 
 Model choice is delegated to the host CLI, which is why mixed setups work at all.

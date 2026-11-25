@@ -9,8 +9,8 @@ Used inside the `opa_python` tool. `rlm(...)` is not an LLM API call — it crea
 an **independent agent session**.
 
 ```python
-api = await rlm("audit the API layer for security problems", name="api-reviewer")
-test = await rlm("map the gaps in our test coverage", name="test-reviewer")
+api = await rlm.spawn("audit the API layer for security problems", name="api-reviewer")
+test = await rlm.spawn("map the gaps in our test coverage", name="test-reviewer")
 ```
 
 `rlm(...)` **does not wait.** It returns a handle and the child keeps working in

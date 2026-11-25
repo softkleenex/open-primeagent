@@ -4,8 +4,8 @@ Important: **it does not wait for results.** Like upstream, it returns a handle
 the moment the task is admitted and the child keeps running in the background;
 results arrive in the mailbox. So these two lines really do run in parallel:
 
-    api  = await rlm("...", name="api-reviewer")
-    test = await rlm("...", name="test-reviewer")
+    api  = await rlm.spawn("...", name="api-reviewer")
+    test = await rlm.spawn("...", name="test-reviewer")
 """
 
 from __future__ import annotations

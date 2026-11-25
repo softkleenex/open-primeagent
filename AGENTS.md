@@ -38,6 +38,6 @@ already runs**, without replacing it.
 
 | what | path |
 |---|---|
-| the whole rlm API surface (348 lines) | `_ref/prime-agent/prime-agent-runtime/src/rlm/__init__.py` |
+| the whole rlm API surface (348 lines in this Aug 2026 snapshot; upstream v0.10.5 is 1,106 and renamed `rlm.run` to `rlm.spawn`) | `_ref/prime-agent/prime-agent-runtime/src/rlm/__init__.py` |
 | harness store schema | `_ref/prime-agent/prime-agent-runtime/src/rlm/harness.py` |
 | upstream's 13 skills | `_ref/prime-agent/packages/coding-agent/skills/` |
