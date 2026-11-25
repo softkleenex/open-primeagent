@@ -83,9 +83,15 @@ async def host_request(
     async def _roundtrip() -> dict[str, Any]:
         reader, writer = await asyncio.open_unix_connection(socket_path, limit=MAX_LINE_BYTES)
         try:
-            writer.write(json.dumps(request, ensure_ascii=False, default=str).encode() + b"\n")
-            await writer.drain()
-            raw = await reader.readline()
+            try:
+                writer.write(json.dumps(request, ensure_ascii=False, default=str).encode() + b"\n")
+                await writer.drain()
+                raw = await reader.readline()
+            except (BrokenPipeError, ConnectionResetError):
+                # A host that hangs up before reading our request: macOS reports
+                # EOF, Linux a reset (it closed with our bytes unread). Same
+                # event, so the same message - CI on Linux caught the difference.
+                raw = b""
         finally:
             writer.close()
             try:
