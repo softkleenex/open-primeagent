@@ -154,6 +154,10 @@ benchmark cannot impose work through its prompt.** If the scoring cannot tell
 whether the work happened, the numbers are measuring something else. All three
 earlier versions produced plausible tables.
 
+![Fanning out to 4 sub-agents lost on both benchmarks: +777% and +320% cost, +244% and +127% wall clock](../docs/assets/fanout-lost.png)
+
+<sub>Drawn from the result files by [`charts.py`](charts.py).</sub>
+
 ## 0a. Fan-out on a large codebase  ❌ it loses even here
 
 `bench/fanout.py`
