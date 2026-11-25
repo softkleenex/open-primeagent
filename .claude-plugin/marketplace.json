@@ -10,7 +10,7 @@
     {
       "name": "open-primeagent",
       "description": "Persistent sub-agents you can re-task, a harness that learns the project into CLAUDE.md, and a persistent Python kernel - one MCP server, four tools.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "author": {
         "name": "softkleenex"
       },
