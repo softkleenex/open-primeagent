@@ -1,0 +1,9 @@
+.git
+.venv
+_ref
+dist
+bench
+docs
+tests
+**/__pycache__
+.opa
