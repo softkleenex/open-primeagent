@@ -24,6 +24,7 @@ jobs:
       - name: the suite must pass before anything is published
         run: |
           uv run ruff check .
+          uv run ruff format --check .
           uv run pytest -q
       - run: uv build
       - name: metadata must render on PyPI
