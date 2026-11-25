@@ -200,8 +200,9 @@ class FakeRegistryRecord:
 class FakeRLM:
     """Records prompts and advances the child's turn counter, like the real one."""
 
-    def __init__(self, config) -> None:
+    def __init__(self, config, on_event=None) -> None:
         self.config = config
+        self.on_event = on_event      # the real service emits rlm.turn per turn
         self.prompts: list[str] = []
         self.record = FakeRegistryRecord()
         self.registry = self
@@ -226,6 +227,8 @@ class FakeRLM:
         self.prompts.append(prompt)
         self.record.turns += 1
         self.record.tokens += 100
+        if self.on_event is not None:
+            self.on_event("rlm.turn", {"tokens": 100})
 
 
 @pytest.fixture
@@ -267,9 +270,26 @@ async def test_token_budget_stops_the_loop(runner):
 async def test_a_goal_is_charged_for_autonomous_work(config, tmp_path):
     goals = GoalStore(tmp_path / "goal.json")
     goals.create("keep the tests green", token_budget=1000)
-    runner = AutonomousRunner(FakeRLM(config), goals)
+    # Wired the way Runtime wires it: the rlm.turn event is what charges.
+    rlm = FakeRLM(config, on_event=lambda _e, d: goals.spend(d["tokens"]))
+    runner = AutonomousRunner(rlm, goals)
     await runner.start("fix it", child_name="w", gate="exit 1", max_turns=3)
-    assert goals.goal.tokens_used == 300
+    assert goals.goal.tokens_used == 300, "each autonomous token must be charged once"
+
+
+async def test_a_reused_child_does_not_bring_its_old_tokens_into_the_budget(config):
+    runner = AutonomousRunner(FakeRLM(config))
+    await runner.start("first", child_name="w", gate="exit 1", max_turns=3)   # 300 tokens
+    second = await runner.start("again", child_name="w", gate="exit 1", max_turns=5,
+                                token_budget=150)
+    assert second["outcome"] == "token_budget"
+    assert len(second["turns"]) == 2 and second["tokens"] == 200
+
+
+async def test_a_zero_token_budget_runs_nothing(config):
+    runner = AutonomousRunner(FakeRLM(config))
+    result = await runner.start("x", child_name="w", gate="exit 1", max_turns=3, token_budget=0)
+    assert result["outcome"] == "token_budget" and result["turns"] == []
 
 
 async def test_two_runs_cannot_overlap(runner):
@@ -598,3 +618,33 @@ def test_a_corrupt_goal_file_is_kept_aside(tmp_path):
     store = GoalStore(path)
     store.create("a fresh objective")
     assert len(list(tmp_path.glob("goal.json.corrupt-*"))) == 1
+
+
+def test_a_naive_time_means_the_local_clock(tmp_path, monkeypatch):
+    """Read as UTC, "local +1 minute" fired nine hours late in Seoul."""
+    import time
+    from datetime import datetime, timedelta
+
+    monkeypatch.setenv("TZ", "Asia/Seoul")
+    time.tzset()
+    try:
+        store = ScheduleStore(tmp_path / "schedule.jsonl")
+        local = (datetime.now().astimezone() + timedelta(minutes=1)).replace(tzinfo=None)
+        entry = store.create("ping", at=local.replace(microsecond=0).isoformat())
+        due = datetime.fromisoformat(entry.due_at)
+        assert abs((due - datetime.now().astimezone()).total_seconds() - 60) < 5
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+
+
+def test_one_bad_due_time_does_not_break_the_rest(tmp_path):
+    from opa.session import jsonl
+
+    path = tmp_path / "schedule.jsonl"
+    store = ScheduleStore(path)
+    good = store.create("good", in_seconds=0)
+    jsonl.append(path, {**good.__dict__, "id": "sch-bad", "due_at": "not a time"})
+    jsonl.append(path, {**good.__dict__, "id": "sch-naive", "due_at": "2000-01-01T00:00:00"})
+    due = {e.id for e in ScheduleStore(path).due(collect=False)}
+    assert due == {good.id, "sch-naive"}

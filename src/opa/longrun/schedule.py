@@ -65,8 +65,13 @@ class ScheduleStore:
             known = {f for f in Entry.__dataclass_fields__}
             try:
                 entry = Entry(**{k: v for k, v in record.items() if k in known})
-            except TypeError:
+                due = datetime.fromisoformat(str(entry.due_at))
+            except (TypeError, ValueError):
                 continue  # one bad line must not hide the rest
+            if due.tzinfo is None:
+                # Comparing a naive time to an aware one raises, and `due()`
+                # would then fail for every entry, not just this one.
+                entry.due_at = _iso(due.replace(tzinfo=UTC))
             self.entries[entry.id] = entry
         return self
 
@@ -114,7 +119,9 @@ class ScheduleStore:
                 parsed = datetime.fromisoformat(str(at))
             except ValueError as exc:
                 raise ValueError(f"at must be an ISO-8601 timestamp, got {at!r}") from exc
-            due = parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+            # A naive time is what a person means on their own clock. Reading it
+            # as UTC fired "local +1 minute" nine hours late in Seoul.
+            due = parsed if parsed.tzinfo else parsed.astimezone()
             kind = "once"
 
         entry = Entry(

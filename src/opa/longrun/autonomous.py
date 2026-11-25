@@ -189,13 +189,19 @@ class AutonomousRunner:
             run_cwd = self.rlm._resolve_cwd(cwd)
             prompt = objective.strip()
             fingerprint = await asyncio.to_thread(worktree_fingerprint, run_cwd)
+            # A child record's tokens are cumulative across every run that ever
+            # used it, and the default child name is shared. Measured from zero,
+            # a second run with a 1,500 budget stopped after one turn on 3,000.
+            existing = self.rlm.registry.get(child_name)
+            base_tokens = existing.tokens if existing else 0
+            base_cost = existing.cost_usd if existing else 0.0
 
             for index in range(1, max_turns + 1):
                 if wall_clock_seconds and time.monotonic() - started > wall_clock_seconds:
                     result.outcome = "timeout"
                     result.detail = f"wall clock exceeded {wall_clock_seconds}s"
                     break
-                if token_budget and result.tokens >= token_budget:
+                if token_budget is not None and result.tokens >= token_budget:
                     result.outcome = "token_budget"
                     result.detail = f"token budget of {token_budget} exhausted"
                     break
@@ -207,10 +213,11 @@ class AutonomousRunner:
                 result.turns.append(turn)
                 record = self.rlm.registry.get(child_name)
                 if record is not None:
-                    result.tokens = record.tokens
-                    result.cost_usd = record.cost_usd
-                    if self.goals is not None:
-                        self.goals.spend(turn.tokens)
+                    result.tokens = record.tokens - base_tokens
+                    result.cost_usd = round(record.cost_usd - base_cost, 6)
+                    # No goal charge here: every child turn already emits
+                    # `rlm.turn`, which charges the goal. Charging again here
+                    # spent each autonomous token twice.
 
                 if not turn.child_ok:
                     result.outcome = "error"
