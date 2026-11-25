@@ -417,6 +417,30 @@ a guard is *defended*; it cannot prove the guard is *complete*. Only an input
 nobody thought of does that, and a reviewer with no memory of writing the code
 is the cheapest source of those we have found.
 
+## The CLI changed what a number meant (2026-11-25)
+
+Building the reuse receipt meant running it for real, and the first real run
+said that two follow-ups to a warm child cost *more* than the cold turn:
+$0.135, then $0.143 and $0.149. That contradicted the warm-child benchmark,
+so one of them was wrong.
+
+Neither was. On claude 2.1.332, a resumed session's `total_cost_usd` and
+`modelUsage` are the session's running totals while `usage` is still this
+turn's: cache reads went 50,289 then 94,045 = 50,289 + 43,756. In August, when
+the benchmarks ran, the same field was per turn (the warm arm's $0.035 could
+not include a $0.17 setup turn otherwise). So the benchmark stands, and the
+registry had been summing running totals, charging each child for all of its
+earlier turns again on every follow-up.
+
+The adapter now detects which it got by comparing `modelUsage` with `usage`,
+subtracts the previous running total from the same session, and reports the
+cost as unknown rather than guessing when it cannot. The real follow-ups cost
+$0.0087 and $0.0063: 94% less than the cold turn, not 6% more.
+
+> A field's name is not its definition. Anything we read from a CLI we do not
+> own can change meaning without changing shape, and the only check is a real
+> run against numbers that must add up.
+
 ## Incident log
 
 ### 2026-08-19 — path traversal through harness entry ids

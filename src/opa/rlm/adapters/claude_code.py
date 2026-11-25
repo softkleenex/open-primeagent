@@ -91,6 +91,67 @@ def write_child_mcp_config(session_dir: Path) -> Path:
     return path
 
 
+_USAGE_KEYS = (
+    ("input_tokens", "inputTokens"),
+    ("output_tokens", "outputTokens"),
+    ("cache_read_input_tokens", "cacheReadInputTokens"),
+    ("cache_creation_input_tokens", "cacheCreationInputTokens"),
+)
+
+
+def _is_session_total(payload: dict) -> bool:
+    """Whether `total_cost_usd` covers the whole session rather than this turn.
+
+    Measured (claude 2.1.332): on a resumed session, `usage` is this turn's but
+    `modelUsage` and `total_cost_usd` are the session's running totals - cache
+    reads 50,289 then 94,045 = 50,289 + 43,756, cost $0.1347 then $0.1432. The
+    August benchmarks were taken when both were per turn. So compare the two
+    rather than assume either.
+    """
+    usage = payload.get("usage") or {}
+    model_usage = payload.get("modelUsage") or {}
+    if not usage or not model_usage:
+        return False
+    for turn_key, total_key in _USAGE_KEYS:
+        turn = int(usage.get(turn_key) or 0)
+        total = sum(int((m or {}).get(total_key) or 0) for m in model_usage.values())
+        if total > turn:
+            return True
+    return False
+
+
+def _previous_session_total(raw_path: Path) -> float | None:
+    """The running total the last turn of this session reported, if we kept it."""
+    earlier = sorted(p for p in raw_path.parent.glob("turn-*.json") if p.name < raw_path.name)
+    for path in reversed(earlier):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8")).get("total_cost_usd")
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(value, int | float):
+            return float(value)
+    return None
+
+
+def _turn_cost(payload: dict, raw_path: Path | None) -> float | None:
+    """This turn's cost, whichever way the CLI reports it.
+
+    Summing a running total once per turn charged a child for every earlier
+    turn again. When the CLI reports a running total we subtract the previous
+    one; when there is no previous one to subtract, the turn's cost is unknown
+    and says so (None) rather than being guessed.
+    """
+    reported = payload.get("total_cost_usd")
+    if not isinstance(reported, int | float):
+        return None
+    if not _is_session_total(payload):
+        return float(reported)
+    previous = _previous_session_total(raw_path) if raw_path is not None else None
+    if previous is None or previous > reported:
+        return None
+    return round(float(reported) - previous, 6)
+
+
 class ClaudeCodeAdapter:
     name = "claude-code"
 
@@ -220,7 +281,7 @@ class ClaudeCodeAdapter:
             text=payload.get("result") or "",
             session_id=payload.get("session_id") or request.session_id,
             tokens=tokens,
-            cost_usd=payload.get("total_cost_usd"),
+            cost_usd=_turn_cost(payload, raw_path),
             raw_path=raw_path,
             error=payload.get("api_error_status") if is_error else None,
             duration_ms=duration_ms,

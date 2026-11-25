@@ -168,3 +168,59 @@ def test_dangerous_mode_needs_no_allowlist(tmp_path):
         request(tmp_path, session_id="s", allowed_tools=("Bash",), allow_dangerous=True)
     )
     assert "--allowedTools" not in cmd
+
+
+# --- total_cost_usd: per turn on older claude, a session running total on newer.
+# Numbers are from a real claude 2.1.332 session (cold turn, then two resumes).
+
+
+def _payload(usage_turn, usage_total, cost):
+    keys = (
+        "input_tokens",
+        "output_tokens",
+        "cache_read_input_tokens",
+        "cache_creation_input_tokens",
+    )
+    camel = ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens")
+    return {
+        "usage": dict(zip(keys, usage_turn, strict=True)),
+        "modelUsage": {"claude-sonnet": dict(zip(camel, usage_total, strict=True))},
+        "total_cost_usd": cost,
+    }
+
+
+def _write_turns(tmp_path, payloads):
+    paths = []
+    for i, payload in enumerate(payloads):
+        path = tmp_path / f"turn-{1000 + i}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        paths.append(path)
+    return paths
+
+
+def test_a_running_total_is_turned_back_into_this_turns_cost(tmp_path):
+    from opa.rlm.adapters.claude_code import _turn_cost
+
+    turns = [
+        _payload((4, 915, 50289, 30132), (4, 915, 50289, 30132), 0.1347149),
+        _payload((4, 100, 43756, 777), (8, 1015, 94045, 30909), 0.1432065),
+        _payload((4, 114, 44533, 122), (12, 1129, 138578, 31031), 0.1492958),
+    ]
+    paths = _write_turns(tmp_path, turns)
+    costs = [_turn_cost(t, p) for t, p in zip(turns, paths, strict=True)]
+    assert costs == [pytest.approx(0.1347149), pytest.approx(0.008492), pytest.approx(0.006089)]
+
+
+def test_a_per_turn_cost_is_taken_as_is(tmp_path):
+    """How the CLI reported it when the August benchmarks ran."""
+    from opa.rlm.adapters.claude_code import _turn_cost
+
+    payload = _payload((4, 100, 43756, 777), (4, 100, 43756, 777), 0.0349)
+    assert _turn_cost(payload, tmp_path / "turn-1.json") == pytest.approx(0.0349)
+
+
+def test_a_running_total_with_nothing_to_subtract_is_unknown_not_guessed(tmp_path):
+    from opa.rlm.adapters.claude_code import _turn_cost
+
+    payload = _payload((4, 100, 43756, 777), (8, 1015, 94045, 30909), 0.1432065)
+    assert _turn_cost(payload, tmp_path / "turn-1.json") is None
