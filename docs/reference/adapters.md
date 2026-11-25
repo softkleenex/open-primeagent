@@ -34,13 +34,21 @@ first turn's `thread.started` event and store.
 `raw_path`, `error`, `duration_ms`. Returning `session_id` is how a
 backend-issued id reaches the registry.
 
-## Two things that will bite you
+## Things that will bite you
 
-Both were found by running real CLIs, not by reading their docs.
+All were found by running real CLIs, not by reading their docs.
 
-**Close stdin.** Left open as a pipe, `codex exec` waits forever at
-`Reading additional input from stdin...`, and `claude -p` treats piped stdin as
-extra input. Always `stdin=asyncio.subprocess.DEVNULL`.
+**Put the prompt last, after `--`.** As a leading positional argument, a prompt
+that starts with `-` is parsed as options: measured on both CLIs, a prompt of
+`--version` printed the version. A prompt can come from a pasted issue body,
+so this is an injection, not a cosmetic bug.
+
+**Spawn through `run_cli`** (`opa.rlm.adapters.base`). It closes stdin (left
+open as a pipe, `codex exec` waits forever at `Reading additional input from
+stdin...` and `claude -p` reads it as extra input), starts the CLI in its own
+process group, and kills that group on a timeout *or a cancellation* — so a
+deleted child, or a server shutting down, does not leave the CLI and whatever
+shell command it started still running.
 
 **Check the CLI's assumptions about the working directory.** `codex` refuses to
 run outside a git repository unless you pass `--skip-git-repo-check`.
@@ -49,8 +57,8 @@ run outside a git repository unless you pass `--skip-git-repo-check`.
 
 | adapter | spawn | resume |
 |---|---|---|
-| `claude-code` | `claude -p P --session-id <UUID> --output-format json` | `claude -p P --resume <UUID>` |
-| `codex` | `codex exec P --json --skip-git-repo-check` | `codex exec resume <TID> P --json` |
+| `claude-code` | `claude -p --output-format json --session-id <UUID> -- P` | `claude -p --resume <UUID> -- P` |
+| `codex` | `codex exec --json --skip-git-repo-check -- P` | `codex exec resume <TID> --json -- P` |
 
 Read `src/opa/rlm/adapters/claude_code.py` — it is about 120 lines including the
 comments.

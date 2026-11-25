@@ -216,8 +216,8 @@ the second one.
 
 | adapter | spawn | resume | session id origin |
 |---|---|---|---|
-| `claude-code` | `claude -p P --session-id <UUID> --output-format json` | `claude -p P --resume <UUID>` | **we issue it** |
-| `codex` | `codex exec P --json --skip-git-repo-check` | `codex exec resume <TID> P --json` | codex issues it → parsed from `thread.started` |
+| `claude-code` | `claude -p --output-format json --session-id <UUID> -- P` | `claude -p --resume <UUID> -- P` | **we issue it** |
+| `codex` | `codex exec --json --skip-git-repo-check -- P` | `codex exec resume <TID> --json -- P` | codex issues it → parsed from `thread.started` |
 | `opencode` | (to investigate) | (to investigate) | — |
 
 Being able to choose the UUID for `claude` matters: the registry id and the

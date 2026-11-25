@@ -80,8 +80,8 @@ We do not implement sessions. The host CLIs already have them:
 
 | adapter | spawn | resume |
 |---|---|---|
-| `claude-code` | `claude -p P --session-id <UUID>` | `claude -p P --resume <UUID>` |
-| `codex` | `codex exec P --json` | `codex exec resume <TID> P` |
+| `claude-code` | `claude -p --session-id <UUID> -- P` | `claude -p --resume <UUID> -- P` |
+| `codex` | `codex exec --json -- P` | `codex exec resume <TID> -- P` |
 
 Resume-by-session-id is the entire mechanism. It also means model choice is
 delegated to the CLI, so mixed setups are free:
@@ -225,7 +225,7 @@ path, not the last one. The bridge stops a model that follows the tools it is
 given; [containment needs a container](../security.md).
 
 These were found by [pointing a sub-agent at this repository's own
-code](../../TODO.md) — not by the security audit that preceded them, which
+code](../journal.md#what-dogfooding-found-2026-08-31) — not by the security audit that preceded them, which
 checked for the shape of bug it went looking for and not the trust boundary a
 docstring claimed.
 

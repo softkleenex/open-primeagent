@@ -5,9 +5,12 @@ Measured, not argued. Every number below came from running `claude -p
 reports. Raw results are in [`results/`](results/), and the scripts that produced
 them are in this directory.
 
-**Two of the three benchmarks say open-primeagent made things worse.** They are
-kept here on purpose: they are what makes the third one worth believing, and
-they say something more useful than a win would.
+**Most of these benchmarks say open-primeagent made things worse, or made no
+difference.** They are kept here on purpose: they are what makes the wins worth
+believing, and they say something more useful than a win would. The short
+version: a learned harness entry pays when knowledge is expensive to
+rediscover, re-tasking a warm child is far cheaper than a cold one, fan-out
+never won, and the kernel was never actually called.
 
 ```
 uv run python bench/evolution.py --variant hard --repeat 7

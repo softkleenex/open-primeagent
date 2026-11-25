@@ -6,23 +6,51 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Upstream compatibility](https://img.shields.io/badge/rlm%20protocol-pinned%20by%20test-8a2be2)](tests/test_upstream_compat.py)
 
-**Bring RLM to the coding agent you already use.**
+**Your coding agent forgets what the project taught it, and throws away every
+sub-agent it spawns. This fixes both — without replacing the agent.**
 
-An MCP server that gives Claude Code / Codex / opencode three things they don't
-have: a **persistent Python kernel** as external working memory, **long-lived
-sub-agent sessions** you can re-task later, and a **continual harness** that
-accumulates what the project taught you.
+One MCP server for Claude Code, Codex and opencode:
+
+- **A harness that learns the project.** What the agent discovers is recorded
+  and projected into the `CLAUDE.md` / `AGENTS.md` it already reads — inside
+  one delimited block, reversibly. Measured: **-57% wall clock, -35% cost** when
+  the knowledge is expensive to rediscover.
+- **Sub-agents you can come back to.** Re-task a child that already read the
+  code instead of spawning a fresh one. Measured: **-81% cost, -91% tokens**.
+- **A persistent Python kernel** as external working memory. Its value is
+  honestly *unmeasured* — the agent never used it in 120 turns. Details below.
+
+```bash
+claude mcp add opa -- uvx open-primeagent
+```
+
+### We publish the benchmarks we lost
+
+| | result | |
+|---|---|---|
+| harness entry, knowledge hidden among 16 decoy scripts | **-57% wall clock**, variance collapsed | ✅ |
+| re-task a warm sub-agent vs a cold one | **-81% cost** | ✅ |
+| harness entry, knowledge one glance away | +26% turns | ❌ |
+| fan out to 4 fresh sub-agents | **+777% cost** | ❌ |
+| fan out on a 444-file codebase, built for fan-out to win | +127% wall clock | ❌ |
+| persistent kernel attached for 120 turns | **called 0 times** | ⚠️ |
+
+The losses stay in because they are what makes the wins believable — and
+because the reason each one lost is more useful than the number.
+[Raw data and methodology.](bench/README.md)
+
+We hold the code to the same standard. The README promised that projection
+never changes a character outside its block; an outside review found inputs
+where it did, and [the journal says how](docs/journal.md#an-outside-review-breaks-the-headline-promise-2026-11-25).
+Every safety guard is now [mutation-tested](scripts/mutate_guards.py): broken
+on purpose, and a test has to fail.
 
 Speaks the same `rlm` protocol as
 [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) — same request
 names, same field names, same state-file schema, [checked by a test](tests/test_upstream_compat.py).
 **You don't switch agents. You add one MCP server.**
 
-```bash
-claude mcp add opa -- uvx open-primeagent
-```
-
-[Install](#install) · [Why this is small](#why-this-is-only-3k-lines-and-not-170k) ·
+[Install](#install) · [Why this is small](#why-this-is-under-4k-lines-of-code-and-not-170k) ·
 [Is it really the same RLM?](#is-it-really-the-same-rlm) ·
 [Sub-agents](#persistent-sub-agents-actually-work) ·
 [External memory](#context-is-for-deciding-not-for-storage) ·
@@ -60,7 +88,7 @@ See [the roadmap](docs/roadmap.md) for the exit criteria of each phase.
 
 ---
 
-## Why this is only ~3k lines and not 170k
+## Why this is under 4k lines of code and not 170k
 
 Upstream Prime Agent is a full agent harness. We measured it:
 
@@ -119,8 +147,8 @@ we verified it:
 
 | | spawn | resume |
 |---|---|---|
-| `claude` | `-p P --session-id <UUID>` | `-p P --resume <UUID>` |
-| `codex` | `exec P --json` | `exec resume <THREAD_ID> P` |
+| `claude` | `-p --session-id <UUID> -- P` | `-p --resume <UUID> -- P` |
+| `codex` | `exec --json -- P` | `exec resume <THREAD_ID> -- P` |
 
 Here is a real run, copied from the integration test:
 
@@ -237,7 +265,7 @@ Register `uvx open-primeagent` as a stdio MCP server. Using opencode as a
 ```bash
 git clone https://github.com/softkleenex/open-primeagent && cd open-primeagent
 uv sync --extra dev
-uv run pytest -q                                    # 99 passed
+uv run pytest -q -m "not child"                    # no API calls
 claude mcp add opa --scope local -- uv run --directory "$PWD" opa
 ```
 </details>

@@ -28,7 +28,7 @@ Upstream is a complete agent harness. Measured on the reference checkout:
 `await host_request("rlm.run", ...)` RPC wrappers. **RLM is a protocol, not an
 engine.** The other 167k lines are one particular host for it.
 
-So the interesting question is not "can this be reimplemented in 3k lines" — it
+So the interesting question is not "can this be reimplemented in 4k lines" — it
 is "does the reimplementation actually speak the same protocol". Below.
 
 ## Inherited exactly
