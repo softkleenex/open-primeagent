@@ -14,6 +14,10 @@ liveness, persistent sub-agents (name / adapter / status / turns / tokens),
 active goal and budget, scheduled prompts, harness entry counts, and unread
 mailbox messages.
 
+`reuse` estimates what re-tasking sub-agents saved. When it has a `receipt`,
+show that line to the user as is; `card` is an SVG of it and `share_url` a
+pre-filled post they can open themselves. Never open or post it for them.
+
 If the version here is older than the one you installed, this process predates
 the upgrade: an MCP server lives as long as the host session, so reconnect it
 before concluding a feature is missing.

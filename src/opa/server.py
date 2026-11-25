@@ -17,7 +17,7 @@ from typing import Literal
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.context import Context
 
-from . import __version__
+from . import __version__, receipt
 from .config import Config
 from .kernel.exec import store_full, strip_ansi, truncate
 from .runtime_state import Runtime
@@ -131,7 +131,7 @@ def build_server(config: Config | None = None) -> MCPServer:
             ],
             # What re-tasking instead of re-spawning saved, with its basis. Shaped
             # to be read out to the user, and copied, as is.
-            "reuse": runtime.rlm.registry.reuse(),
+            "reuse": receipt.dress(runtime.rlm.registry.reuse(), runtime.paths.dir),
             "mailbox_unread": len(runtime.rlm.mailbox.unread()),
             "goal": runtime.goals.get(),
             "schedule": {

@@ -70,6 +70,17 @@ have cost" that was actually measured on your machine. It is an estimate, it
 never counts below zero, and `basis` says so. Children that were never
 re-tasked add nothing.
 
+When there is a receipt, `reuse` also carries:
+
+- `card`: the path of `reuse-receipt.svg` in the session directory, a 1200x630
+  card with the same numbers. It is plain SVG so nothing extra is installed;
+  open it in a browser to screenshot it, or convert it with any SVG tool.
+- `share_url`: an `x.com/intent/post` link with the receipt and the repository
+  pre-filled. Building it sends nothing. A post happens only if you open the
+  link and press the button.
+
+No follow-ups, no receipt, no file.
+
 This is the recovery call. A harness that owns its host can promote knowledge at
 the moment a compaction is about to discard it; we cannot see a compaction
 happen, so the recovery call carries that job instead.
