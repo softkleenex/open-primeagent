@@ -58,10 +58,10 @@ Not us. Claude Code advertises no MCP `sampling` capability
 us its model. The split is:
 
 ```python
-evidence = await harness.evidence()     # we gather grounds
+evidence = await harness.evidence()  # we gather grounds
 # you (or a refiner child) decide the delta
 await harness.apply(changes, trigger="refine", evidence=str(evidence))
-await harness.rollback(event_id)        # exact revert, any time
+await harness.rollback(event_id)  # exact revert, any time
 ```
 
 `evidence()` returns `repeated_errors` — signals seen **more than once**. A

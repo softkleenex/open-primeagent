@@ -139,14 +139,14 @@ def connect(path: str = ":memory:") -> sqlite3.Connection:
     conn.executescript(SCHEMA)
     return conn
 ''',
-    "tests/test_auth.py": '''\
+    "tests/test_auth.py": """\
 from api.auth import check_password
 
 
 def test_check_password_matches():
     assert check_password("5f4dcc3b5aa765d61d8327deb882cf99", "password")
-''',
-    "tests/test_routes.py": '''\
+""",
+    "tests/test_routes.py": """\
 from api.routes import get_user
 from storage.db import connect
 
@@ -154,8 +154,8 @@ from storage.db import connect
 def test_get_user_missing():
     body, status = get_user({"email": "nobody@example.com"}, connect())
     assert status == 404
-''',
-    "tests/test_tax.py": '''\
+""",
+    "tests/test_tax.py": """\
 from decimal import Decimal
 
 from billing.tax import tax_for
@@ -163,8 +163,8 @@ from billing.tax import tax_for
 
 def test_us_rate():
     assert tax_for("us", Decimal("100")) == Decimal("7.00")
-''',
-    "tests/test_aggregate.py": '''\
+""",
+    "tests/test_aggregate.py": """\
 from reports.aggregate import orders_per_customer
 
 
@@ -172,8 +172,8 @@ def test_counts():
     orders = [{"customer_id": 1}, {"customer_id": 1}, {"customer_id": 2}]
     customers = [{"id": 1}, {"id": 2}]
     assert orders_per_customer(orders, customers) == {1: 2, 2: 1}
-''',
-    "README.md": '''\
+""",
+    "README.md": """\
 # demo service
 
 A small order and billing service.
@@ -183,7 +183,7 @@ A small order and billing service.
     reports/   aggregations
     storage/   database helpers
     tests/     pytest suite
-''',
+""",
 }
 
 

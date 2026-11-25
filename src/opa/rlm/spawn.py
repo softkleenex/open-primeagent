@@ -32,9 +32,7 @@ ADAPTERS: dict[str, type] = {
 # the default model with nobody aware the override never applied.
 logger = logging.getLogger(__name__)
 
-SPAWN_KWARGS = frozenset(
-    {"adapter", "cwd", "model", "system_prompt", "can_message_parent"}
-)
+SPAWN_KWARGS = frozenset({"adapter", "cwd", "model", "system_prompt", "can_message_parent"})
 
 
 class RLMService:
@@ -178,7 +176,9 @@ class RLMService:
         if self.on_event is not None:
             self.on_event(event, data)
 
-    def _launch(self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool) -> None:
+    def _launch(
+        self, record: ChildRecord, prompt: str, adapter: AgentAdapter, *, resume: bool
+    ) -> None:
         task = asyncio.create_task(self._run_turn(record, prompt, adapter, resume=resume))
         self._tasks.add(task)
         self._child_tasks.setdefault(record.rlm_child_id, set()).add(task)
@@ -215,9 +215,11 @@ class RLMService:
         if self.registry.get(record.rlm_child_id) is None:
             # Deleted while queued. Do not fail silently; tell the parent.
             self.mailbox.deliver(
-                to=PARENT, sender=record.name,
+                to=PARENT,
+                sender=record.name,
                 message=f"[dropped] {record.name!r} was deleted before this turn ran",
-                rlm_child_id=record.rlm_child_id, ok=False,
+                rlm_child_id=record.rlm_child_id,
+                ok=False,
             )
             return
         # Issued inside the try that owns the revoking finally. It used to sit
@@ -257,8 +259,11 @@ class RLMService:
                 record.rlm_child_id, status="error", last_error=f"{type(exc).__name__}: {exc}"
             )
             self.mailbox.deliver(
-                to=PARENT, sender=record.name, message=f"[error] {type(exc).__name__}: {exc}",
-                rlm_child_id=record.rlm_child_id, ok=False,
+                to=PARENT,
+                sender=record.name,
+                message=f"[error] {type(exc).__name__}: {exc}",
+                rlm_child_id=record.rlm_child_id,
+                ok=False,
             )
             return
 

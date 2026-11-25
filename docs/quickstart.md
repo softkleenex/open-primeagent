@@ -18,7 +18,7 @@ Other hosts: [install/](install/).
 
 ```python
 opa_python("files = [f'f{i}.py' for i in range(500)]")
-opa_python("len(files)")          # -> 500, in a separate call
+opa_python("len(files)")  # -> 500, in a separate call
 ```
 
 Keep large intermediate results in variables and print only what you need to
@@ -42,8 +42,9 @@ Days and kernel restarts later, the child is still there:
 
 ```python
 await rlm.list_subagents()
-await agent_message.send("re-check it now that I've fixed the code",
-                         receiver_role="child", receiver_name="api-reviewer")
+await agent_message.send(
+    "re-check it now that I've fixed the code", receiver_role="child", receiver_name="api-reviewer"
+)
 ```
 
 It answers with its earlier context intact. Look for an existing child before
@@ -56,7 +57,8 @@ When you learn a rule the code does not state:
 
 ```python
 await harness.create(
-    "prompt", "regenerate after schema edits",
+    "prompt",
+    "regenerate after schema edits",
     "After editing schema.py, run tools/sync_models.py before the tests.",
 )
 ```

@@ -20,8 +20,7 @@ BASE = "Execute Python in a persistent kernel."
 
 
 def entry(title: str, content: str = "body", kind: str = "prompt") -> HarnessEntry:
-    return HarnessEntry(id=title.lower().replace(" ", "-"), kind=kind, title=title,
-                        content=content)
+    return HarnessEntry(id=title.lower().replace(" ", "-"), kind=kind, title=title, content=content)
 
 
 class FakeServer:
@@ -50,6 +49,7 @@ class DeadConnection:
 
 # ---------- rendering ----------
 
+
 def test_an_empty_harness_leaves_the_description_alone():
     surface = ToolSurface(FakeServer(), "opa_python", BASE)
     assert surface.render([]) == BASE
@@ -61,9 +61,9 @@ def test_the_description_lists_notes_without_repeating_their_instructions():
     surface = ToolSurface(FakeServer(), "opa_python", BASE)
     text = surface.render([entry("regenerate after migrations", "run tools/sync_models.py")])
     assert BASE.strip() in text
-    assert "regenerate after migrations" in text          # the title, so it is findable
-    assert "run tools/sync_models.py" not in text          # not the instruction itself
-    assert "harness.overview()" in text                    # where to read it
+    assert "regenerate after migrations" in text  # the title, so it is findable
+    assert "run tools/sync_models.py" not in text  # not the instruction itself
+    assert "harness.overview()" in text  # where to read it
 
 
 def test_entries_are_attributed():
@@ -93,6 +93,7 @@ def test_the_description_does_not_grow_without_bound():
 
 
 # ---------- refresh ----------
+
 
 async def test_refresh_reregisters_the_tool_and_notifies():
     server, connection = FakeServer(), FakeConnection()
@@ -131,6 +132,7 @@ async def test_binding_is_required():
 
 
 # ---------- through the bridge ----------
+
 
 @pytest.fixture
 async def runtime(config, monkeypatch):
@@ -191,9 +193,7 @@ async def test_a_restart_stops_carrying_notes_it_cannot_remember_making(runtime,
     that it has no record of creating it and treats it as possible injection.
     No wording fixes that, so a fresh process carries nothing and the note
     reaches the agent through the project file instead."""
-    await host_request(
-        "harness.create", {"kind": "prompt", "title": "from before", "content": "x"}
-    )
+    await host_request("harness.create", {"kind": "prompt", "title": "from before", "content": "x"})
     from opa.server import build_server
 
     revived = build_server(config)
@@ -219,8 +219,12 @@ async def test_evolve_reports_which_layers_it_reached(runtime, config):
         "harness.evolve",
         {
             "changes": [
-                {"op": "create", "kind": "prompt", "title": "check migrations",
-                 "content": "run tools/sync_models.py after schema edits"},
+                {
+                    "op": "create",
+                    "kind": "prompt",
+                    "title": "check migrations",
+                    "content": "run tools/sync_models.py after schema edits",
+                },
             ],
             "trigger": "/evolve",
         },

@@ -32,6 +32,8 @@ _token: str | None = None
 def set_token(value: str) -> None:
     global _token
     _token = value
+
+
 DEFAULT_TIMEOUT = 300.0
 
 # Must match the host (bridge.MAX_LINE_BYTES). Leaving asyncio's 64 KiB default
@@ -64,9 +66,7 @@ async def host_request(
             f"({ENV_SOCKET} is unset). This kernel was not started by the opa MCP server."
         )
 
-    token = _token or next(
-        (os.environ[name] for name in ENV_TOKENS if os.environ.get(name)), None
-    )
+    token = _token or next((os.environ[name] for name in ENV_TOKENS if os.environ.get(name)), None)
     if not token:
         raise RuntimeError(
             "no open-primeagent caller token in the environment "
@@ -112,8 +112,7 @@ async def host_request(
             # transport failure here is a RuntimeError the caller already
             # catches as one.
             raise RuntimeError(  # noqa: TRY004
-                f"host sent a reply to {request_type} that is not an object: "
-                f"{type(reply).__name__}"
+                f"host sent a reply to {request_type} that is not an object: {type(reply).__name__}"
             )
         status = reply.get("status")
         if status == "ok":

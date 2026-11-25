@@ -56,9 +56,7 @@ def main() -> None:
     print("Part 1 - what fraction of a run could a kernel save?\n")
     print(f"  {'rebuild':>9}  " + "  ".join(f"{n:>5} turns" for n in (3, 8, 20)))
     for rebuild in (0.02, 0.5, 1.0, 2.0, 3.5, 6.0, 12.0, 30.0):
-        cells = [
-            f"{(n - 1) * rebuild / (n * TURN_SECONDS + rebuild):>10.1%}" for n in (3, 8, 20)
-        ]
+        cells = [f"{(n - 1) * rebuild / (n * TURN_SECONDS + rebuild):>10.1%}" for n in (3, 8, 20)]
         print(f"  {rebuild:>8.2f}s  " + "  ".join(cells))
     print(f"\n  Run-to-run spread is about {NOISE:.0%}, so a rebuild under roughly")
     print("  two seconds cannot be distinguished from noise at any turn count.\n")

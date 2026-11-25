@@ -18,6 +18,7 @@ def request(tmp_path, **kw):
 
 # ---------- claude ----------
 
+
 def test_claude_preassigns_a_uuid():
     """We choose the session id, so it maps 1:1 to the registry id."""
     sid = ClaudeCodeAdapter().preassign_session_id()
@@ -68,12 +69,15 @@ def test_claude_parses_result_and_usage(tmp_path):
 def test_claude_flags_errors(tmp_path):
     result = ClaudeCodeAdapter().parse_result(
         json.dumps({"is_error": True, "result": "", "subtype": "error"}).encode(),
-        request(tmp_path), Path("/tmp/x"), 10,
+        request(tmp_path),
+        Path("/tmp/x"),
+        10,
     )
     assert result.ok is False
 
 
 # ---------- codex ----------
+
 
 def test_codex_cannot_preassign_a_session_id():
     assert CodexAdapter().preassign_session_id() is None
@@ -124,7 +128,12 @@ def test_codex_parses_thread_id_message_and_usage(tmp_path):
         ]
     ).encode()
     result = CodexAdapter().parse_stream(stream, request(tmp_path), Path("/tmp/x"), 5)
-    assert (result.ok, result.text, result.session_id, result.tokens) == (True, "BETA-9", "01a-xyz", 28)
+    assert (result.ok, result.text, result.session_id, result.tokens) == (
+        True,
+        "BETA-9",
+        "01a-xyz",
+        28,
+    )
 
 
 def test_codex_without_an_agent_message_is_an_error(tmp_path):
@@ -148,9 +157,7 @@ def test_the_push_tool_is_added_to_the_toolset_not_substituted_for_it(tmp_path):
     from opa.rlm.adapters.claude_code import CHILD_PUSH_TOOL
 
     cmd = ClaudeCodeAdapter().build_command(
-        request(
-            tmp_path, session_id="s", allowed_tools=("Bash",), can_message_parent=True
-        )
+        request(tmp_path, session_id="s", allowed_tools=("Bash",), can_message_parent=True)
     )
     allowed = cmd[cmd.index("--allowedTools") + 1].split(",")
     assert "Bash" in allowed and CHILD_PUSH_TOOL in allowed

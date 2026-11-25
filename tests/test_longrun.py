@@ -14,6 +14,7 @@ from opa.runtime_state import Runtime
 
 # ---------- goal ----------
 
+
 @pytest.fixture
 def goals(tmp_path):
     return GoalStore(tmp_path / "goal.json")
@@ -82,6 +83,7 @@ def test_corrupt_goal_file_does_not_block_the_session(tmp_path):
 
 # ---------- schedule ----------
 
+
 @pytest.fixture
 def schedule(tmp_path):
     return ScheduleStore(tmp_path / "schedule.jsonl")
@@ -101,12 +103,12 @@ def test_a_one_off_fires_once(schedule):
 
 def test_an_interval_reschedules_itself(schedule):
     entry = schedule.create("heartbeat", every_seconds=30)
-    assert len(schedule.due(collect=False)) == 0        # not due yet
+    assert len(schedule.due(collect=False)) == 0  # not due yet
     entry.due_at = datetime.now(UTC).isoformat()
     fired = schedule.due()
     assert len(fired) == 1
     assert fired[0].fires == 1
-    assert fired[0].active is True                       # still scheduled
+    assert fired[0].active is True  # still scheduled
     assert datetime.fromisoformat(fired[0].due_at) > datetime.now(UTC)
 
 
@@ -158,6 +160,7 @@ def test_delete_names_what_exists(schedule):
 
 # ---------- autonomous ----------
 
+
 async def test_gate_passes_and_fails_on_exit_code(tmp_path):
     assert (await run_gate("exit 0", tmp_path)).passed is True
     failed = await run_gate("echo boom; exit 1", tmp_path)
@@ -202,7 +205,7 @@ class FakeRLM:
 
     def __init__(self, config, on_event=None) -> None:
         self.config = config
-        self.on_event = on_event      # the real service emits rlm.turn per turn
+        self.on_event = on_event  # the real service emits rlm.turn per turn
         self.prompts: list[str] = []
         self.record = FakeRegistryRecord()
         self.registry = self
@@ -264,7 +267,7 @@ async def test_token_budget_stops_the_loop(runner):
         "fix it", child_name="w", gate="exit 1", max_turns=10, token_budget=250
     )
     assert result["outcome"] == "token_budget"
-    assert result["turn_count"] == 3      # 100 tokens per turn; stops once 250 is passed
+    assert result["turn_count"] == 3  # 100 tokens per turn; stops once 250 is passed
 
 
 async def test_a_goal_is_charged_for_autonomous_work(config, tmp_path):
@@ -279,9 +282,10 @@ async def test_a_goal_is_charged_for_autonomous_work(config, tmp_path):
 
 async def test_a_reused_child_does_not_bring_its_old_tokens_into_the_budget(config):
     runner = AutonomousRunner(FakeRLM(config))
-    await runner.start("first", child_name="w", gate="exit 1", max_turns=3)   # 300 tokens
-    second = await runner.start("again", child_name="w", gate="exit 1", max_turns=5,
-                                token_budget=150)
+    await runner.start("first", child_name="w", gate="exit 1", max_turns=3)  # 300 tokens
+    second = await runner.start(
+        "again", child_name="w", gate="exit 1", max_turns=5, token_budget=150
+    )
     assert second["outcome"] == "token_budget"
     assert len(second["turns"]) == 2 and second["tokens"] == 200
 
@@ -296,7 +300,7 @@ async def test_two_runs_cannot_overlap(runner):
     first = asyncio.create_task(
         runner.start("x", child_name="w", gate="sleep 0.5; exit 0", max_turns=1)
     )
-    while runner.active is None:          # wait until the first run is really in flight
+    while runner.active is None:  # wait until the first run is really in flight
         await asyncio.sleep(0.01)
     with pytest.raises(RuntimeError, match="already in progress"):
         await runner.start("y", child_name="w2", gate="exit 0")
@@ -333,6 +337,7 @@ def test_completing_an_exhausted_goal_is_refused(goals):
 
 
 # ---------- not burning a turn on an unchanged tree ----------
+
 
 def git_repo(tmp_path):
     """A repository with no commit.
@@ -507,6 +512,7 @@ def test_a_goal_cannot_be_abandoned_twice(goals):
 
 # ---------- the whole goal state machine, in one place ----------
 
+
 def _goal_in(tmp_path, state, name):
     store = GoalStore(tmp_path / f"{name}.json")
     store.create("objective", token_budget=100)
@@ -525,16 +531,32 @@ def _goal_in(tmp_path, state, name):
 # guard added to `complete` and not its mirror in `abandon`. Scattered tests let
 # that happen twice; a table makes a missing guard a hole you can see.
 TRANSITIONS = {
-    "active": {"complete": "completed", "abandon": "abandoned",
-               "spend": "active", "create": "refused"},
-    "completed": {"complete": "refused", "abandon": "refused",
-                  "spend": "completed", "create": "active"},
-    "abandoned": {"complete": "refused", "abandon": "refused",
-                  "spend": "abandoned", "create": "active"},
+    "active": {
+        "complete": "completed",
+        "abandon": "abandoned",
+        "spend": "active",
+        "create": "refused",
+    },
+    "completed": {
+        "complete": "refused",
+        "abandon": "refused",
+        "spend": "completed",
+        "create": "active",
+    },
+    "abandoned": {
+        "complete": "refused",
+        "abandon": "refused",
+        "spend": "abandoned",
+        "create": "active",
+    },
     # complete() refuses an exhausted goal and names abandon() as the way out,
     # so this transition is the documented escape hatch, not an oversight.
-    "budget_exhausted": {"complete": "refused", "abandon": "abandoned",
-                         "spend": "budget_exhausted", "create": "active"},
+    "budget_exhausted": {
+        "complete": "refused",
+        "abandon": "abandoned",
+        "spend": "budget_exhausted",
+        "create": "active",
+    },
 }
 
 

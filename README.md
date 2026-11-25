@@ -155,7 +155,7 @@ we verified it:
 Here is a real run, copied from the integration test:
 
 ```python
-await rlm('Reply with exactly: ALPHA-7', name='probe', model='sonnet')
+await rlm("Reply with exactly: ALPHA-7", name="probe", model="sonnet")
 # → <rlm child 'probe' (claude-code) running>      returns in 0.6s, child keeps working
 
 await agent_message.inbox()
@@ -166,8 +166,9 @@ await agent_message.inbox()
 await rlm.list_subagents()
 # → [<subagent 'probe' (claude-code) completed turns=1 tokens=11>]
 
-await agent_message.send('What token did you just say? Reply with only the token.',
-                         receiver_name='probe')
+await agent_message.send(
+    "What token did you just say? Reply with only the token.", receiver_name="probe"
+)
 await agent_message.inbox()
 # → ... {'sender': 'probe', 'message': 'ALPHA-7'}
 #   the parent kernel restarted, and the child still remembered its earlier turn
@@ -177,8 +178,8 @@ await agent_message.inbox()
 results arrive in a mailbox. So these two lines really do run in parallel:
 
 ```python
-api  = await rlm("audit the API layer for security problems", name="api-reviewer")
-test = await rlm("map the gaps in our test coverage",          name="test-reviewer")
+api = await rlm("audit the API layer for security problems", name="api-reviewer")
+test = await rlm("map the gaps in our test coverage", name="test-reviewer")
 ```
 
 Mixed backends work too — parent on Claude Code, child on Codex:
@@ -191,8 +192,8 @@ await rlm("refactor this module", name="refactorer", adapter="codex")
 
 ```python
 opa_python("files = [f'f{i}.py' for i in range(500)]")
-opa_python("len(files)")            # → 500     separate call, still alive
-opa_python("print('x' * 30000)")    # → truncated; full text at outputs/00000.txt
+opa_python("len(files)")  # → 500     separate call, still alive
+opa_python("print('x' * 30000)")  # → truncated; full text at outputs/00000.txt
 ```
 
 Large intermediate results stay in Python variables. The model sees what it

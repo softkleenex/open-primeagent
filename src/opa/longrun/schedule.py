@@ -83,8 +83,7 @@ class ScheduleStore:
         was as long as the list, not a single write.
         """
         lines = "".join(
-            json.dumps(asdict(entry), ensure_ascii=False) + "\n"
-            for entry in self.entries.values()
+            json.dumps(asdict(entry), ensure_ascii=False) + "\n" for entry in self.entries.values()
         )
         atomic_write(self.path, lines)
 

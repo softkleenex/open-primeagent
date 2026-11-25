@@ -133,9 +133,7 @@ def build(root: Path, seconds: int = SUITE_SECONDS) -> dict[str, str]:
         digests[name] = hashlib.sha256(checker.encode()).hexdigest()
 
     rows = "\n".join(f"    {name}/    {SUBSYSTEMS[name][0]}" for name in SUBSYSTEMS)
-    (root / "README.md").write_text(
-        README.format(seconds=seconds, rows=rows), encoding="utf-8"
-    )
+    (root / "README.md").write_text(README.format(seconds=seconds, rows=rows), encoding="utf-8")
     return digests
 
 
@@ -164,7 +162,9 @@ def verify(root: Path, digests: dict[str, str], seconds: int = 0) -> dict[str, o
     for name in SUBSYSTEMS:
         proc = subprocess.run(
             [sys.executable, str(root / name / "check.py")],
-            capture_output=True, timeout=120, check=False,
+            capture_output=True,
+            timeout=120,
+            check=False,
         )
         if proc.returncode == 0:
             passing.append(name)

@@ -18,6 +18,7 @@ def harness(tmp_path):
 
 # ---------- store ----------
 
+
 def test_file_layout_matches_the_original_schema(tmp_path):
     """An upstream prime-agent session must be readable as-is."""
     store = HarnessStore(tmp_path / STATE_FILE_NAME)
@@ -32,14 +33,29 @@ def test_file_layout_matches_the_original_schema(tmp_path):
 
 def test_reads_an_original_state_file(tmp_path):
     """Read a state file written by upstream."""
-    (tmp_path / STATE_FILE_NAME).write_text(json.dumps({
-        "schema": 1,
-        "entries": {"memory": {"ports": {
-            "id": "ports", "kind": "memory", "title": "ports", "content": "api=8080",
-            "path": "general", "scope": "local", "source": "agent", "version": 3,
-        }}},
-        "refinements": [{"id": "ref-1", "trigger": "manual", "changes": ["x"]}],
-    }), encoding="utf-8")
+    (tmp_path / STATE_FILE_NAME).write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "entries": {
+                    "memory": {
+                        "ports": {
+                            "id": "ports",
+                            "kind": "memory",
+                            "title": "ports",
+                            "content": "api=8080",
+                            "path": "general",
+                            "scope": "local",
+                            "source": "agent",
+                            "version": 3,
+                        }
+                    }
+                },
+                "refinements": [{"id": "ref-1", "trigger": "manual", "changes": ["x"]}],
+            }
+        ),
+        encoding="utf-8",
+    )
     store = HarnessStore(tmp_path / STATE_FILE_NAME)
     assert store.get("ports").version == 3
     assert store.refinements[0].id == "ref-1"
@@ -49,7 +65,7 @@ def test_corrupt_state_file_does_not_crash(tmp_path):
     (tmp_path / STATE_FILE_NAME).write_text("{not json", encoding="utf-8")
     store = HarnessStore(tmp_path / STATE_FILE_NAME)
     assert store.list() == []
-    store.create("prompt", "t", "c")           # the next save rewrites it cleanly
+    store.create("prompt", "t", "c")  # the next save rewrites it cleanly
     assert HarnessStore(tmp_path / STATE_FILE_NAME).list()[0].title == "t"
 
 
@@ -71,6 +87,7 @@ def test_ids_are_slugged_and_unique(tmp_path):
 
 # ---------- scopes ----------
 
+
 def test_local_and_global_are_separate_files(harness, tmp_path):
     harness.create("memory", "local note", "L")
     harness.create("memory", "global note", "G", global_=True)
@@ -88,6 +105,7 @@ def test_overview_ids_can_be_fed_straight_back(harness):
 
 
 # ---------- applying and reverting refinements ----------
+
 
 def test_apply_records_a_reversible_event(harness):
     event = harness.apply(
@@ -132,7 +150,9 @@ def test_a_failing_change_leaves_nothing_half_applied(harness):
 
 
 def test_rolling_back_twice_is_rejected(harness):
-    event = harness.apply([{"op": "create", "kind": "prompt", "title": "t", "content": "c"}], trigger="x")
+    event = harness.apply(
+        [{"op": "create", "kind": "prompt", "title": "t", "content": "c"}], trigger="x"
+    )
     harness.rollback(event.id)
     with pytest.raises(ValueError, match="already rolled back"):
         harness.rollback(event.id)
@@ -145,11 +165,14 @@ def test_unknown_op_is_rejected(harness):
 
 # ---------- evidence gathering ----------
 
+
 def test_evidence_counts_only_repeated_failures(harness, tmp_path):
     """A one-off is not promoted; only what recurred is."""
     trajectory = tmp_path / "trajectory.jsonl"
     for _ in range(3):
-        jsonl.append(trajectory, {"event": "python.exec", "ok": False, "code": "import missing_mod"})
+        jsonl.append(
+            trajectory, {"event": "python.exec", "ok": False, "code": "import missing_mod"}
+        )
     jsonl.append(trajectory, {"event": "python.exec", "ok": False, "code": "one_off()"})
     jsonl.append(trajectory, {"event": "python.exec", "ok": True, "code": "fine()"})
 
@@ -168,19 +191,27 @@ def test_the_harness_is_per_project_not_per_session(config):
     first = Runtime(config)
     first.harness.create("prompt", "run generate", "after migrations")
 
-    second = Runtime(config)          # a new session, same project
+    second = Runtime(config)  # a new session, same project
     assert second.session_id != first.session_id
     assert second.harness.get("run-generate") is not None
 
 
 # ---------- refinement history as the feedback loop ----------
 
+
 def test_a_refinement_records_why_and_what_it_should_achieve(harness):
     """Nothing checks an expectation mechanically. Recording it is what lets the
     next decision see whether the last one paid off."""
     harness.apply(
-        [{"op": "create", "kind": "prompt", "title": "run generate",
-          "content": "after migrations", "reason": "failed three times this way"}],
+        [
+            {
+                "op": "create",
+                "kind": "prompt",
+                "title": "run generate",
+                "content": "after migrations",
+                "reason": "failed three times this way",
+            }
+        ],
         trigger="/refine",
         rationale="the same stale-generated-file failure recurred",
         expected_outcome="no more stale models_gen.py failures in this project",
@@ -226,8 +257,10 @@ def test_evidence_sees_a_procedure_worth_making_a_skill(harness, tmp_path):
     failures missed every procedure that worked."""
     trajectory = tmp_path / "trajectory.jsonl"
     for _ in range(3):
-        jsonl.append(trajectory, {"event": "python.exec", "ok": True,
-                                  "code": "run_migrations_and_regenerate()"})
+        jsonl.append(
+            trajectory,
+            {"event": "python.exec", "ok": True, "code": "run_migrations_and_regenerate()"},
+        )
     jsonl.append(trajectory, {"event": "python.exec", "ok": True, "code": "once()"})
 
     repeated = harness.evidence(trajectory)["repeated_commands"]
@@ -260,8 +293,10 @@ def test_evidence_admits_what_it_cannot_see(harness, tmp_path):
 def test_a_comment_is_not_a_procedure_signature(harness, tmp_path):
     trajectory = tmp_path / "trajectory.jsonl"
     for _ in range(2):
-        jsonl.append(trajectory, {"event": "python.exec", "ok": True,
-                                  "code": "# same comment\nactual_call()"})
+        jsonl.append(
+            trajectory,
+            {"event": "python.exec", "ok": True, "code": "# same comment\nactual_call()"},
+        )
     assert harness.evidence(trajectory)["repeated_commands"][0]["signature"] == "actual_call()"
 
 
@@ -425,12 +460,8 @@ def test_a_refinement_recorded_elsewhere_is_not_dropped(tmp_path):
     a = HarnessService(tmp_path / "a", shared)
     b = HarnessService(tmp_path / "b", shared)
 
-    a.global_.record_refinement(
-        RefinementEvent(id="ref-aaa", trigger="A", changes=["one"])
-    )
-    b.global_.record_refinement(
-        RefinementEvent(id="ref-bbb", trigger="B", changes=["two"])
-    )
+    a.global_.record_refinement(RefinementEvent(id="ref-aaa", trigger="A", changes=["one"]))
+    b.global_.record_refinement(RefinementEvent(id="ref-bbb", trigger="B", changes=["two"]))
 
     reloaded = HarnessService(tmp_path / "c", shared)
     assert sorted(e.id for e in reloaded.global_.refinements) == ["ref-aaa", "ref-bbb"]
@@ -490,8 +521,10 @@ def test_a_failed_apply_is_undone_on_disk_even_after_a_merge(tmp_path):
     b.create("memory", "other", "x", global_=True)
     with pytest.raises(KeyError):
         a.apply(
-            [{"op": "update", "id": "global:rule", "content": "HALF-APPLIED"},
-             {"op": "delete", "id": "nope"}],
+            [
+                {"op": "update", "id": "global:rule", "content": "HALF-APPLIED"},
+                {"op": "delete", "id": "nope"},
+            ],
             trigger="t",
         )
     assert _on_disk(state, "prompt")["rule"]["content"] == "original"

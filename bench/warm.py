@@ -103,9 +103,7 @@ async def run_arm(arm: str, model: str) -> Result:
             target = "reviewer"
         else:
             cold_prompt = f"Read api/auth.py. {FOLLOWUP}"
-            await call(
-                server, f"await rlm({cold_prompt!r}, name='reviewer-2', model={model!r})"
-            )
+            await call(server, f"await rlm({cold_prompt!r}, name='reviewer-2', model={model!r})")
             target = "reviewer-2"
         await wait_for_inbox(runtime, 2)
         elapsed = int((time.monotonic() - started) * 1000)
@@ -146,9 +144,7 @@ async def main_async(args) -> None:
     out = Path(args.out) / f"warm-{args.model}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
-    out.write_text(
-        json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8"
-    )
+    out.write_text(json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8")
     print(f"wrote {out}")
 
 

@@ -211,7 +211,7 @@ That is a design choice, not a missing feature.
 rule it is exposed as a **kernel symbol**:
 
 ```python
-await harness.evidence()             # grounds
+await harness.evidence()  # grounds
 await harness.apply([...], trigger="/evolve")
 await harness.rollback(event_id)
 ```

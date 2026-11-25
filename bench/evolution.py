@@ -56,9 +56,21 @@ LESSONS = {
 }
 
 DECOYS = [
-    "build_assets", "check_style", "codegen_docs", "compile_protos", "gen_fixtures",
-    "make_models", "migrate_db", "regen_types", "render_templates", "seed_data",
-    "sync_schema", "update_index", "validate_schema", "warm_cache", "write_manifest",
+    "build_assets",
+    "check_style",
+    "codegen_docs",
+    "compile_protos",
+    "gen_fixtures",
+    "make_models",
+    "migrate_db",
+    "regen_types",
+    "render_templates",
+    "seed_data",
+    "sync_schema",
+    "update_index",
+    "validate_schema",
+    "warm_cache",
+    "write_manifest",
 ]
 
 
@@ -91,9 +103,7 @@ def build_project(root: Path, variant: str = "easy") -> None:
         shutil.rmtree(root)
     (root / "tests").mkdir(parents=True)
 
-    (root / "schema.py").write_text(
-        'FIELDS = ["id", "email"]\n', encoding="utf-8"
-    )
+    (root / "schema.py").write_text('FIELDS = ["id", "email"]\n', encoding="utf-8")
     if variant == "easy":
         (root / "generate.py").write_text(
             "from pathlib import Path\n"
@@ -110,13 +120,10 @@ def build_project(root: Path, variant: str = "easy") -> None:
         (tools / "sync_models.py").write_text(GENERATOR_SRC, encoding="utf-8")
         for name in DECOYS:
             (tools / f"{name}.py").write_text(
-                f'"""{name.replace("_", " ").title()} helper."""\n'
-                f'print("{name}: nothing to do")\n',
+                f'"""{name.replace("_", " ").title()} helper."""\nprint("{name}: nothing to do")\n',
                 encoding="utf-8",
             )
-    (root / "models_gen.py").write_text(
-        'GENERATED_FIELDS = ["id", "email"]\n', encoding="utf-8"
-    )
+    (root / "models_gen.py").write_text('GENERATED_FIELDS = ["id", "email"]\n', encoding="utf-8")
     (root / "tests" / "test_schema.py").write_text(
         "import sys\n"
         "from pathlib import Path\n"
@@ -157,7 +164,10 @@ class RoundResult:
 def tests_pass(root: Path) -> bool:
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "-q"],
-        cwd=root, capture_output=True, check=False, timeout=120,
+        cwd=root,
+        capture_output=True,
+        check=False,
+        timeout=120,
     )
     return proc.returncode == 0
 
@@ -171,14 +181,26 @@ def run_round(
         (root / "CLAUDE.md").write_text(projection(variant), encoding="utf-8")
 
     cmd = [
-        "claude", "-p", TASK, "--output-format", "json", "--model", model,
-        "--allowedTools", "Bash,Read,Edit,Write,Grep,Glob",
-        "--permission-mode", "acceptEdits",
+        "claude",
+        "-p",
+        TASK,
+        "--output-format",
+        "json",
+        "--model",
+        model,
+        "--allowedTools",
+        "Bash,Read,Edit,Write,Grep,Glob",
+        "--permission-mode",
+        "acceptEdits",
     ]
     started = time.monotonic()
     proc = subprocess.run(
-        cmd, cwd=root, capture_output=True, timeout=timeout,
-        stdin=subprocess.DEVNULL, check=False,
+        cmd,
+        cwd=root,
+        capture_output=True,
+        timeout=timeout,
+        stdin=subprocess.DEVNULL,
+        check=False,
     )
     elapsed = int((time.monotonic() - started) * 1000)
     try:
@@ -230,9 +252,7 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     # Append, so sample size grows across invocations instead of being replaced.
     previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
-    out.write_text(
-        json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8"
-    )
+    out.write_text(json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8")
     print(f"wrote {out}")
 
 

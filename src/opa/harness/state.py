@@ -59,9 +59,7 @@ def validate_id(raw: str) -> str:
         raise ValueError("id must be a non-empty string")
     cleaned = slug(raw)
     if cleaned != raw:
-        raise ValueError(
-            f"unsafe harness id {raw!r}; ids must match their slug, e.g. {cleaned!r}"
-        )
+        raise ValueError(f"unsafe harness id {raw!r}; ids must match their slug, e.g. {cleaned!r}")
     return cleaned
 
 
@@ -138,8 +136,8 @@ class HarnessStore:
         # since it last read the file, which is what has to survive a merge.
         self._touched: dict[tuple[str, str], object] = {}
         self._stamp: tuple[int, int, int] | None = None
-        self._created: set[tuple[str, str]] = set()      # ids we generated, not chose
-        self._touched_events: set[str] = set()           # refinements changed in place
+        self._created: set[tuple[str, str]] = set()  # ids we generated, not chose
+        self._touched_events: set[str] = set()  # refinements changed in place
         self.load()
 
     # ---------- persistence ----------

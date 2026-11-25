@@ -147,9 +147,7 @@ async def run_arm(arm: str, model: str, timeout: float) -> Run:
                 )
             await wait_for_inbox(runtime, len(SUBSYSTEMS), timeout)
         else:
-            await call(
-                server, f"await rlm({WHOLE_PROMPT!r}, name='reviewer', model={model!r})"
-            )
+            await call(server, f"await rlm({WHOLE_PROMPT!r}, name='reviewer', model={model!r})")
             await wait_for_inbox(runtime, 1, timeout)
         elapsed = int((time.monotonic() - started) * 1000)
 
@@ -200,8 +198,12 @@ async def main_async(args) -> None:
         json.dumps(
             previous
             + [
-                asdict(r) | {"total_tokens": r.total_tokens, "total_cost": r.total_cost,
-                             "found_count": len(r.found)}
+                asdict(r)
+                | {
+                    "total_tokens": r.total_tokens,
+                    "total_cost": r.total_cost,
+                    "found_count": len(r.found),
+                }
                 for r in rows
             ],
             indent=2,

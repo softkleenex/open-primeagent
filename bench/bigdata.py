@@ -73,8 +73,12 @@ REGIONS = (("apac", 26), ("emea", 21), ("namer", 19), ("latam", 18), ("anz", 16)
 # maximum, so question 4 counted rows that cannot exist. Caught by the ground
 # truth raising before a single agent ran.
 ACTION_LATENCY = {
-    "view": 3.9, "click": 4.2, "purchase": 5.4,
-    "refund": 5.9, "search": 4.6, "share": 4.0,
+    "view": 3.9,
+    "click": 4.2,
+    "purchase": 5.4,
+    "refund": 5.9,
+    "search": 4.6,
+    "share": 4.0,
 }
 ACTIONS = tuple(ACTION_LATENCY)
 
@@ -339,8 +343,12 @@ def run_arm(arm: str, workspace: Path, model: str, timeout: float, truth: Truth)
         started = time.monotonic()
         try:
             proc = subprocess.run(
-                cmd, cwd=workspace, capture_output=True, timeout=timeout,
-                stdin=subprocess.DEVNULL, check=False,
+                cmd,
+                cwd=workspace,
+                capture_output=True,
+                timeout=timeout,
+                stdin=subprocess.DEVNULL,
+                check=False,
             )
             raw = proc.stdout
             stderr = proc.stderr

@@ -158,6 +158,7 @@ async def test_status_reports_the_running_server_version(server):
 
 # ---------- the console script ----------
 
+
 def test_help_prints_instead_of_starting_the_server(capsys):
     """`opa --help` used to start the server, so it printed nothing.
 
@@ -207,6 +208,7 @@ def test_a_console_script_is_named_after_the_distribution():
 
 
 # ---------- concurrency ----------
+
 
 async def test_concurrent_callers_boot_exactly_one_kernel(config):
     """Two `opa_python` calls arriving together must not race the boot.

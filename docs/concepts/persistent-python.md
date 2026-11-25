@@ -10,9 +10,9 @@ to live.
 open-primeagent gives it somewhere else to live.
 
 ```python
-opa_python("files = [p for p in Path('.').rglob('*.py')]")   # 500 paths
-opa_python("graph = build_dependency_graph(files)")          # 30 KB structure
-opa_python("[f.name for f in suspicious(graph)][:5]")        # the model sees 5 names
+opa_python("files = [p for p in Path('.').rglob('*.py')]")  # 500 paths
+opa_python("graph = build_dependency_graph(files)")  # 30 KB structure
+opa_python("[f.name for f in suspicious(graph)][:5]")  # the model sees 5 names
 ```
 
 State survives across calls, across turns, and across your own context

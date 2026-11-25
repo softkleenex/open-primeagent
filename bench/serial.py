@@ -62,14 +62,14 @@ SINGLE_TASK = (
 @dataclass
 class Run:
     arm: str
-    seconds: int = 0        # how long each check blocks; conditions are not comparable across values
+    seconds: int = 0  # how long each check blocks; conditions are not comparable across values
     child_tokens: int = 0
     child_cost: float = 0.0
     children: int = 0
     duration_ms: int = 0
     passed: int = 0
     passing: list[str] = field(default_factory=list)
-    verified: list[str] = field(default_factory=list)   # checks the agent itself ran
+    verified: list[str] = field(default_factory=list)  # checks the agent itself ran
     tampered: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -110,14 +110,10 @@ async def run_arm(arm: str, model: str, seconds: int, timeout: float) -> Run:
         if arm == "fanout":
             for name, (_, _, _, hint) in SUBSYSTEMS.items():
                 prompt = CHILD_TASK.format(name=name, hint=hint, seconds=seconds)
-                await call(
-                    server, f"await rlm({prompt!r}, name={name!r}, model={model!r})"
-                )
+                await call(server, f"await rlm({prompt!r}, name={name!r}, model={model!r})")
             await wait_for_inbox(runtime, len(SUBSYSTEMS), timeout)
         else:
-            prompt = SINGLE_TASK.format(
-                names=", ".join(SUBSYSTEMS), seconds=seconds
-            )
+            prompt = SINGLE_TASK.format(names=", ".join(SUBSYSTEMS), seconds=seconds)
             await call(server, f"await rlm({prompt!r}, name='fixer', model={model!r})")
             await wait_for_inbox(runtime, 1, timeout)
         elapsed = int((time.monotonic() - started) * 1000)
@@ -165,9 +161,7 @@ async def main_async(args) -> None:
             # rate limit; losing all of them to one interruption is not a
             # tradeoff worth making for tidier code.
             previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
-            out.write_text(
-                json.dumps(previous + [asdict(row)], indent=2), encoding="utf-8"
-            )
+            out.write_text(json.dumps(previous + [asdict(row)], indent=2), encoding="utf-8")
     print(f"wrote {out}")
 
 

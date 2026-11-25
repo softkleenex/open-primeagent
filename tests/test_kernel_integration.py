@@ -37,7 +37,9 @@ async def test_functions_and_imports_persist(server):
 
 async def test_top_level_await_works(server):
     """IPython autoawait handles it; nest_asyncio is unnecessary."""
-    out = await call(server, "opa_python", {"code": "import asyncio\nawait asyncio.sleep(0.01)\n'ok'"})
+    out = await call(
+        server, "opa_python", {"code": "import asyncio\nawait asyncio.sleep(0.01)\n'ok'"}
+    )
     assert "'ok'" in out
 
 
@@ -114,7 +116,11 @@ async def test_concurrent_calls_do_not_steal_each_others_output(server):
     await call(server, "opa_python", {"code": "kept = 1"})
     await call(server, "opa_status", {})  # while busy, status answers from the last list
     slow = asyncio.create_task(
-        call(server, "opa_python", {"code": "import time; time.sleep(1); print('SLOW-DONE')", "timeout": 15})
+        call(
+            server,
+            "opa_python",
+            {"code": "import time; time.sleep(1); print('SLOW-DONE')", "timeout": 15},
+        )
     )
     await asyncio.sleep(0.2)
     fast, status = await asyncio.wait_for(
@@ -139,8 +145,10 @@ async def test_a_failed_boot_does_not_leak_the_kernel(config, monkeypatch):
         started.append(self)
         real_bootstrap = self._bootstrap
         self._bootstrap = lambda: real_bootstrap() + "\nraise SystemExit"
+
         async def failing_execute(*a, **k):
             raise RuntimeError("bootstrap blew up")
+
         monkeypatch.setattr(self, "execute", failing_execute)
         await real_start(self)
 

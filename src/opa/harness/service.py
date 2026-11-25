@@ -244,8 +244,9 @@ class HarnessService:
         # and can split between them; a single-scope one, which is all of them
         # in practice, cannot.
         with self.local.batched(), self.global_.batched():
-            return self._apply_locked(changes, before, summary, applied,
-                                      trigger, evidence, rationale, expected_outcome)
+            return self._apply_locked(
+                changes, before, summary, applied, trigger, evidence, rationale, expected_outcome
+            )
 
     def _apply_locked(
         self,

@@ -25,12 +25,12 @@ ENV_CHILD_NAME = "OPA_CHILD_NAME"
 
 @dataclass(frozen=True)
 class Config:
-    root: Path                 # per-project state root (default <cwd>/.opa)
-    global_root: Path          # state shared across projects (default ~/.opa)
-    workspace: Path            # the host agent's working directory
-    max_output_chars: int      # how much output opa_python puts in its reply
-    default_adapter: str       # "claude-code" | "codex" | ...
-    child_permission_mode: str # conservative default; bypass is explicit opt-in only
+    root: Path  # per-project state root (default <cwd>/.opa)
+    global_root: Path  # state shared across projects (default ~/.opa)
+    workspace: Path  # the host agent's working directory
+    max_output_chars: int  # how much output opa_python puts in its reply
+    default_adapter: str  # "claude-code" | "codex" | ...
+    child_permission_mode: str  # conservative default; bypass is explicit opt-in only
     child_allowed_tools: tuple[str, ...]  # a child that cannot run tests is half a sub-agent
     allow_dangerous_child: bool
     child_can_message_parent: bool  # attach the one-tool opa-child server
@@ -40,9 +40,9 @@ class Config:
         workspace = Path(os.environ.get("OPA_WORKSPACE", os.getcwd())).resolve()
         return cls(
             root=Path(os.environ.get("OPA_ROOT", workspace / ".opa")).resolve(),
-            global_root=Path(
-                os.environ.get("OPA_GLOBAL_ROOT", Path.home() / ".opa")
-            ).expanduser().resolve(),
+            global_root=Path(os.environ.get("OPA_GLOBAL_ROOT", Path.home() / ".opa"))
+            .expanduser()
+            .resolve(),
             workspace=workspace,
             max_output_chars=int(os.environ.get("OPA_MAX_OUTPUT_CHARS", "4000")),
             default_adapter=os.environ.get("OPA_DEFAULT_ADAPTER", "claude-code"),

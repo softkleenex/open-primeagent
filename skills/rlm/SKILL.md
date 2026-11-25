@@ -9,8 +9,8 @@ Used inside the `opa_python` tool. `rlm(...)` is not an LLM API call — it crea
 an **independent agent session**.
 
 ```python
-api  = await rlm("audit the API layer for security problems", name="api-reviewer")
-test = await rlm("map the gaps in our test coverage",         name="test-reviewer")
+api = await rlm("audit the API layer for security problems", name="api-reviewer")
+test = await rlm("map the gaps in our test coverage", name="test-reviewer")
 ```
 
 `rlm(...)` **does not wait.** It returns a handle and the child keeps working in
@@ -31,7 +31,8 @@ be backgrounded mid-wait. Poll briefly and come back:
 
 ```python
 import asyncio
-for _ in range(10):                       # ~50s, comfortably inside the cap
+
+for _ in range(10):  # ~50s, comfortably inside the cap
     inbox = await agent_message.inbox()
     if inbox:
         break
@@ -45,12 +46,13 @@ the next call picks up whatever arrived meanwhile.
 ## A child is not disposable
 
 ```python
-children = await rlm.list_subagents()      # still there after a kernel restart
+children = await rlm.list_subagents()  # still there after a kernel restart
 
 await agent_message.send(
     "re-check it now that I've fixed the code",
-    receiver_role="child", receiver_name="api-reviewer",
-)   # continues with its earlier context intact
+    receiver_role="child",
+    receiver_name="api-reviewer",
+)  # continues with its earlier context intact
 ```
 
 **Before creating a child, call `list_subagents()` and look for an existing one.**

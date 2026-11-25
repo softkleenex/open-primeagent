@@ -8,9 +8,9 @@ description: Turn what this session taught you into the smallest possible harnes
 "Self-improving" means the **harness** improves, not the model's weights.
 
 ```python
-evidence = await harness.evidence()     # grounds, gathered from this session
+evidence = await harness.evidence()  # grounds, gathered from this session
 await harness.apply([...], trigger="refine", evidence=str(evidence))
-await harness.rollback(event_id)        # exact revert
+await harness.rollback(event_id)  # exact revert
 ```
 
 `harness` does not decide what to change — **you do**. The host does not lend us

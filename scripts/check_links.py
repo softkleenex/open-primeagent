@@ -34,9 +34,7 @@ ANCHORED = {".md", ".markdown"}
 
 
 def markdown_files(root: Path) -> list[Path]:
-    return sorted(
-        p for p in root.rglob("*.md") if not any(part in SKIP_DIRS for part in p.parts)
-    )
+    return sorted(p for p in root.rglob("*.md") if not any(part in SKIP_DIRS for part in p.parts))
 
 
 def rendered_anchors(base: str, relpath: str) -> set[str] | None:

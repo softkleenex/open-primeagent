@@ -29,17 +29,17 @@ class TurnRequest:
     prompt: str
     cwd: Path
     session_dir: Path
-    session_id: str | None = None      # None means the backend issues it
+    session_id: str | None = None  # None means the backend issues it
     resume: bool = False
     model: str | None = None
     system_prompt: str | None = None
     permission_mode: str = "acceptEdits"
     allowed_tools: tuple[str, ...] = ()
     allow_dangerous: bool = False
-    child_name: str | None = None       # used for the child -> parent push channel
+    child_name: str | None = None  # used for the child -> parent push channel
     can_message_parent: bool = False
-    host_socket: str | None = None      # the child cannot reach the parent without it
-    token: str | None = None            # what the bridge will recognise it as
+    host_socket: str | None = None  # the child cannot reach the parent without it
+    token: str | None = None  # what the bridge will recognise it as
     timeout: float = 1800.0
 
 
@@ -50,7 +50,7 @@ class TurnResult:
     session_id: str | None = None
     tokens: int | None = None
     cost_usd: float | None = None
-    raw_path: Path | None = None       # raw backend output (the full event stream)
+    raw_path: Path | None = None  # raw backend output (the full event stream)
     error: str | None = None
     duration_ms: int = 0
 

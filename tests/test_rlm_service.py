@@ -249,6 +249,7 @@ async def test_cancel_child_stops_its_running_turn(config, monkeypatch):
 async def test_the_answer_survives_a_failure_in_the_bookkeeping_after_it(service, monkeypatch):
     """A disk error while recording a finished turn used to lose the answer:
     status `completed`, an empty inbox, and nothing logged."""
+
     def broken(*a, **k):
         raise OSError(28, "No space left on device")
 

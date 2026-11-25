@@ -60,8 +60,10 @@ class CodexAdapter:
             # codex has no --mcp-config; servers are config keys, and `-c` takes
             # TOML, so each value has to be quoted as TOML rather than as JSON.
             cmd += [
-                "-c", f'mcp_servers.{CHILD_SERVER_NAME}.command={json.dumps(sys.executable)}',
-                "-c", f'mcp_servers.{CHILD_SERVER_NAME}.args=["-m", "opa.child_server"]',
+                "-c",
+                f"mcp_servers.{CHILD_SERVER_NAME}.command={json.dumps(sys.executable)}",
+                "-c",
+                f'mcp_servers.{CHILD_SERVER_NAME}.args=["-m", "opa.child_server"]',
             ]
         # Prompt last, after `--`: see ClaudeCodeAdapter.build_command.
         return [*cmd, "--", request.prompt]

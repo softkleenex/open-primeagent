@@ -130,9 +130,7 @@ class _RLM:
     async def delete_subagent(self, target: str | RLMSubagent) -> RLMSubagent:
         """Drop one child. Returns the record as it was when it went away."""
         # Address by id, not name: names can be reused, ids cannot.
-        selector = (
-            target.rlm_child_id if isinstance(target, RLMSubagent) else str(target).strip()
-        )
+        selector = target.rlm_child_id if isinstance(target, RLMSubagent) else str(target).strip()
         payload = await host_request("rlm.delete_subagent", {"target": selector})
         return _subagent(payload["subagent"])
 

@@ -205,6 +205,7 @@ test = await rlm("map test coverage gaps", name="test-reviewer")
 ```python
 class AgentAdapter(Protocol):
     name: str
+
     def available(self) -> bool: ...
     def preassign_session_id(self) -> str | None: ...
     async def run(self, request: TurnRequest) -> TurnResult: ...
@@ -242,8 +243,8 @@ moment the task is admitted.
 ```python
 @dataclass
 class ChildRecord:
-    rlm_child_id: str        # opa-<8hex>
-    name: str                # "api-reviewer" — the address for re-tasking
+    rlm_child_id: str  # opa-<8hex>
+    name: str  # "api-reviewer" — the address for re-tasking
     adapter: str
     native_session_id: str | None
     cwd: str

@@ -28,6 +28,7 @@ async def runtime(config, monkeypatch):
 
 # ---------- registration ----------
 
+
 async def test_every_documented_type_is_registered(runtime):
     assert set(runtime.bridge.types) == {
         "agent_message.inbox",
@@ -64,6 +65,7 @@ async def test_every_documented_type_is_registered(runtime):
 
 # ---------- rlm ----------
 
+
 async def test_rlm_run_requires_a_name(runtime):
     """`name` is the child's address for re-tasking, so a nameless child is useless."""
     with pytest.raises(RuntimeError, match="name= is required"):
@@ -96,6 +98,7 @@ async def test_inbox_starts_empty(runtime):
 
 
 # ---------- harness ----------
+
 
 async def test_harness_crud_round_trip(runtime):
     created = await host_request(
@@ -143,9 +146,7 @@ async def test_apply_then_rollback_over_the_bridge(runtime):
         await host_request(
             "harness.apply",
             {
-                "changes": [
-                    {"op": "create", "kind": "prompt", "title": "note", "content": "body"}
-                ],
+                "changes": [{"op": "create", "kind": "prompt", "title": "note", "content": "body"}],
                 "trigger": "test",
             },
         )
@@ -191,6 +192,7 @@ async def test_project_writes_only_inside_the_block(runtime, config):
 
 
 # ---------- long-run (L4) ----------
+
 
 async def test_goal_lifecycle_over_the_bridge(runtime):
     assert (await host_request("goal.get"))["goal"] is None

@@ -55,10 +55,10 @@ A durable queue of prompts that become due at a time.
 ```python
 await schedule.create("check whether the deploy finished", in_seconds=600)
 await schedule.create("re-run the benchmark", at="2026-08-21T09:00:00Z")
-await schedule.create("summarise what changed", every_seconds=3600)   # heartbeat
+await schedule.create("summarise what changed", every_seconds=3600)  # heartbeat
 
-await schedule.due()                  # what has come due, and consume it
-await schedule.due(collect=False)     # look without consuming
+await schedule.due()  # what has come due, and consume it
+await schedule.due(collect=False)  # look without consuming
 ```
 
 Interval entries are the heartbeat form: firing reschedules them, one-offs
@@ -77,7 +77,7 @@ agent scheduling its own reminders is fine; an agent scheduling things you
 cannot find is not.
 
 ```python
-await schedule.list(source="agent")   # what has it set up for itself?
+await schedule.list(source="agent")  # what has it set up for itself?
 ```
 
 `opa_status()` reports how many entries exist and how many are due, and looking
@@ -92,7 +92,7 @@ await autonomous.start(
     "make the failing integration tests pass",
     child_name="fixer",
     gate="uv run pytest -q tests/integration",
-    cwd="services/billing",        # scope it; the default is the workspace root
+    cwd="services/billing",  # scope it; the default is the workspace root
     max_turns=6,
     token_budget=300_000,
 )

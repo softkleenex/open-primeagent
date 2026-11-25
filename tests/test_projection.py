@@ -117,7 +117,7 @@ def test_write_skills_never_touches_user_skills(tmp_path):
     projection.write_skills(skills, [entry("skill", "opa-one", "One")])
     assert (skills / "opa-one" / "SKILL.md").exists()
 
-    projection.write_skills(skills, [])           # only our skill may disappear
+    projection.write_skills(skills, [])  # only our skill may disappear
     assert not (skills / "opa-one").exists()
     assert (user_skill / "SKILL.md").read_text() == "mine"
 
@@ -294,8 +294,16 @@ def test_a_skill_directory_we_did_not_create_is_never_touched(tmp_path):
 
 @pytest.mark.parametrize(
     "name",
-    ["", ".", "..", "../outside", "../../../../etc/passwd", "/etc/passwd",
-     "ok/../../outside", "..//outside"],
+    [
+        "",
+        ".",
+        "..",
+        "../outside",
+        "../../../../etc/passwd",
+        "/etc/passwd",
+        "ok/../../outside",
+        "..//outside",
+    ],
 )
 def test_the_write_guard_refuses_anything_that_is_not_a_child(tmp_path, name):
     from opa.harness.projection import _inside
@@ -360,11 +368,11 @@ def _roundtrip(tmp_path, original: bytes) -> bytes | None:
 @pytest.mark.parametrize(
     "original",
     [
-        b"# Mine",                       # no final newline
-        b"# Mine\n\n\n",                # several trailing newlines
-        b"\n\n  \n",                     # whitespace only
-        b"A\r\nB\r\n",                   # CRLF
-        b"\xef\xbb\xbf# Mine\n",          # BOM
+        b"# Mine",  # no final newline
+        b"# Mine\n\n\n",  # several trailing newlines
+        b"\n\n  \n",  # whitespace only
+        b"A\r\nB\r\n",  # CRLF
+        b"\xef\xbb\xbf# Mine\n",  # BOM
         b"The tool writes a `<!-- opa:begin -->` block.\nMy rule: always run tests.\n",
     ],
     ids=["no-eol", "trailing-newlines", "whitespace-only", "crlf", "bom", "marker-in-prose"],

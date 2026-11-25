@@ -25,7 +25,9 @@ from .state import HarnessEntry
 BEGIN = "<!-- opa:begin — generated. Nothing outside this block is touched. -->"
 # Same marker, recording that the user's file had no final newline before we
 # appended. Without it, apply-then-remove could not give back the exact bytes.
-BEGIN_NO_EOL = "<!-- opa:begin (no final newline) — generated. Nothing outside this block is touched. -->"
+BEGIN_NO_EOL = (
+    "<!-- opa:begin (no final newline) — generated. Nothing outside this block is touched. -->"
+)
 END = "<!-- opa:end -->"
 
 # A marker counts only when it is a whole line. The old pattern matched
@@ -80,9 +82,7 @@ def _section(lines: list[str], heading: str, entries: list, render_one) -> None:
     lines.append("")
     lines += [render_one(entry) for entry in shown]
     if len(entries) > len(shown):
-        lines.append(
-            f"- … {len(entries) - len(shown)} more — `await harness.overview()`"
-        )
+        lines.append(f"- … {len(entries) - len(shown)} more — `await harness.overview()`")
     lines.append("")
 
 
@@ -104,13 +104,26 @@ def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> st
     )
     lines.append("")
 
-    _section(lines, "Rules for this project", prompts,
-             lambda e: f"- **{_one_line(e.title, SUMMARY_CHARS)}** — {_one_line(e.content, SUMMARY_CHARS)}")
-    _section(lines, "Memory index", memories,
-             lambda e: f"- {_one_line(e.title, SUMMARY_CHARS)} → "
-                       + (f"`.opa/{MEMORY_DIR_NAME}/{e.id}.md`" if memory_dir else f"`{e.id}`"))
-    _section(lines, "Skills", skills,
-             lambda e: f"- `{e.id}` — {_one_line(e.content, SUMMARY_CHARS)}")
+    _section(
+        lines,
+        "Rules for this project",
+        prompts,
+        lambda e: (
+            f"- **{_one_line(e.title, SUMMARY_CHARS)}** — {_one_line(e.content, SUMMARY_CHARS)}"
+        ),
+    )
+    _section(
+        lines,
+        "Memory index",
+        memories,
+        lambda e: (
+            f"- {_one_line(e.title, SUMMARY_CHARS)} → "
+            + (f"`.opa/{MEMORY_DIR_NAME}/{e.id}.md`" if memory_dir else f"`{e.id}`")
+        ),
+    )
+    _section(
+        lines, "Skills", skills, lambda e: f"- `{e.id}` — {_one_line(e.content, SUMMARY_CHARS)}"
+    )
 
     return "\n".join(lines).rstrip() + "\n"
 

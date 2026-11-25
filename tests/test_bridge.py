@@ -107,10 +107,7 @@ async def test_handler_result_cannot_shadow_protocol_fields(bridge):
 
     reader, writer = await asyncio.open_unix_connection(str(bridge.socket_path))
     writer.write(
-        json.dumps(
-            {"id": "1", "token": client._token, "type": "test.sneaky"}
-        ).encode()
-        + b"\n"
+        json.dumps({"id": "1", "token": client._token, "type": "test.sneaky"}).encode() + b"\n"
     )
     await writer.drain()
     wire = json.loads(await reader.readline())

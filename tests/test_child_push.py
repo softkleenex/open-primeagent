@@ -22,6 +22,7 @@ from opa_runtime.client import host_request
 
 # ---------- the child-side server ----------
 
+
 async def test_the_child_server_exposes_exactly_one_tool():
     """A child must not be able to spawn grandchildren, so it gets no rlm."""
     tools = await build_server().list_tools()
@@ -36,6 +37,7 @@ def test_child_config_never_attaches_the_full_server(tmp_path):
 
 
 # ---------- the adapter side ----------
+
 
 def request(tmp_path, **kw):
     return TurnRequest(prompt="p", cwd=tmp_path, session_dir=tmp_path / "child", **kw)
@@ -62,6 +64,7 @@ def test_the_child_learns_its_own_name(tmp_path):
 
 # ---------- the bridge side ----------
 
+
 @pytest.fixture
 async def runtime(config, monkeypatch):
     rt = Runtime(config)
@@ -80,7 +83,7 @@ def child_env(runtime, name, monkeypatch):
         ChildRecord.new(name, "claude-code", Path(runtime.config.workspace))
     )
     token = runtime.bridge.issue_token("child", record.name)
-    client.set_token(None)          # stop being the kernel
+    client.set_token(None)  # stop being the kernel
     monkeypatch.setenv("OPA_CHILD_TOKEN", token)
     return record
 
@@ -95,7 +98,7 @@ async def test_a_registered_child_can_push_to_the_parent(runtime, monkeypatch):
 
     inbox = runtime.rlm.mailbox.read()
     assert inbox[0]["message"] == "found a hardcoded key"
-    assert inbox[0]["mid_run"] is True      # tells a final answer from a progress note
+    assert inbox[0]["mid_run"] is True  # tells a final answer from a progress note
 
 
 async def test_a_child_cannot_speak_as_a_sibling(runtime, monkeypatch):
@@ -143,9 +146,7 @@ async def test_a_child_may_not_touch_anything_but_its_own_channel(runtime, monke
 
 async def test_the_kernel_keeps_full_access(runtime):
     """Narrowing the child must not narrow the kernel, which is the same socket."""
-    entry = await host_request(
-        "harness.create", {"kind": "prompt", "title": "t", "content": "c"}
-    )
+    entry = await host_request("harness.create", {"kind": "prompt", "title": "t", "content": "c"})
     assert entry["entry"]["id"] == "t"
 
 
@@ -189,16 +190,16 @@ async def test_reading_the_inbox_frees_the_quota(runtime, monkeypatch):
         await host_request("agent_message.send", {"message": f"n{i}", "receiver_role": "parent"})
     assert len(runtime.rlm.mailbox.consume()) == MAX_PENDING_PER_SENDER
     assert runtime.rlm.mailbox.unread() == []
-    await host_request("agent_message.send", {"message": "after reading", "receiver_role": "parent"})
+    await host_request(
+        "agent_message.send", {"message": "after reading", "receiver_role": "parent"}
+    )
     assert [m["message"] for m in runtime.rlm.mailbox.unread()] == ["after reading"]
 
 
 async def test_parent_to_child_still_works(runtime):
     """The new branch must not have broken the original direction."""
     with pytest.raises(RuntimeError, match="no sub-agent named"):
-        await host_request(
-            "agent_message.send", {"message": "hi", "receiver_name": "ghost"}
-        )
+        await host_request("agent_message.send", {"message": "hi", "receiver_name": "ghost"})
 
 
 def test_the_child_is_given_the_host_socket(tmp_path):

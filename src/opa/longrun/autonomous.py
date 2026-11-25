@@ -64,7 +64,7 @@ class TurnRecord:
 class RunResult:
     objective: str
     child_name: str
-    outcome: str            # gate_passed | max_turns | token_budget | timeout | error
+    outcome: str  # gate_passed | max_turns | token_budget | timeout | error
     cwd: str = ""
     turns: list[TurnRecord] = field(default_factory=list)
     tokens: int = 0
@@ -79,15 +79,21 @@ class RunResult:
 def _run_gate_blocking(command: str, cwd: Path, timeout: float) -> GateResult:
     try:
         proc = subprocess.run(
-            command, shell=True, cwd=str(cwd), capture_output=True,
-            timeout=timeout, check=False,
+            command,
+            shell=True,
+            cwd=str(cwd),
+            capture_output=True,
+            timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return GateResult(False, -1, f"gate timed out after {timeout}s")
     output = (proc.stdout + proc.stderr).decode(errors="replace")
     if len(output) > MAX_GATE_OUTPUT:
         head = MAX_GATE_OUTPUT * 2 // 5
-        output = output[:head] + "\n… [gate output truncated] …\n" + output[-(MAX_GATE_OUTPUT - head):]
+        output = (
+            output[:head] + "\n… [gate output truncated] …\n" + output[-(MAX_GATE_OUTPUT - head) :]
+        )
     return GateResult(proc.returncode == 0, proc.returncode, output)
 
 
@@ -102,11 +108,15 @@ def worktree_fingerprint(cwd: Path) -> str | None:
     Covers tracked changes and untracked file contents, so creating a file
     counts as a change.
     """
+
     def git(*args: str) -> bytes | None:
         try:
             proc = subprocess.run(
-                ["git", *args], cwd=str(cwd), capture_output=True,
-                timeout=WORKTREE_TIMEOUT, check=False,
+                ["git", *args],
+                cwd=str(cwd),
+                capture_output=True,
+                timeout=WORKTREE_TIMEOUT,
+                check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
             return None
@@ -207,7 +217,11 @@ class AutonomousRunner:
                     break
 
                 turn = await self._one_turn(
-                    prompt, child_name, index, model=model, timeout=turn_timeout,
+                    prompt,
+                    child_name,
+                    index,
+                    model=model,
+                    timeout=turn_timeout,
                     cwd=cwd,
                 )
                 result.turns.append(turn)
@@ -221,7 +235,9 @@ class AutonomousRunner:
 
                 if not turn.child_ok:
                     result.outcome = "error"
-                    result.detail = (record.last_error if record else "child failed") or "child failed"
+                    result.detail = (
+                        record.last_error if record else "child failed"
+                    ) or "child failed"
                     break
                 if gate is None:
                     result.outcome = "gate_passed"
@@ -297,6 +313,4 @@ class AutonomousRunner:
         )
 
     def status(self) -> dict[str, Any]:
-        return {"running": self.active is not None} | (
-            self.active.as_dict() if self.active else {}
-        )
+        return {"running": self.active is not None} | (self.active.as_dict() if self.active else {})

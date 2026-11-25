@@ -97,7 +97,7 @@ MUTATIONS: list[tuple[str, str, str, str]] = [
         "projection markers count only as whole lines",
         "src/opa/harness/projection.py",
         '    begins = [i for i, ln in enumerate(lines) if _BEGIN_LINE.fullmatch(ln.rstrip("\\r\\n"))]',
-        '    begins = [i for i, ln in enumerate(lines) if _BEGIN_LINE.search(ln)]',
+        "    begins = [i for i, ln in enumerate(lines) if _BEGIN_LINE.search(ln)]",
     ),
     (
         "ambiguous projection markers are refused",
@@ -109,7 +109,7 @@ MUTATIONS: list[tuple[str, str, str, str]] = [
         "a prompt can never be parsed as a CLI option",
         "src/opa/rlm/adapters/claude_code.py",
         '        return [*cmd, "--", request.prompt]',
-        '        return [cmd[0], request.prompt, *cmd[1:]]',
+        "        return [cmd[0], request.prompt, *cmd[1:]]",
     ),
     (
         "a cancelled child turn kills the child process",

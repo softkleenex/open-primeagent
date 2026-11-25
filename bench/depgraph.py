@@ -63,6 +63,7 @@ SEED = 20260908
 
 # ---------- corpus ----------
 
+
 @dataclass
 class Truth:
     reachable_from_root: int
@@ -194,9 +195,7 @@ def build(root: Path) -> Truth:
     # help with.
     direct = set(graph["root.py"])
     candidates = reachable - direct
-    damage = {
-        n: len((reachable - _reachable(graph, "root.py", skip=n)) | {n}) for n in candidates
-    }
+    damage = {n: len((reachable - _reachable(graph, "root.py", skip=n)) | {n}) for n in candidates}
     peak = max(damage.values())
     most = min(n for n, c in damage.items() if c == peak)
 
@@ -303,6 +302,7 @@ def _matches(want: str, answer: str) -> bool:
 
 # ---------- runner ----------
 
+
 @dataclass
 class TurnMetrics:
     """Token fields are kept apart on purpose.
@@ -389,8 +389,12 @@ def run_arm(arm: str, workspace: Path, model: str, timeout: float, truth: Truth)
         started = time.monotonic()
         try:
             proc = subprocess.run(
-                cmd, cwd=workspace, capture_output=True, timeout=timeout,
-                stdin=subprocess.DEVNULL, check=False,
+                cmd,
+                cwd=workspace,
+                capture_output=True,
+                timeout=timeout,
+                stdin=subprocess.DEVNULL,
+                check=False,
             )
             raw = proc.stdout
             stderr = proc.stderr

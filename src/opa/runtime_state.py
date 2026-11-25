@@ -60,9 +60,7 @@ class Runtime:
         # taught us; scoping it to one conversation would throw that away every
         # time a session ends, and leave `harness.list()` unable to answer "what
         # has this project taught you".
-        self.harness = HarnessService(
-            config.root / "harness", config.global_root / "harness"
-        )
+        self.harness = HarnessService(config.root / "harness", config.global_root / "harness")
         self.goals = GoalStore(self.paths.goal)
         self.schedule = ScheduleStore(self.paths.dir / "schedule.jsonl")
         self.autonomous = AutonomousRunner(self.rlm, self.goals)
@@ -247,8 +245,12 @@ class Runtime:
                         "they count as read once the parent calls agent_message.inbox()."
                     )
                 self.rlm.mailbox.deliver(
-                    to=PARENT, sender=record.name, message=message.strip(),
-                    rlm_child_id=record.rlm_child_id, ok=True, mid_run=True,
+                    to=PARENT,
+                    sender=record.name,
+                    message=message.strip(),
+                    rlm_child_id=record.rlm_child_id,
+                    ok=True,
+                    mid_run=True,
                 )
                 self.record("agent_message.push", {"sender": record.name})
                 return {"delivered_to": PARENT, "sender": record.name}
@@ -412,9 +414,7 @@ class Runtime:
                 expected_outcome=str(payload.get("expected_outcome") or ""),
             )
             surface_changed = await self.refresh_surface()
-            projected = (
-                self.bootstrap() if payload.get("project", True) else {"updated": []}
-            )
+            projected = self.bootstrap() if payload.get("project", True) else {"updated": []}
             if projected.get("updated"):
                 # Projection just delivered them; stop repeating them in the
                 # description.
@@ -432,9 +432,7 @@ class Runtime:
         async def harness_surface(payload: dict) -> dict:
             return {
                 "description": self.surface.current_description if self.surface else "",
-                "pending_entries": [
-                    _entry_dict(e) for e in self.pending_prompt_entries()
-                ],
+                "pending_entries": [_entry_dict(e) for e in self.pending_prompt_entries()],
             }
 
         async def harness_project(payload: dict) -> dict:
@@ -543,19 +541,23 @@ class Runtime:
         unread = self.rlm.mailbox.unread()
         if unread:
             senders = sorted({m["sender"] for m in unread})
-            items.append({
-                "kind": "mailbox",
-                "detail": f"{len(unread)} unread message(s) from {', '.join(senders)}",
-                "next": "await agent_message.inbox()",
-            })
+            items.append(
+                {
+                    "kind": "mailbox",
+                    "detail": f"{len(unread)} unread message(s) from {', '.join(senders)}",
+                    "next": "await agent_message.inbox()",
+                }
+            )
 
         running = [r.name for r in self.rlm.registry.list() if r.status == "running"]
         if running:
-            items.append({
-                "kind": "subagents_running",
-                "detail": f"still working: {', '.join(running)}",
-                "next": "await agent_message.inbox() when they report",
-            })
+            items.append(
+                {
+                    "kind": "subagents_running",
+                    "detail": f"still working: {', '.join(running)}",
+                    "next": "await agent_message.inbox() when they report",
+                }
+            )
 
         try:
             repeated = self.harness.evidence(self.paths.trajectory)["repeated_errors"]
@@ -563,19 +565,23 @@ class Runtime:
             repeated = []
         if repeated:
             worst = repeated[0]
-            items.append({
-                "kind": "repeated_failure",
-                "detail": f"{worst['signature']!r} failed {worst['count']} times",
-                "next": "await harness.evidence() — this is a promotion candidate",
-            })
+            items.append(
+                {
+                    "kind": "repeated_failure",
+                    "detail": f"{worst['signature']!r} failed {worst['count']} times",
+                    "next": "await harness.evidence() — this is a promotion candidate",
+                }
+            )
 
         due = self.schedule.due(collect=False)
         if due:
-            items.append({
-                "kind": "schedule_due",
-                "detail": f"{len(due)} scheduled prompt(s) are due",
-                "next": "await schedule.due()",
-            })
+            items.append(
+                {
+                    "kind": "schedule_due",
+                    "detail": f"{len(due)} scheduled prompt(s) are due",
+                    "next": "await schedule.due()",
+                }
+            )
 
         goal = self.goals.goal
         if goal is not None and goal.status == "active":
@@ -584,11 +590,13 @@ class Runtime:
                 if goal.remaining_tokens is not None
                 else ""
             )
-            items.append({
-                "kind": "goal_active",
-                "detail": f"{goal.objective!r}{budget}",
-                "next": "await goal.get()",
-            })
+            items.append(
+                {
+                    "kind": "goal_active",
+                    "detail": f"{goal.objective!r}{budget}",
+                    "next": "await goal.get()",
+                }
+            )
         return items
 
     def bootstrap(self, *, agent: str = "auto", remove: bool = False) -> dict:

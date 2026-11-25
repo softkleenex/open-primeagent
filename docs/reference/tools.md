@@ -30,8 +30,8 @@ to `<session>/outputs/<n>.txt`, whose path appears in the truncation marker.
 
 ```python
 opa_python("files = [p for p in Path('.').rglob('*.py')]")
-opa_python("len(files)")                    # separate call, still there
-opa_python("[f.name for f in files[:5]]")   # print only what you need
+opa_python("len(files)")  # separate call, still there
+opa_python("[f.name for f in files[:5]]")  # print only what you need
 ```
 
 `timeout` is per cell. On expiry the cell is interrupted and the call returns a

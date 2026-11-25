@@ -41,8 +41,8 @@ Returns an `RLMSpawnHandle` (`rlm_child_id`, `name`, `adapter`, `session_dir`,
 `model`, `status`).
 
 ```python
-await rlm.list_subagents()      # -> list[RLMSubagent], survives kernel restarts
-await rlm.delete_subagent(name) # explicit only; nothing is reaped automatically
+await rlm.list_subagents()  # -> list[RLMSubagent], survives kernel restarts
+await rlm.delete_subagent(name)  # explicit only; nothing is reaped automatically
 ```
 
 `RLMSubagent` carries `name`, `adapter`, `status`, `turns`, `tokens`,
@@ -60,7 +60,7 @@ are serialized, so several sends queue rather than racing over the same session
 file.
 
 ```python
-await agent_message.inbox(since=0)   # -> list of records
+await agent_message.inbox(since=0)  # -> list of records
 ```
 
 Read the parent mailbox, where child results arrive. Each record has `at`,
@@ -98,7 +98,7 @@ actually grant rather than a family tree it will not act on.
 refinement.
 
 ```python
-await harness.overview()                        # ids print as [local:id] / [global:id]
+await harness.overview()  # ids print as [local:id] / [global:id]
 await harness.list(kind=None, scope="all")
 await harness.get(entry_id)
 await harness.create(kind, title, content, global_=False, **fields)
@@ -147,9 +147,11 @@ await harness.refinements()
 `changes` is a list of operations:
 
 ```python
-[{"op": "create", "kind": "prompt", "title": "...", "content": "..."},
- {"op": "update", "id": "ports", "content": "..."},
- {"op": "delete", "id": "stale-note"}]
+[
+    {"op": "create", "kind": "prompt", "title": "...", "content": "..."},
+    {"op": "update", "id": "ports", "content": "..."},
+    {"op": "delete", "id": "stale-note"},
+]
 ```
 
 If any operation fails, everything already applied is reverted and the call
@@ -164,7 +166,7 @@ so the host does not lend us its model. You decide; we gather evidence, apply,
 record, and make it reversible.
 
 ```python
-await harness.project(agent="auto", remove=False)   # same as opa_bootstrap
+await harness.project(agent="auto", remove=False)  # same as opa_bootstrap
 ```
 
 ## `goal`, `schedule`, `autonomous`

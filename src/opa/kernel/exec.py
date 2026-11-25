@@ -19,6 +19,7 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 def strip_ansi(text: str) -> str:
     return _ANSI.sub("", text)
 
+
 HEAD_RATIO = 0.6
 ELLIPSIS = "\n\n… [{omitted:,} chars omitted — full output: {path}] …\n\n"
 ELLIPSIS_NO_PATH = "\n\n… [{omitted:,} chars omitted] …\n\n"

@@ -158,12 +158,18 @@ def grade(text: str) -> list[str]:
 
 
 def claude(
-    prompt: str, workspace: Path, model: str, timeout: float, *, opa: bool,
-    session_id: str | None = None, resume: bool = False,
+    prompt: str,
+    workspace: Path,
+    model: str,
+    timeout: float,
+    *,
+    opa: bool,
+    session_id: str | None = None,
+    resume: bool = False,
 ) -> tuple[dict, int]:
     cmd = ["claude", "-p", prompt, "--output-format", "json", "--model", model]
     if session_id:
-        cmd += (["--resume", session_id] if resume else ["--session-id", session_id])
+        cmd += ["--resume", session_id] if resume else ["--session-id", session_id]
     if opa:
         cmd += ["--mcp-config", str(workspace / "mcp.json")]
         cmd += ["--allowedTools", "mcp__opa__opa_python,Bash,Read,Grep,Glob"]
@@ -171,8 +177,12 @@ def claude(
         cmd += ["--allowedTools", "Bash,Read,Grep,Glob,Task"]
     started = time.monotonic()
     proc = subprocess.run(
-        cmd, cwd=workspace, capture_output=True, timeout=timeout,
-        stdin=subprocess.DEVNULL, check=False,
+        cmd,
+        cwd=workspace,
+        capture_output=True,
+        timeout=timeout,
+        stdin=subprocess.DEVNULL,
+        check=False,
     )
     elapsed = int((time.monotonic() - started) * 1000)
     try:
@@ -201,6 +211,7 @@ def workspace_for(tag: str, *, opa: bool) -> Path:
 
 # ---------- experiment 1: parallel specialists ----------
 
+
 def run_parallel(arm: str, model: str, timeout: float) -> Usage:
     opa = arm == "opa"
     workspace = workspace_for(arm, opa=opa)
@@ -222,6 +233,7 @@ def run_parallel(arm: str, model: str, timeout: float) -> Usage:
 
 
 # ---------- experiment 2: warm child vs cold child ----------
+
 
 def run_warm(arm: str, model: str, timeout: float) -> Usage:
     """Both arms pay for the setup; only the follow-up turn is measured."""
@@ -280,8 +292,12 @@ def main() -> None:
             )
             rows.append(
                 asdict(usage)
-                | {"arm": arm, "total_tokens": usage.total_tokens,
-                   "total_cost": usage.total_cost, "found_count": len(usage.found)}
+                | {
+                    "arm": arm,
+                    "total_tokens": usage.total_tokens,
+                    "total_cost": usage.total_cost,
+                    "found_count": len(usage.found),
+                }
             )
 
     out = Path(args.out) / f"subagents-{args.experiment}-{args.model}.json"

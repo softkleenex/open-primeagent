@@ -114,6 +114,7 @@ def _assert_upstream_accepts(payload: dict, operation: str) -> None:
 
 # ---------- the inherited surface exists ----------
 
+
 def test_subagent_carries_every_upstream_field():
     """Upstream code reading `.session_id` must not hit an AttributeError."""
     ours = {f.name for f in fields(RLMSubagent)}
@@ -178,6 +179,7 @@ def test_upstream_request_type_names_are_registered(runtime):
 
 # ---------- the inherited wire shapes validate ----------
 
+
 async def test_list_subagents_entries_pass_upstreams_validator(runtime):
     runtime.rlm.registry.add(
         ChildRecord.new(
@@ -236,6 +238,7 @@ async def test_active_session_id_is_none_once_a_child_is_idle(runtime):
 
 
 # ---------- deliberate divergence ----------
+
 
 def test_we_add_fields_upstream_does_not_have():
     """Our extras are additive, which is why upstream code still parses ours.

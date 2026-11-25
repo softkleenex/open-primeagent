@@ -186,19 +186,17 @@ def main() -> None:
 
     results = []
     for attempt in range(args.repeat):
-      for arm in args.arms.split(","):
-        workspace = Path(
-            __import__("tempfile").mkdtemp(prefix=f"opa-bench-{arm}-")
-        )
-        truth = build(workspace / "corpus")
-        if arm == "opa":
-            write_mcp_config(workspace)
-            (workspace / "CLAUDE.md").write_text(OPA_GUIDANCE, encoding="utf-8")
+        for arm in args.arms.split(","):
+            workspace = Path(__import__("tempfile").mkdtemp(prefix=f"opa-bench-{arm}-"))
+            truth = build(workspace / "corpus")
+            if arm == "opa":
+                write_mcp_config(workspace)
+                (workspace / "CLAUDE.md").write_text(OPA_GUIDANCE, encoding="utf-8")
 
-        print(f"[{arm}] attempt {attempt + 1}/{args.repeat} workspace={workspace}")
-        metrics = grade(run_arm(arm, workspace, args.model, args.timeout), truth)
-        print(f"[{arm}] totals: {metrics.totals}\n")
-        results.append(asdict(metrics) | {"totals": metrics.totals, "truth": asdict(truth)})
+            print(f"[{arm}] attempt {attempt + 1}/{args.repeat} workspace={workspace}")
+            metrics = grade(run_arm(arm, workspace, args.model, args.timeout), truth)
+            print(f"[{arm}] totals: {metrics.totals}\n")
+            results.append(asdict(metrics) | {"totals": metrics.totals, "truth": asdict(truth)})
 
     out = Path(args.out) / f"multiturn-{args.model}.json"
     out.parent.mkdir(parents=True, exist_ok=True)

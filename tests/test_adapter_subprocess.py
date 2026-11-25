@@ -40,12 +40,12 @@ def request(tmp_path, **kw):
 
 # ---------- claude ----------
 
+
 async def test_claude_parses_a_successful_turn(bin_dir, tmp_path):
     payload = {
         "result": "ALL DONE",
         "session_id": "sid-1",
-        "usage": {"input_tokens": 5, "output_tokens": 7,
-                  "cache_creation_input_tokens": 100},
+        "usage": {"input_tokens": 5, "output_tokens": 7, "cache_creation_input_tokens": 100},
         "total_cost_usd": 0.02,
         "subtype": "success",
     }
@@ -100,6 +100,7 @@ async def test_adapter_reports_when_the_cli_is_missing(bin_dir, monkeypatch, tmp
 
 # ---------- codex ----------
 
+
 async def test_codex_reads_the_thread_id_from_the_stream(bin_dir, tmp_path):
     events = [
         {"type": "thread.started", "thread_id": "01a-xyz"},
@@ -111,7 +112,10 @@ async def test_codex_reads_the_thread_id_from_the_stream(bin_dir, tmp_path):
 
     result = await CodexAdapter().run(request(tmp_path))
     assert (result.ok, result.text, result.session_id, result.tokens) == (
-        True, "BETA-9", "01a-xyz", 28,
+        True,
+        "BETA-9",
+        "01a-xyz",
+        28,
     )
 
 
@@ -166,8 +170,10 @@ async def test_a_cancelled_turn_takes_the_child_and_its_tools_with_it(bin_dir, t
             return False
         # A zombie still answers kill(0); it is dead for our purposes.
         import subprocess
-        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)],
-                               capture_output=True, text=True, check=False).stdout.strip()
+
+        state = subprocess.run(
+            ["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, check=False
+        ).stdout.strip()
         return bool(state) and not state.startswith("Z")
 
     cli_pid, tool_pid = map(int, pids.read_text().split())

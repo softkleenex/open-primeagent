@@ -7,8 +7,7 @@ description: Read the persistent goal that survives across turns, start one when
 
 ```python
 await goal.get()
-await goal.create("improve service-wide performance and get the tests green",
-                  token_budget=200000)
+await goal.create("improve service-wide performance and get the tests green", token_budget=200000)
 await goal.complete()
 ```
 

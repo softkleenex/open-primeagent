@@ -28,7 +28,7 @@ stays.
 ## It does not block
 
 ```python
-api  = await rlm("audit the API layer", name="api-reviewer")
+api = await rlm("audit the API layer", name="api-reviewer")
 test = await rlm("map test coverage gaps", name="test-reviewer")
 ```
 
@@ -62,8 +62,9 @@ await rlm.list_subagents()
 And re-tasking picks up the earlier context:
 
 ```python
-await agent_message.send("re-check it now that I've fixed the code",
-                         receiver_role="child", receiver_name="api-reviewer")
+await agent_message.send(
+    "re-check it now that I've fixed the code", receiver_role="child", receiver_name="api-reviewer"
+)
 ```
 
 The child answers knowing what it said before. This is verified end to end in

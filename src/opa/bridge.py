@@ -41,7 +41,7 @@ Role = str
 @dataclass(frozen=True)
 class Caller:
     role: Role
-    name: str = ""      # for a child, its registry name - never self-asserted
+    name: str = ""  # for a child, its registry name - never self-asserted
 
 
 # The caller travels beside the payload rather than inside it. Putting it in the
@@ -55,6 +55,7 @@ _CURRENT_CALLER: contextvars.ContextVar[Caller | None] = contextvars.ContextVar(
 def current_caller() -> Caller | None:
     """Who is making the request being handled right now."""
     return _CURRENT_CALLER.get()
+
 
 # Per-line ceiling, so the kernel cannot kill the host with a giant payload.
 #
@@ -151,7 +152,8 @@ class HostBridge:
             caller = self.caller_for(request.get("token"))
             if caller is None:
                 return await self._reply(
-                    writer, request_id,
+                    writer,
+                    request_id,
                     error="unrecognised caller: this request carried no valid token",
                 )
 
@@ -159,20 +161,21 @@ class HostBridge:
             if entry is None:
                 known = ", ".join(self.types_for(caller.role)) or "(none)"
                 return await self._reply(
-                    writer, request_id,
+                    writer,
+                    request_id,
                     error=f"no handler registered for {request_type!r}. known types: {known}",
                 )
             handler, roles = entry
             if caller.role not in roles:
                 allowed = ", ".join(self.types_for(caller.role)) or "(none)"
                 return await self._reply(
-                    writer, request_id,
+                    writer,
+                    request_id,
                     error=(
                         f"{request_type!r} is not available to a {caller.role}. "
                         f"available: {allowed}"
                     ),
                 )
-
 
             payload = request.get("payload") or {}
             if not isinstance(payload, dict):

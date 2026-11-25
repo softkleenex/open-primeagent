@@ -90,9 +90,7 @@ def _now() -> str:
 
 
 class KernelManager:
-    def __init__(
-        self, *, cwd: Path, socket_path: Path, session_dir: Path, token: str = ""
-    ) -> None:
+    def __init__(self, *, cwd: Path, socket_path: Path, session_dir: Path, token: str = "") -> None:
         self.cwd = cwd
         self.socket_path = socket_path
         self.session_dir = session_dir
@@ -286,7 +284,9 @@ class KernelManager:
         async with self._exec_lock:
             return await self._execute_locked(code, timeout=timeout, record_output=record_output)
 
-    async def _execute_locked(self, code: str, *, timeout: float, record_output: bool) -> ExecResult:
+    async def _execute_locked(
+        self, code: str, *, timeout: float, record_output: bool
+    ) -> ExecResult:
         if self._kc is None:
             raise RuntimeError("kernel is not started")
         started = time.monotonic()
@@ -330,7 +330,7 @@ class KernelManager:
             stdout="".join(stdout_parts),
             result_repr=result_repr,
             error=error,
-            truncated=False,          # truncation happens in the tool layer, which knows Config
+            truncated=False,  # truncation happens in the tool layer, which knows Config
             full_output_path=None,
             duration_ms=duration_ms,
         )

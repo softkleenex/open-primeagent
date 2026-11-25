@@ -45,7 +45,9 @@ async def test_rlm_is_non_blocking_and_child_survives_a_kernel_restart(server):
     runtime = server._opa_runtime
 
     # 1. rlm() returns a handle without waiting for the result
-    out = await py(server, f"await rlm('Reply with exactly: {TOKEN}', name='probe', model='sonnet')")
+    out = await py(
+        server, f"await rlm('Reply with exactly: {TOKEN}', name='probe', model='sonnet')"
+    )
     assert "probe" in out and "running" in out
 
     # 2. the result arrives in the parent mailbox
@@ -80,9 +82,7 @@ async def test_a_child_can_report_before_it_finishes(config):
     if shutil.which("claude") is None:
         pytest.skip("claude CLI is not installed")
 
-    (config.workspace / "secret.py").write_text(
-        "API_KEY = 'sk-live-abc123'\n", encoding="utf-8"
-    )
+    (config.workspace / "secret.py").write_text("API_KEY = 'sk-live-abc123'\n", encoding="utf-8")
     pushy = config.__class__(**{**config.__dict__, "child_can_message_parent": True})
     server = build_server(pushy)
     runtime = server._opa_runtime
