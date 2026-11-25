@@ -1,5 +1,7 @@
 # open-primeagent
 
+<!-- mcp-name: io.github.softkleenex/open-primeagent -->
+
 [![CI](https://github.com/softkleenex/open-primeagent/actions/workflows/ci.yml/badge.svg)](https://github.com/softkleenex/open-primeagent/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/open-primeagent)](https://pypi.org/project/open-primeagent/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)

@@ -29,6 +29,20 @@ def test_every_version_in_the_repo_agrees():
     assert listed["version"] == version
     assert plugin["mcpServers"]["opa"]["args"] == [f"open-primeagent@{version}"]
 
+    # The MCP registry entry names the PyPI release it points at.
+    server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
+    assert server["version"] == version
+    assert [p["version"] for p in server["packages"]] == [version]
+
+
+def test_the_registry_can_verify_we_own_the_pypi_package():
+    """registry.modelcontextprotocol.io looks for `mcp-name: <name>` in the PyPI
+    description, which is built from README.md. Without it, publishing fails."""
+    server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert f"<!-- mcp-name: {server['name']} -->" in readme
+    assert server["packages"][0]["identifier"] == "open-primeagent"
+
 
 def test_the_plugin_ships_only_our_skills():
     skills = sorted(p.parent.name for p in (ROOT / "skills").glob("*/SKILL.md"))

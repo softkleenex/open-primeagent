@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.softkleenex/open-primeagent",
+  "title": "open-primeagent",
+  "description": "Sub-agents that survive the session, project rules that stick, for the coding agent you already run",
+  "repository": {
+    "url": "https://github.com/softkleenex/open-primeagent",
+    "source": "github"
+  },
+  "version": "0.1.4",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "open-primeagent",
+      "version": "0.1.4",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

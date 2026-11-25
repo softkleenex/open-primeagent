@@ -49,7 +49,8 @@ The extra index is needed because the dependencies live on real PyPI.
 1. Bump `version` in `pyproject.toml`, `runtime/pyproject.toml`, and the
    Claude Code plugin: `.claude-plugin/plugin.json` (its `version` and the
    `open-primeagent@<version>` pin in `mcpServers`) and
-   `.claude-plugin/marketplace.json`. `tests/test_plugin.py` fails until all of
+   `.claude-plugin/marketplace.json`, and `server.json` (both its `version` and
+   the package's) for the MCP registry. `tests/test_plugin.py` fails until all of
    them agree - the plugin pins an exact server version because `uvx` never
    upgrades a cached one on its own. `opa.__version__` reads the installed
    metadata, so nothing else needs touching.
@@ -63,6 +64,16 @@ The extra index is needed because the dependencies live on real PyPI.
 The tag runs the workflow, which refuses to publish unless ruff and the whole
 suite pass, the metadata renders, and the built wheel imports in a clean
 environment.
+
+## Then update the MCP registry entry
+
+Once the version is on PyPI (the registry checks the `mcp-name` line in its
+description):
+
+```bash
+mcp-publisher login github   # once; a browser device flow
+mcp-publisher publish        # reads server.json
+```
 
 ## Then verify the promise in the README
 
