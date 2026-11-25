@@ -1,6 +1,6 @@
 [project]
 name = "open-primeagent"
-version = "0.1.4"
+version = "0.1.5"
 description = "Persistent Python, long-lived sub-agents and a continual harness for the coding agent you already use"
 dynamic = ["readme"]
 requires-python = ">=3.11"
