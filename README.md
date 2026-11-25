@@ -6,6 +6,10 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Upstream compatibility](https://img.shields.io/badge/rlm%20protocol-pinned%20by%20test-8a2be2)](tests/test_upstream_compat.py)
 
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
+
+<!-- i18n:begin  translated in README.ko.md, README.zh-CN.md, README.ja.md; tests/test_readme_i18n.py keeps the numbers in sync -->
+
 **Claude Code hires a sub-agent. The sub-agent reads half your repo. Claude Code
 fires it, and next time hires a new one that reads it all again.**
 
@@ -52,6 +56,8 @@ never changes a character outside its block. An outside review found inputs
 where it did, and [the journal has the details](docs/journal.md#an-outside-review-breaks-the-headline-promise-2026-11-25).
 Every safety guard is now [mutation-tested](scripts/mutate_guards.py): we break
 it on purpose and check that a test fails.
+
+<!-- i18n:end -->
 
 [Install](#install) · [Why this is small](#why-this-is-under-4k-lines-of-code-and-not-170k) ·
 [Is it really the same RLM?](#is-it-really-the-same-rlm) ·
