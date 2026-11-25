@@ -6,19 +6,22 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Upstream compatibility](https://img.shields.io/badge/rlm%20protocol-pinned%20by%20test-8a2be2)](tests/test_upstream_compat.py)
 
-**Your coding agent forgets what the project taught it, and throws away every
-sub-agent it spawns. This fixes both — without replacing the agent.**
+**Claude Code hires a sub-agent. The sub-agent reads half your repo. Claude Code
+fires it, and next time hires a new one that reads it all again.**
 
-One MCP server for Claude Code, Codex and opencode:
+open-primeagent keeps the sub-agent. You can come back with a follow-up and it
+still knows the code. It is one MCP server added to the agent you already run
+(Claude Code, Codex or opencode), and it does three things:
 
-- **A harness that learns the project.** What the agent discovers is recorded
-  and projected into the `CLAUDE.md` / `AGENTS.md` it already reads — inside
-  one delimited block, reversibly. Measured: **-57% wall clock, -35% cost** when
-  the knowledge is expensive to rediscover.
-- **Sub-agents you can come back to.** Re-task a child that already read the
-  code instead of spawning a fresh one. Measured: **-81% cost, -91% tokens**.
-- **A persistent Python kernel** as external working memory. Its value is
-  honestly *unmeasured* — the agent never used it in 120 turns. Details below.
+- **Sub-agents that survive the session.** Re-tasking one that had already read
+  the code cost 81% less than starting a fresh one.
+- **Project rules that stick.** What the agent learns is written into the
+  `CLAUDE.md` or `AGENTS.md` it already reads, inside one marked block that
+  `opa_bootstrap(remove=True)` takes back out. On a task where the rule was hard
+  to rediscover, runs finished in 57% less time.
+- **A Python process that stays alive between calls**, for state you would
+  rather not keep in the context window. We have not shown that this helps: in
+  120 turns of our benchmarks the agent never called it.
 
 ```bash
 claude mcp add opa -- uvx open-primeagent
@@ -26,67 +29,54 @@ claude mcp add opa -- uvx open-primeagent
 # /plugin install open-primeagent --marketplace softkleenex/open-primeagent
 ```
 
-### We publish the benchmarks we lost
+### The benchmarks we lost
 
-| | result | |
+| experiment | result | |
 |---|---|---|
-| harness entry, knowledge hidden among 16 decoy scripts | **-57% wall clock**, variance collapsed | ✅ |
-| re-task a warm sub-agent vs a cold one | **-81% cost** | ✅ |
-| harness entry, knowledge one glance away | +26% turns | ❌ |
-| fan out to 4 fresh sub-agents | **+777% cost** | ❌ |
-| fan out on a 444-file codebase, built for fan-out to win | +127% wall clock | ❌ |
-| persistent kernel attached for 120 turns | **called 0 times** | ⚠️ |
+| re-task a warm sub-agent instead of starting a cold one | 81% less cost | won |
+| a recorded rule, when the knowledge was hidden among 16 decoy scripts | 57% less wall clock, variance collapsed | won |
+| the same rule, when the knowledge was one glance away | 26% more turns | lost |
+| fan out to 4 fresh sub-agents | 777% more cost | lost |
+| fan out on a 444-file codebase built for fan-out to win | 127% more wall clock | lost |
+| persistent kernel attached for 120 turns | called 0 times | no effect |
 
-The losses stay in because they are what makes the wins believable — and
-because the reason each one lost is more useful than the number.
-[Raw data and methodology.](bench/README.md)
+The losses stay in. They are what makes the wins believable, and why each one
+lost is more useful than the number. [Raw data and methodology.](bench/README.md)
 
-We hold the code to the same standard. The README promised that projection
-never changes a character outside its block; an outside review found inputs
-where it did, and [the journal says how](docs/journal.md#an-outside-review-breaks-the-headline-promise-2026-11-25).
-Every safety guard is now [mutation-tested](scripts/mutate_guards.py): broken
-on purpose, and a test has to fail.
-
-Speaks the same `rlm` protocol as
-[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) — same request
-names, same field names, same state-file schema, [checked by a test](tests/test_upstream_compat.py).
-**You don't switch agents. You add one MCP server.**
+The code is held to the same rule. This README used to promise that projection
+never changes a character outside its block. An outside review found inputs
+where it did, and [the journal has the details](docs/journal.md#an-outside-review-breaks-the-headline-promise-2026-11-25).
+Every safety guard is now [mutation-tested](scripts/mutate_guards.py): we break
+it on purpose and check that a test fails.
 
 [Install](#install) · [Why this is small](#why-this-is-under-4k-lines-of-code-and-not-170k) ·
 [Is it really the same RLM?](#is-it-really-the-same-rlm) ·
 [Sub-agents](#persistent-sub-agents-actually-work) ·
 [External memory](#context-is-for-deciding-not-for-storage) ·
 [Harness](#a-harness-that-learns-without-touching-your-files) ·
-[Benchmarks](#benchmarks--including-the-ones-we-lost) ·
+[Benchmarks](#benchmarks-including-the-ones-we-lost) ·
 [Evolution](#can-an-agent-evolve-mid-session) ·
 [Security](#-not-a-sandbox) · [Docs](docs/)
 
 ---
 
-```
-✅ L1  Persistent Python      kernel · external working memory · output truncation
-✅ L2  RLM                    persistent sub-agents + agent-to-agent messaging
-                              adapters: claude-code (in CI) · codex (by hand, once)
-✅ L3  Continual Harness      prompts / memory / skills / sub-agent specs
-                              + projection into the files your agent already reads
-✅ L4  Long-run               goal / schedule / autonomous gate loop
-✅ L5  Evolution              live tool-surface rewriting + harness.evolve()
-```
+| layer | what it adds | how it is verified |
+|---|---|---|
+| L1 persistent Python | a kernel that outlives each call, output truncation | a real IPython kernel, in CI |
+| L2 sub-agents | spawn, resume, agent-to-agent messages | claude-code: a real child agent, in CI. codex: by hand, once |
+| L3 harness | prompts, memory, skills, sub-agent specs, projection into your files | in CI |
+| L4 long-run | goal, schedule, autonomous loop behind a gate command | in CI |
+| L5 evolution | rewriting its own tool description mid-session, `harness.evolve()` | in CI |
 
-Every ✅ is verified by tests that boot a real IPython kernel, and the
-**claude-code** path is verified end to end by tests that spawn a real child
-agent (`pytest -m child`).
+About codex: the adapter was checked against the real CLI by hand when it was
+written (`43db9fd`, a child resumed with its context intact). Since then only a
+stub CLI exercises it, because the codex login on this machine expired. If you
+run it against real codex, please tell us what breaks.
 
-One caveat we would rather state than have you find. The **codex** adapter was
-verified against the real CLI by hand when it was written (`43db9fd`, a child
-resumed with its context intact), and its wiring is covered by automated tests
-against a stub CLI — command construction, `thread_id` parsing, sandbox flags,
-malformed output. But no automated test drives the real `codex` binary, and the
-codex auth on this machine has since expired, so that one-time check is not
-being repeated. Treat claude-code as continuously verified and codex as verified
-once. If you run it against real codex, we would like to hear what breaks.
-
-See [the roadmap](docs/roadmap.md) for the exit criteria of each phase.
+It reimplements the `rlm` protocol from Prime Intellect's
+[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent): same request
+names, same field names, same state-file schema, [pinned by a test](tests/test_upstream_compat.py).
+Phase exit criteria are in [the roadmap](docs/roadmap.md).
 
 ---
 
@@ -106,7 +96,7 @@ Upstream Prime Agent is a full agent harness. We measured it:
 other 167k lines are one particular harness implementation.
 
 **So we delegate the harness to the agent you already run.** Sessions, auth,
-model selection, permissions, the UI — all of it stays yours. We build the RLM
+model selection, permissions and the UI all stay yours. We build the RLM
 runtime and nothing else.
 
 ## Is it really the same RLM?
@@ -118,7 +108,7 @@ wire payloads through it:
 
 | | |
 |---|---|
-| request names on the wire | `rlm.run` · `rlm.list_subagents` · `rlm.delete_subagent` — identical |
+| request names on the wire | `rlm.run` · `rlm.list_subagents` · `rlm.delete_subagent`, identical |
 | `RLMSubagent` / `RLMSpawnHandle` fields | all upstream fields present |
 | child status vocabulary | exactly `{running, completed, error}` |
 | `HarnessEntry` | **13/13 fields, field for field** |
@@ -129,9 +119,9 @@ That test found two breaks in code that was already shipping and green: our
 `RLMSubagent` was missing three upstream fields. Both fixed. **Compatibility
 nobody tests is compatibility that is already broken.**
 
-Where we diverge — socket instead of Jupyter `comm`, your `claude`/`codex`
-instead of an in-process child, per-caller tokens instead of one trusted kernel
-— each divergence and what it costs is written down in
+We diverge in three places: a socket instead of Jupyter `comm`, your
+`claude`/`codex` instead of an in-process child, and per-caller tokens instead
+of one trusted kernel. Each divergence and what it costs is written down in
 **[docs/lineage.md](docs/lineage.md)**, along with the interop limit that matters
 in practice: upstream can *read* a state file we wrote, but if it writes it back,
 our rollback snapshots are dropped.
@@ -182,7 +172,7 @@ api = await rlm("audit the API layer for security problems", name="api-reviewer"
 test = await rlm("map the gaps in our test coverage", name="test-reviewer")
 ```
 
-Mixed backends work too — parent on Claude Code, child on Codex:
+Mixed backends work too, with the parent on Claude Code and the child on Codex:
 
 ```python
 await rlm("refactor this module", name="refactorer", adapter="codex")
@@ -198,7 +188,7 @@ opa_python("print('x' * 30000)")  # → truncated; full text at outputs/00000.tx
 
 Large intermediate results stay in Python variables. The model sees what it
 needs to pick the next step, not the whole warehouse. When output is truncated
-we keep the **tail** as well as the head — the actual cause of a Python
+we keep the **tail** as well as the head, because the actual cause of a Python
 traceback is on the last line.
 
 ## A harness that learns, without touching your files
@@ -206,7 +196,7 @@ traceback is on the last line.
 `H = (prompts, sub-agent specs, skills, memory)`, with CRUD and exact rollback.
 
 We do not own the system prompt, so the harness is **projected into the files
-your agent already reads** — and only inside a delimiter block:
+your agent already reads**, and only inside a delimiter block:
 
 ```markdown
 <!-- opa:begin — generated. Nothing outside this block is touched. -->
@@ -218,7 +208,7 @@ Everything outside the block is preserved byte for byte, and
 `opa_bootstrap(remove=True)` restores the file exactly. That is not a promise in
 a README; `tests/test_projection.py` and `tests/test_bootstrap.py` enforce it.
 
-Memory bodies never land in the prompt file — only an index does. Skills we
+Memory bodies never land in the prompt file; only an index does. Skills we
 create are marked `.opa-managed`, so skills you wrote yourself are never
 removed.
 
@@ -226,7 +216,7 @@ removed.
 
 `opa_python` · `opa_status` · `opa_kernel` · `opa_bootstrap`
 
-`rlm`, `agent_message` and `harness` are **not** MCP tools — they are Python
+`rlm`, `agent_message` and `harness` are **not** MCP tools. They are Python
 symbols inside the kernel. The point of this architecture is *give the model a
 computer, not twenty tools*; polluting your agent's tool list would contradict
 it. `server.MAX_TOOLS = 4` and a test enforces the ceiling. When you want to add
@@ -237,7 +227,7 @@ a tool, that is the signal to expose a kernel symbol instead.
 <details open>
 <summary><b>Claude Code</b></summary>
 
-As a plugin — the server plus the `rlm`, `goal` and `refine` skills, ~200
+As a plugin, which installs the server plus the `rlm`, `goal` and `refine` skills, ~200
 always-on tokens:
 
 ```
@@ -285,7 +275,7 @@ claude mcp add opa --scope local -- uv run --directory "$PWD" opa
 Full per-host notes and every environment variable:
 [docs/install/](docs/install/) · [docs/reference/configuration.md](docs/reference/configuration.md).
 
-## Benchmarks — including the ones we lost
+## Benchmarks, including the ones we lost
 
 Measured with `claude -p --output-format json`, reading its own `usage` and
 `total_cost_usd`. Raw data and methodology: [bench/](bench/).
@@ -304,16 +294,16 @@ that had already read the file cost **one fifth** as much (-81%) and used **one
 twelfth** the tokens (23,058 → 1,987, n=4, tiny variance). The two figures differ
 because the cheap turn is mostly cache reads, which are billed but not free.
 
-We then built a benchmark specifically to let fan-out win — 444 files, ~135k
-tokens, four independent subsystems, children scoped so nothing is read twice —
-and **it still lost on every axis, including wall clock** (112.8s vs 49.6s with
+We then built a benchmark specifically to let fan-out win: 444 files, ~135k
+tokens, four independent subsystems, children scoped so nothing is read twice.
+**It still lost on every axis, including wall clock** (112.8s vs 49.6s with
 four children running at once). The reason is worth knowing: the single agent
 answered using 42k tokens on a 135k-token codebase. It never read the
 repository, it grepped. Fan-out relieves a bottleneck that a competent agent
 does not create.
 
-So the value in sub-agents is not parallelism — it is that **the child
-persists**. Which is what the registry is for, and what "a child is not
+So the value in sub-agents is that **the child persists**, and parallelism
+did not add to it. Which is what the registry is for, and what "a child is not
 disposable" was always supposed to mean.
 
 One caveat we owe you: that 36k is *our* architecture's price. Upstream Prime
@@ -324,13 +314,13 @@ and this is the bill for that trade.
 **One thing fan-out did buy, unexpectedly.** Given four subsystems each with a
 bug and a 30-second acceptance check, four specialists ran every check, every
 time (3/3 runs). One agent doing all four fixed the code correctly but verified
-everything only **once in three runs** — twice it decided inspection was enough
+everything only **once in three runs**. Twice it decided inspection was enough
 and never ran a check, despite being told to. Same fixes either way, at 2.8x the
 tokens. [The write-up](bench/README.md#0--ownership-and-verification---the-finding-was-not-the-one-we-went-looking-for)
 also records that it took four attempts before the benchmark measured anything
 real.
 
-**Where a learned harness entry pays** — a project whose test suite depends on a
+**Where a learned harness entry pays.** A project whose test suite depends on a
 generator hidden among 16 scripts in `tools/`, with 15 plausible decoys. Arm A
 discovers the rule by failing; arm B starts with one harness entry naming it:
 
@@ -352,8 +342,8 @@ root, one glance away: the harness entry becomes pure overhead, **+26% turns**.
 And on a three-turn corpus analysis that a `grep -c | sort` one-liner solves,
 attaching opa cost **+42% turns and +33% cost** versus plain Claude Code.
 
-That third result is a fair hit. We blamed the benchmark — a shell is *already*
-an external computer, so a one-liner task gives the kernel nothing to persist —
+That third result is a fair hit. We blamed the benchmark (a shell is *already*
+an external computer, so a one-liner task gives the kernel nothing to persist)
 and then built two more: an import graph over 600 modules, and an 8-million-row,
 337 MB file with eight adaptive questions. Predictions
 [committed before the runs](bench/depgraph.py).
@@ -366,7 +356,7 @@ Both came out flat. Then we counted what the agent had actually called:
 | 8M-row file | 3 | 24 | **0** |
 
 **120 turns with the kernel attached, and it was never invoked once.** Tracing
-shows what it did instead — the same thing in both arms:
+shows what it did instead, the same thing in both arms:
 
 ```
 turn 1  Bash: awk -F, 'NR>1{print $2}' events.csv | sort -u | wc -l   → 8 chars back
@@ -375,7 +365,7 @@ turn 2  Bash: awk -F, 'NR>1{sum[$3]+=$5} END{...}' events.csv         → 85 cha
 
 So these benchmarks never compared a kernel to a shell. They compared **a shell
 to a shell with an unused MCP server attached**, which is why every delta is
-noise. And the reason is not a bad tool description — `awk` is the right answer
+noise. And the reason is not a bad tool description: `awk` is the right answer
 to these questions. A streaming aggregation never materialises the structure a
 kernel exists to hold.
 
@@ -386,12 +376,12 @@ How narrow is the regime where it could help? Measured rather than guessed: a
 shell rebuilds each turn and a kernel builds once, so over 8 turns the saving is
 `7 × rebuild` against ~120s of model time. Run-to-run spread here is ±20%, so
 **under ~2s of rebuild there is nothing to see.** And a filesystem is itself a
-cache — a parsed 8M-row file reloads at 25% of rebuild, so the shell keeps most
+cache: a parsed 8M-row file reloads at 25% of rebuild, so the shell keeps most
 of the win anyway.
 
 That leaves the intersection: state costing more than ~2s to rebuild *and*
-gaining nothing from disk. Loaded models, live connections, GPU contexts —
-compiled regexes are the one stdlib case, where pickle stores the source and
+gaining nothing from disk. Loaded models, live connections, GPU contexts.
+Compiled regexes are the one stdlib case, where pickle stores the source and
 recompiles at ~100%. Not parsed files, not indexes, not anything picklable.
 [Full write-up.](bench/README.md#5-large-file-adaptive-chain---the-agent-never-used-the-kernel--in-either-benchmark)
 
@@ -412,8 +402,8 @@ tools/list   call=1  serving_version=1
 On the next turn the model read the new description verbatim. **An MCP server
 can rewrite what its host agent reads, mid-session, and it takes effect from the
 next turn.** No restart. That is shipped as `harness.evolve()`, which pushes one
-delta through all three layers at once — kernel now, tool description next turn,
-project file next session — reversibly.
+delta through all three layers at once, reversibly: the kernel now, the tool
+description next turn, the project file next session.
 
 Then building it produced the more interesting result. We put a promoted rule in
 the description and asked Claude Code to quote it. It read our text back
@@ -434,7 +424,7 @@ configuration. **L1 reminds; L0 authorises.**
 
 Full write-up with the transcripts: [docs/concepts/evolution.md](docs/concepts/evolution.md).
 
-The mechanism was the easy part. The hard part is **evaluation** — without a
+The mechanism was the easy part. The hard part is **evaluation**. Without a
 measurable gate, "evolution" is just drift. We do not ship an automatic
 promotion path where nothing can be measured.
 
@@ -463,7 +453,7 @@ Start at **[docs/](docs/)**, or jump straight to:
 ## License and relationship to Prime Agent
 
 Apache-2.0. This is an **independent reimplementation**, not a fork, and it
-contains no copied code — the reference checkout is git-ignored and read only to
+contains no copied code. The reference checkout is git-ignored and read only to
 learn the contract. The `rlm` API names and the harness state schema are kept
 compatible on purpose, so upstream's documentation and skills stay applicable,
 and [a test](tests/test_upstream_compat.py) keeps that true.
