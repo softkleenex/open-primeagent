@@ -70,8 +70,10 @@ MUTATIONS: list[tuple[str, str, str, str]] = [
     (
         "an unreadable state file is never written over",
         "src/opa/harness/state.py",
-        "        if self.unreadable:",
-        "        if False:",
+        # Unique on purpose: a bare `if self.unreadable:` also matches the
+        # more deeply indented merge guard, which is a different guard.
+        '        if self.unreadable:\n            raise RuntimeError(\n                f"refusing to write {self.file_path}: it could not be read "',
+        '        if False:\n            raise RuntimeError(\n                f"refusing to write {self.file_path}: it could not be read "',
     ),
     (
         "a turn interrupted by a restart is reconciled",
@@ -92,10 +94,52 @@ MUTATIONS: list[tuple[str, str, str, str]] = [
         "            if False:\n                self.entries[kind].pop(entry_id, None)",
     ),
     (
+        "projection markers count only as whole lines",
+        "src/opa/harness/projection.py",
+        '    begins = [i for i, ln in enumerate(lines) if _BEGIN_LINE.fullmatch(ln.rstrip("\\r\\n"))]',
+        '    begins = [i for i, ln in enumerate(lines) if _BEGIN_LINE.search(ln)]',
+    ),
+    (
+        "ambiguous projection markers are refused",
+        "src/opa/harness/projection.py",
+        "    if len(begins) != 1 or len(ends) != 1 or ends[0] < begins[0]:",
+        "    if not begins or not ends:",
+    ),
+    (
+        "a prompt can never be parsed as a CLI option",
+        "src/opa/rlm/adapters/claude_code.py",
+        '        return [*cmd, "--", request.prompt]',
+        '        return [cmd[0], request.prompt, *cmd[1:]]',
+    ),
+    (
+        "a cancelled child turn kills the child process",
+        "src/opa/rlm/adapters/base.py",
+        "    except BaseException:\n        _kill_group(proc)",
+        "    except BaseException:\n        pass",
+    ),
+    (
+        "the shared store locks across check and write",
+        "src/opa/harness/state.py",
+        "            fcntl.flock(fh, fcntl.LOCK_EX)",
+        "            pass",
+    ),
+    (
+        "a merge that cannot read the file does not write",
+        "src/opa/harness/state.py",
+        "            return  # save() refuses; replaying onto nothing would wipe the store",
+        "            self.unreadable = None",
+    ),
+    (
+        "kernel cells never run concurrently",
+        "src/opa/kernel/manager.py",
+        "        async with self._exec_lock:\n            return await self._execute_locked(",
+        "        if True:\n            return await self._execute_locked(",
+    ),
+    (
         "a finished goal cannot be reopened",
         "src/opa/longrun/goal.py",
-        '        if self.goal.status == "abandoned":',
-        "        if False:",
+        '        if self.goal.status == "abandoned":\n            raise ValueError(\n                "this goal was abandoned; completing it',
+        '        if False:\n            raise ValueError(\n                "this goal was abandoned; completing it',
     ),
 ]
 

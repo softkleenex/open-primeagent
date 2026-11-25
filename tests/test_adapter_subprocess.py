@@ -144,9 +144,9 @@ async def test_a_cancelled_turn_takes_the_child_and_its_tools_with_it(bin_dir, t
         bin_dir,
         "claude",
         "import os, subprocess, time\n"
-        "kid = subprocess.Popen(['sleep', '60'])\n"
+        "kid = subprocess.Popen(['sleep', '600'])\n"
         f"open({str(pids)!r}, 'w').write(f'{{os.getpid()}} {{kid.pid}}')\n"
-        "time.sleep(60)\n",
+        "time.sleep(600)\n",
     )
     task = asyncio.create_task(ClaudeCodeAdapter().run(request(tmp_path, session_id="s")))
     for _ in range(100):
@@ -154,8 +154,10 @@ async def test_a_cancelled_turn_takes_the_child_and_its_tools_with_it(bin_dir, t
             break
         await asyncio.sleep(0.05)
     task.cancel()
+    # Bounded: without the kill, cancellation waits for the CLI to exit on its
+    # own, which is how this test once passed against a broken guard.
     with pytest.raises(asyncio.CancelledError):
-        await task
+        await asyncio.wait_for(task, timeout=10)
 
     def alive(pid: int) -> bool:
         try:
