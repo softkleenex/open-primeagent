@@ -17,6 +17,7 @@ session directory with argv pinned to sys.executable.
 from __future__ import annotations
 
 import ast
+import asyncio
 import json
 import os
 import queue
@@ -101,6 +102,12 @@ class KernelManager:
         self._started_at: str | None = None
         self._restarts = 0
         self._runtime_ok: bool | None = None
+        # One cell at a time. Two concurrent executes both read the one iopub
+        # stream and each discarded the other's messages as foreign - measured,
+        # a 15s-timeout cell was still hung after 30s, because the deadline is
+        # only checked when a message arrives.
+        self._exec_lock = asyncio.Lock()
+        self._last_names: list[str] = []
 
     # ---------- kernelspec ----------
 
@@ -173,15 +180,21 @@ class KernelManager:
         self._km = AsyncKernelManager(
             kernel_name=KERNEL_NAME, kernel_spec_manager=ksm, transport=transport, ip=ip
         )
-        await self._km.start_kernel(cwd=str(self.cwd), env=self._env())
-        self._kc = self._km.client()
-        self._kc.start_channels()
-        await self._kc.wait_for_ready(timeout=60)
-        self._started_at = _now()
+        try:
+            await self._km.start_kernel(cwd=str(self.cwd), env=self._env())
+            self._kc = self._km.client()
+            self._kc.start_channels()
+            await self._kc.wait_for_ready(timeout=60)
+            self._started_at = _now()
 
-        boot = await self.execute(self._bootstrap(), timeout=30, record_output=False)
-        probe = await self.execute("_OPA_RUNTIME_OK", timeout=10, record_output=False)
-        self._runtime_ok = boot.ok and probe.result_repr == "True"
+            boot = await self.execute(self._bootstrap(), timeout=30, record_output=False)
+            probe = await self.execute("_OPA_RUNTIME_OK", timeout=10, record_output=False)
+            self._runtime_ok = boot.ok and probe.result_repr == "True"
+        except BaseException:
+            # The caller never gets this manager back, so nothing else could
+            # shut the kernel down: each retry leaked one more process.
+            await self.stop()
+            raise
 
     def _bootstrap(self) -> str:
         return BOOTSTRAP.format(token=self.token)
@@ -239,6 +252,10 @@ class KernelManager:
         """
         if self._kc is None:
             return []
+        if self._exec_lock.locked():
+            # A status call must not queue behind a long cell; the last list
+            # is still the right answer to "what did I build".
+            return self._last_names[:limit]
         hidden = sorted(PRELOADED | {"In", "Out", "exit", "quit", "get_ipython", "open"})
         code = (
             f"_opa_hidden = {hidden!r}\n"
@@ -252,7 +269,8 @@ class KernelManager:
             names = ast.literal_eval(result.stdout.strip())
         except (SyntaxError, ValueError):
             return []
-        return [n for n in names if isinstance(n, str)][:limit]
+        self._last_names = [n for n in names if isinstance(n, str)]
+        return self._last_names[:limit]
 
     # ---------- execution ----------
 
@@ -265,7 +283,12 @@ class KernelManager:
     ) -> ExecResult:
         if self._kc is None:
             raise RuntimeError("kernel is not started")
+        async with self._exec_lock:
+            return await self._execute_locked(code, timeout=timeout, record_output=record_output)
 
+    async def _execute_locked(self, code: str, *, timeout: float, record_output: bool) -> ExecResult:
+        if self._kc is None:
+            raise RuntimeError("kernel is not started")
         started = time.monotonic()
         msg_id = self._kc.execute(code, store_history=True, allow_stdin=False)
 

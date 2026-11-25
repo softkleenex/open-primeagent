@@ -100,3 +100,55 @@ async def test_the_name_list_leaves_out_what_is_always_there(server):
     assert "dependency_graph" in state["kernel_names"]
     for always_there in ("rlm", "harness", "goal", "schedule", "agent_message"):
         assert always_there not in state["kernel_names"]
+
+
+# --- Found by review (2026-11-25)
+
+
+async def test_concurrent_calls_do_not_steal_each_others_output(server):
+    """Two cells running at once both read the one iopub stream and each threw
+    away the other's messages. Measured: a status call came back empty and a
+    15s-timeout cell was still hung after 30s."""
+    import asyncio
+
+    await call(server, "opa_python", {"code": "kept = 1"})
+    await call(server, "opa_status", {})  # while busy, status answers from the last list
+    slow = asyncio.create_task(
+        call(server, "opa_python", {"code": "import time; time.sleep(1); print('SLOW-DONE')", "timeout": 15})
+    )
+    await asyncio.sleep(0.2)
+    fast, status = await asyncio.wait_for(
+        asyncio.gather(
+            call(server, "opa_python", {"code": "print('FAST-DONE')"}),
+            call(server, "opa_status", {}),
+        ),
+        timeout=20,
+    )
+    assert "SLOW-DONE" in await asyncio.wait_for(slow, timeout=20)
+    assert "FAST-DONE" in fast
+    assert "kept" in status
+
+
+async def test_a_failed_boot_does_not_leak_the_kernel(config, monkeypatch):
+    from opa.kernel.manager import KernelManager
+
+    started: list[KernelManager] = []
+    real_start = KernelManager.start
+
+    async def boot_then_fail(self):
+        started.append(self)
+        real_bootstrap = self._bootstrap
+        self._bootstrap = lambda: real_bootstrap() + "\nraise SystemExit"
+        async def failing_execute(*a, **k):
+            raise RuntimeError("bootstrap blew up")
+        monkeypatch.setattr(self, "execute", failing_execute)
+        await real_start(self)
+
+    monkeypatch.setattr(KernelManager, "start", boot_then_fail)
+    srv = build_server(config)
+    try:
+        with pytest.raises(RuntimeError, match="bootstrap blew up"):
+            await srv._opa_runtime.kernel()
+        assert started and started[0]._km is None, "the half-started kernel was left running"
+    finally:
+        await srv._opa_runtime.shutdown()
