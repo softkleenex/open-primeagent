@@ -441,6 +441,45 @@ $0.0087 and $0.0063: 94% less than the cold turn, not 6% more.
 > own can change meaning without changing shape, and the only check is a real
 > run against numbers that must add up.
 
+## The headline was already shipped by the hosts (2026-11-25)
+
+Before launching we compared ourselves with Prime Agent, the third-party tools
+and the hosts. The hosts were the finding. During 2026 Claude Code (resume a
+finished sub-agent with `SendMessage`), Codex (`resume_agent`,
+`followup_task`) and opencode (continue a child by `sessionID`) all shipped the
+thing our README led with: a sub-agent you can come back to. Our 81% was real
+and is still in the table, but it measured something the user now gets without
+us.
+
+What none of them do is cross over. Each host's memory stays in its own home
+directory on one machine, and each host's sub-agents are reachable only from
+that host. So the headline moved to the one thing that is structurally ours:
+what an agent learns is written into the repo's `AGENTS.md`, which all three
+read.
+
+That claim needed a measurement that staged nothing, so `bench/portable.py`
+runs the whole loop: Claude Code with open-primeagent learns the rule, and a
+fresh clone carrying only the resulting `AGENTS.md` is handed to plain Claude
+Code with no MCP servers. The first run found two product bugs before it found
+a result. The agent filed the rule as a `memory`, which the block shows only as
+a title with a path a clone does not have; and a rule that began with this
+machine's Python path was cut at 180, then 400, characters before the script
+name it needed. Rules are now written out to 800 characters and the tool says
+a rule others must follow is a `prompt` with no machine paths. Rerun: the key
+fact recorded 6 of 6 times, and the teammate's agent took 26% fewer turns and
+26% less time. A modest win, because current models rediscover this rule in
+about six turns.
+
+Two side findings. Claude Code 2.1.332 does read `AGENTS.md` natively, checked
+with every file tool disabled. And it does not load instruction files from its
+own session scratch directory, which briefly made that check look negative.
+
+Prime Agent itself had also moved: 887 commits past our snapshot, rewritten
+around a Rust host, `rlm.run` renamed to `rlm.spawn`, a `cancelled` status. Our
+compatibility test had pinned one handle field wrong and passed anyway. It now
+pins the live contract, and `rlm.spawn` works here. The README's "under 4k
+lines" was also wrong: it is about 4,800 without blanks and comments.
+
 ## Incident log
 
 ### 2026-08-19 — path traversal through harness entry ids

@@ -12,30 +12,37 @@
 
 <!-- i18n:begin  translated in README.ko.md, README.zh-CN.md, README.ja.md; tests/test_readme_i18n.py keeps the numbers in sync -->
 
-**Claude Code hires a sub-agent. The sub-agent reads half your repo. Claude Code
-fires it, and next time hires a new one that reads it all again.**
+**Claude Code spends half an hour learning your repo. Then a teammate opens it
+in Codex, and Codex knows none of it.**
 
-![The same follow-up asked of a fresh sub-agent and of one that already read the code: 81% less cost, 91% fewer tokens](docs/assets/reuse-demo.gif)
+Each agent remembers on its own now, and keeps it to itself: Claude Code in
+`~/.claude`, Codex in `~/.codex`, on the machine that wrote it.
+open-primeagent writes what your agent learned into the repo's `AGENTS.md` and
+`CLAUDE.md`, inside one marked block, so it is committed with the code and read
+by Claude Code, Codex and opencode alike.
 
-<sub>Replayed from [measured data](bench/results/warm-sonnet.json) (Sonnet, n=4, means), not staged. [`bench/demo.py`](bench/demo.py) renders it.</sub>
+![Two plain Claude Code sessions on a fresh clone. The one whose clone has the AGENTS.md an earlier agent wrote takes 26% fewer turns and 26% less time](docs/assets/portable-demo.gif)
 
-open-primeagent keeps the sub-agent. You can come back with a follow-up and it
-still knows the code. It is one MCP server added to the agent you already run
-(Claude Code, Codex or opencode), and it does three things:
+<sub>Replayed from [measured data](bench/results/portable-sonnet.json) (Sonnet, n=6 per arm, means), not staged. [`bench/demo_portable.py`](bench/demo_portable.py) renders it.</sub>
 
-- **Sub-agents that survive the session.** Re-tasking one that had already read
-  the code cost 81% less than starting a fresh one.
-- **Project rules that stick.** What the agent learns is written into the
-  `CLAUDE.md` or `AGENTS.md` it already reads, inside one marked block that
-  `opa_bootstrap(remove=True)` takes back out. On a task where the rule was hard
-  to rediscover, runs finished in 57% less time.
+It is one MCP server, added to whichever of the three you run:
+
+- **Rules that travel with the repo.** In one session, Claude Code with
+  open-primeagent found a repo's hidden rule and recorded it. A fresh clone
+  carrying only the resulting `AGENTS.md`, opened by plain Claude Code with no
+  open-primeagent at all, finished the same task with 26% fewer turns and 26%
+  less time. The block comes back out cleanly with `opa_bootstrap(remove=True)`.
+- **Sub-agents across agents.** From Claude Code you can keep a Codex sub-agent
+  and come back to it with a follow-up. Claude Code, Codex and opencode can each
+  resume their own sub-agents now; none of them can reach the others'. (The
+  Codex child was checked against the real CLI by hand; CI uses a stub.)
 - **A Python process that stays alive between calls**, for state you would
   rather not keep in the context window. We have not shown that this helps: in
   120 turns of our benchmarks the agent never called it.
 
 ```bash
 claude mcp add opa -- uvx open-primeagent
-# or, with its skills, as a Claude Code plugin:
+# Codex and opencode: see Install below. Or, in Claude Code, as a plugin:
 # /plugin install open-primeagent --marketplace softkleenex/open-primeagent
 ```
 
@@ -43,9 +50,11 @@ claude mcp add opa -- uvx open-primeagent
 
 | experiment | result | |
 |---|---|---|
-| re-task a warm sub-agent instead of starting a cold one | 81% less cost | won |
-| a recorded rule, when the knowledge was hidden among 16 decoy scripts | 57% less wall clock, variance collapsed | won |
+| a rule learned with open-primeagent, read from `AGENTS.md` by a fresh agent without it | 26% fewer turns, 26% less time | won |
+| the same, first version: the agent filed the rule as a memory, which other agents only see as a title | the key fact reached the next agent in 4 of 6 runs | lost, fixed: 6 of 6 |
+| a recorded rule, when the knowledge was hidden among 16 decoy scripts (August) | 57% less wall clock, variance collapsed | won |
 | the same rule, when the knowledge was one glance away | 26% more turns | lost |
+| re-task a warm sub-agent instead of starting a cold one | 81% less cost | won, but the hosts now do this natively |
 | fan out to 4 fresh sub-agents | 777% more cost | lost |
 | fan out on a 444-file codebase built for fan-out to win | 127% more wall clock | lost |
 | persistent kernel attached for 120 turns | called 0 times | no effect |
@@ -53,9 +62,12 @@ claude mcp add opa -- uvx open-primeagent
 The losses stay in. They are what makes the wins believable, and why each one
 lost is more useful than the number. [Raw data and methodology.](bench/README.md)
 
-The code is held to the same rule. This README used to promise that projection
-never changes a character outside its block. An outside review found inputs
-where it did, and [the journal has the details](docs/journal.md#an-outside-review-breaks-the-headline-promise-2026-11-25).
+We hold ourselves to the same rule. This README used to lead with sub-agents
+that survive the session. While comparing ourselves with the hosts, we found
+that Claude Code, Codex and opencode had all shipped that natively during 2026,
+so it is no longer the headline. It also used to promise that projection never
+changes a character outside its block; an outside review found inputs where it
+did, and [the journal has the details](docs/journal.md#an-outside-review-breaks-the-headline-promise-2026-11-25).
 Every safety guard is now [mutation-tested](scripts/mutate_guards.py): we break
 it on purpose and check that a test fails.
 
@@ -149,6 +161,13 @@ Code*. The protocol equivalence is tested; the performance comparison is
 [open](docs/lineage.md#what-we-cannot-claim).
 
 ## Persistent sub-agents actually work
+
+> **Since autumn 2026 the hosts do this too.** Claude Code resumes a finished
+> sub-agent with `SendMessage`, Codex has `resume_agent` / `followup_task`, and
+> opencode continues a child by `sessionID`. Use those within one agent. What
+> is still ours is reaching across them: a Codex child kept by a Claude Code
+> parent, under one registry that survives restarts. Our 81% measurement below
+> predates the native features and was not re-run against them.
 
 The hard requirement is that a child is **not disposable**: you must be able to
 come back to it later and have it remember. Both CLIs already support that, and

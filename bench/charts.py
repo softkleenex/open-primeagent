@@ -127,26 +127,32 @@ def fanout_chart(out: Path) -> None:
 
 def social_preview(out: Path) -> None:
     w, h = 1280, 640
-    warm = json.loads((RESULTS / "warm-sonnet.json").read_text(encoding="utf-8"))
-    cost = {
-        arm: sum(r["child_cost"] for r in warm if r["arm"] == arm and r["ok"])
-        / sum(1 for r in warm if r["arm"] == arm and r["ok"])
-        for arm in ("cold", "warm")
-    }
-    reuse = 1 - cost["warm"] / cost["cold"]
+    port = json.loads((RESULTS / "portable-sonnet.json").read_text(encoding="utf-8"))
+
+    def mean(arm: str, key: str) -> float:
+        rows = [r[key] for r in port if r["arm"] == arm]
+        return sum(rows) / len(rows)
+
+    turns = 1 - mean("teammate", "agent_turns") / mean("control", "agent_turns")
     small = fanout_data()[0]
     fan = small["many"]["cost"] / small["one"]["cost"] - 1
     m = [
         _text(72, 110, "open-primeagent", size=60, fill=FG),
-        _text(72, 180, "Sub-agents that survive the session.", size=32, fill=FG),
-        _text(72, 226, "For Claude Code, Codex and opencode. One MCP server.", size=24, fill=DIM),
+        _text(72, 180, "What one agent learns, the next one reads.", size=32, fill=FG),
+        _text(
+            72,
+            226,
+            "Claude Code, Codex, opencode: one AGENTS.md, one MCP server.",
+            size=24,
+            fill=DIM,
+        ),
         _rect(72, 280, w - 72, 281, RULE),
     ]
     stats = [
         (
-            f"{reuse:.0%} less",
-            "cost to re-task a sub-agent",
-            "that already read the code",
+            f"{turns:.0%} fewer",
+            "turns for a fresh agent",
+            "using what another learned",
             "#3fb950",
         ),
         (f"{fan:.0%} more", "cost to fan out to", "4 fresh sub-agents (we lost)", MANY),

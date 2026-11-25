@@ -12,9 +12,14 @@ version: a learned harness entry pays when knowledge is expensive to
 rediscover, re-tasking a warm child is far cheaper than a cold one, fan-out
 never won, and the kernel was never actually called.
 
+The newest result is the first one below: a rule learned with
+open-primeagent reached a fresh agent without it through `AGENTS.md` alone,
+for a modest gain on a task that is now easy to rediscover.
+
 The animation at the top of the main README is rendered from
-`results/warm-sonnet.json` by `demo.py` (needs `magick` and `ffmpeg`); it
-replays the means and states the time compression on screen.
+`results/portable-sonnet.json` by `demo_portable.py`, and the earlier one from
+`results/warm-sonnet.json` by `demo.py` (both need `magick` and `ffmpeg`). Both
+replay the means and state the time compression on screen.
 
 ```
 uv run python bench/evolution.py --variant hard --repeat 7
@@ -39,9 +44,52 @@ uv run python bench/subagents.py --experiment parallel --repeat 3
 uv run python bench/fanout.py --repeat 2
 uv run python bench/serial.py --repeat 3 --seconds 30
 uv run python bench/warm.py --repeat 4
+uv run python bench/portable.py --repeat 6
 ```
 
 ---
+
+## P. A rule learned by one agent, used by the next one without us  ✅ modest win
+
+`bench/portable.py`
+
+The evolution benchmark below hand-wrote its rule into CLAUDE.md. This one
+stages nothing between the steps:
+
+- **learn**: Claude Code *with* open-primeagent does a task in a fresh repo
+  whose rule (run `tools/sync_models.py`, one of 16 scripts, after editing the
+  schema) it has to discover by failing, then is asked to save what a
+  teammate's agent would need. opa_bootstrap projects it into `AGENTS.md`.
+- **teammate**: a fresh clone carrying only that `AGENTS.md`. Plain Claude
+  Code, no open-primeagent, no MCP servers, same task.
+- **control**: the same fresh clone without it.
+
+`AGENTS.md` on purpose: it is what Codex and opencode read, and Claude Code
+2.1.332 reads it natively too (checked with every file tool disabled). We did
+not run Codex or opencode; that they read it is their documented behaviour.
+
+| metric | control | teammate | delta |
+|---|---|---|---|
+| agent turns | 6.5 | 4.8 | **-26%** |
+| wall clock | 14.7 s | 10.8 s | **-26%** |
+| tests pass | 6 / 6 | 6 / 6 | |
+| key fact recorded by the learn step | | 6 / 6 | |
+
+Sonnet, n=6 per arm, `results/portable-sonnet.json`.
+
+**The first run found a product bug, and it is kept.** In
+`results/portable-v1-rules-lost-in-memory-sonnet.json` the learn step recorded
+the generator in only 4 of 6 runs. Once it filed the rule as a `memory`, which
+the block shows only as a title with a path under `.opa/` that a clone does not
+carry. Once it led with this machine's Python path and the block's 180, then
+400, character cut fell before the script name. Rules are now written out up to
+800 characters, and the tool description says a rule others must follow is a
+`prompt` with no machine paths. Same benchmark, 6 of 6.
+
+**Why the win is modest.** Today's Sonnet rediscovers this rule in about six
+turns, so there is little to save. The gain grows with what rediscovery costs;
+the August evolution run below, on a setting that was harder for the model of
+the time, saved 57%. We have not built a harder cross-agent task yet.
 
 ## 0. Sub-agent fan-out  ❌ opa loses badly
 
