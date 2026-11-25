@@ -56,6 +56,20 @@ Then the details: session id and directory, kernel liveness and restart count,
 every sub-agent with status/turns/tokens/cost, goal, schedule counts, harness
 entry counts.
 
+**`reuse`** is what keeping sub-agents saved, as a line you can paste:
+
+```
+open-primeagent: 2 follow-up(s) to 1 warm sub-agent(s), ~60,946 tokens not re-spent,
+~$0.25 at API rates (estimated against each sub-agent's own first turn)
+```
+
+That is a real run: one child read two files (31k tokens, $0.135), then
+answered two follow-ups for $0.009 and $0.006. Each follow-up is compared with
+that child's own first turn, the closest thing to "what a fresh child would
+have cost" that was actually measured on your machine. It is an estimate, it
+never counts below zero, and `basis` says so. Children that were never
+re-tasked add nothing.
+
 This is the recovery call. A harness that owns its host can promote knowledge at
 the moment a compaction is about to discard it; we cannot see a compaction
 happen, so the recovery call carries that job instead.

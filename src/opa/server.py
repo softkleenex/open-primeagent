@@ -129,6 +129,9 @@ def build_server(config: Config | None = None) -> MCPServer:
                 }
                 for r in runtime.rlm.registry.list()
             ],
+            # What re-tasking instead of re-spawning saved, with its basis. Shaped
+            # to be read out to the user, and copied, as is.
+            "reuse": runtime.rlm.registry.reuse(),
             "mailbox_unread": len(runtime.rlm.mailbox.unread()),
             "goal": runtime.goals.get(),
             "schedule": {

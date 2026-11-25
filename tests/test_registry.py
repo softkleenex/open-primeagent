@@ -133,3 +133,46 @@ def test_a_completed_delete_also_stays_deleted(tmp_path):
     registry.add(ChildRecord.new("gone", "claude-code", tmp_path))
     registry.delete("gone")
     assert [r.name for r in ChildRegistry(tmp_path / "children").load().list()] == []
+
+
+# --- the reuse receipt
+
+
+def _child(registry, tmp_path, name):
+    return registry.add(ChildRecord.new(name=name, adapter="fake", cwd=tmp_path))
+
+
+def test_reuse_is_estimated_against_the_childs_own_cold_turn(registry, tmp_path):
+    a = _child(registry, tmp_path, "a")
+    registry.record_turn(
+        a.rlm_child_id, {"resume": False, "ok": True, "tokens": 23_000, "cost_usd": 0.30}
+    )
+    registry.record_turn(
+        a.rlm_child_id, {"resume": True, "ok": True, "tokens": 2_000, "cost_usd": 0.05}
+    )
+    registry.record_turn(
+        a.rlm_child_id, {"resume": True, "ok": True, "tokens": 3_000, "cost_usd": 0.06}
+    )
+    reuse = registry.reuse()
+    assert (reuse["warm_children"], reuse["follow_ups"]) == (1, 2)
+    assert reuse["estimated_tokens_saved"] == 21_000 + 20_000
+    assert reuse["estimated_cost_saved_usd"] == pytest.approx(0.49)
+    assert "41,000 tokens" in reuse["receipt"] and "estimated" in reuse["receipt"]
+
+
+def test_a_follow_up_dearer_than_the_cold_turn_never_counts_as_negative(registry, tmp_path):
+    a = _child(registry, tmp_path, "a")
+    registry.record_turn(a.rlm_child_id, {"resume": False, "ok": True, "tokens": 1_000})
+    registry.record_turn(a.rlm_child_id, {"resume": True, "ok": True, "tokens": 5_000})
+    assert registry.reuse()["estimated_tokens_saved"] == 0
+
+
+def test_nothing_is_claimed_without_a_measured_cold_turn(registry, tmp_path):
+    """Failed turns and children never re-tasked prove nothing, so they add nothing."""
+    a = _child(registry, tmp_path, "a")
+    registry.record_turn(a.rlm_child_id, {"resume": False, "ok": False, "tokens": 9_000})
+    registry.record_turn(a.rlm_child_id, {"resume": True, "ok": True, "tokens": 1_000})
+    b = _child(registry, tmp_path, "b")
+    registry.record_turn(b.rlm_child_id, {"resume": False, "ok": True, "tokens": 9_000})
+    reuse = registry.reuse()
+    assert reuse["follow_ups"] == 0 and reuse["receipt"] is None

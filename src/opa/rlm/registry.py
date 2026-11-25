@@ -172,3 +172,46 @@ class ChildRegistry:
         path = self.child_dir(rlm_child_id) / "turns.jsonl"
         records = list(jsonl.read(path))
         return records[-limit:] if limit else records
+
+    def reuse(self) -> dict:
+        """What keeping sub-agents saved, estimated - and how it was estimated.
+
+        The baseline is each child's own first turn: what a cold child cost, on
+        this machine, for this codebase. Every successful follow-up is credited
+        with the difference between that and what the follow-up actually cost,
+        and never with less than zero. It is an estimate - a fresh child asked
+        the follow-up would not have cost exactly the first turn - so the
+        result says so in `basis` rather than presenting a measurement.
+        """
+        children = follow_ups = tokens_saved = 0
+        cost_saved = 0.0
+        for record in self.list():
+            turns = [t for t in self.turns(record.rlm_child_id) if t.get("ok")]
+            cold = next(
+                (t for t in turns if not t.get("resume") and t.get("tokens") is not None), None
+            )
+            warm = [t for t in turns if t.get("resume") and t.get("tokens") is not None]
+            if cold is None or not warm:
+                continue
+            children += 1
+            follow_ups += len(warm)
+            for turn in warm:
+                tokens_saved += max(0, int(cold["tokens"]) - int(turn["tokens"]))
+                if cold.get("cost_usd") is not None and turn.get("cost_usd") is not None:
+                    cost_saved += max(0.0, float(cold["cost_usd"]) - float(turn["cost_usd"]))
+        receipt = None
+        if follow_ups:
+            money = f", ~${cost_saved:.2f} at API rates" if cost_saved >= 0.01 else ""
+            receipt = (
+                f"open-primeagent: {follow_ups} follow-up(s) to {children} warm sub-agent(s), "
+                f"~{tokens_saved:,} tokens not re-spent{money} "
+                "(estimated against each sub-agent's own first turn)"
+            )
+        return {
+            "warm_children": children,
+            "follow_ups": follow_ups,
+            "estimated_tokens_saved": tokens_saved,
+            "estimated_cost_saved_usd": round(cost_saved, 4),
+            "basis": "each follow-up vs. that sub-agent's own first (cold) turn; an estimate",
+            "receipt": receipt,
+        }
