@@ -156,7 +156,24 @@ def test_the_block_is_budgeted_because_it_is_read_every_request(tmp_path):
     assert "SENTINEL_TAIL" not in body
     for line in body.splitlines():
         if line.startswith("- **"):
-            assert len(line) < proj.SUMMARY_CHARS + 60
+            assert len(line) < proj.SUMMARY_CHARS + proj.RULE_CHARS + 20
+
+
+def test_a_rule_survives_whole_for_an_agent_without_open_primeagent():
+    """Codex, opencode and a teammate read this block with nothing to expand it.
+
+    Regression from a real run: the recorded rule was cut at 180 characters,
+    right after the script it named and before what to do with it.
+    """
+    rule = (
+        "schema.py holds FIELDS (the User schema). models_gen.py is GENERATED from it; "
+        "never hand-edit it. After changing schema.py, run `python3 tools/sync_models.py` "
+        "to regenerate models_gen.py, then run the tests. The other scripts under tools/ "
+        "do not regenerate anything, despite their names."
+    )
+    body = projection.render([entry("prompt", "repo-workflow", "Schema workflow", rule)])
+    assert "despite their names." in body
+    assert "without open-primeagent" in body
 
 
 def test_counts_are_shown_so_nothing_looks_complete_when_it_is_not(tmp_path):

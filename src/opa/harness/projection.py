@@ -50,6 +50,11 @@ MEMORY_DIR_NAME = "memory"
 # themselves. Upstream applies the same discipline for the same reason.
 MAX_PER_KIND = 6
 SUMMARY_CHARS = 180
+# Rules get more room than the other summaries. This file is also what Codex,
+# opencode and a teammate without open-primeagent read, and for them a rule cut
+# off mid-sentence has no `harness.overview()` to finish it. Measured: a rule
+# recorded in a real run was cut right after the script name it needed.
+RULE_CHARS = 400
 
 
 def _inside(directory: Path, name: str) -> Path:
@@ -98,9 +103,11 @@ def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> st
         return "\n".join(lines)
 
     lines.append(
-        "Summaries recorded for this project, kept short because this block is "
-        "read on every request. Use them to know a rule exists; read the entry "
-        "with `await harness.overview()` when the detail matters."
+        "What agents have learned about this project, recorded so the next one "
+        "does not rediscover it. The rules are written out to be followed by any "
+        "agent that reads this file, with or without open-primeagent. Kept short "
+        "because it is read on every request; with open-primeagent attached, "
+        "`await harness.overview()` shows every entry in full."
     )
     lines.append("")
 
@@ -108,9 +115,7 @@ def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> st
         lines,
         "Rules for this project",
         prompts,
-        lambda e: (
-            f"- **{_one_line(e.title, SUMMARY_CHARS)}** — {_one_line(e.content, SUMMARY_CHARS)}"
-        ),
+        lambda e: f"- **{_one_line(e.title, SUMMARY_CHARS)}** — {_one_line(e.content, RULE_CHARS)}",
     )
     _section(
         lines,
