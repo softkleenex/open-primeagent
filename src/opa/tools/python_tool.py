@@ -30,4 +30,9 @@ Spawning a sub-agent is expensive: each one is a full coding-agent session and
 costs roughly 36k tokens before it reads any of your code. Hand work to a child
 only when that work would cost you more than that in your own context, and
 prefer re-tasking an existing child over creating a new one.
+
+A rule every agent working here must follow is a harness `prompt` entry: it is
+written out in AGENTS.md / CLAUDE.md, which Codex, opencode and teammates read
+without open-primeagent. A `memory` entry shows there only as a title. Write
+rules that hold on any machine: no absolute paths, no local interpreter paths.
 """

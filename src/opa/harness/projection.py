@@ -53,8 +53,9 @@ SUMMARY_CHARS = 180
 # Rules get more room than the other summaries. This file is also what Codex,
 # opencode and a teammate without open-primeagent read, and for them a rule cut
 # off mid-sentence has no `harness.overview()` to finish it. Measured: a rule
-# recorded in a real run was cut right after the script name it needed.
-RULE_CHARS = 400
+# recorded in a real run was cut before the script name it needed, at 180
+# characters and again at 400. Six rules at this size are still about 1.2k tokens.
+RULE_CHARS = 800
 
 
 def _inside(directory: Path, name: str) -> Path:

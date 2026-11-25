@@ -38,3 +38,7 @@ thing worth writing down — pass it in the `evidence` argument yourself.
 - Never modify the base system prompt.
 - Everything must be reversible.
 - Run `opa_bootstrap()` afterwards so the next session actually reads it.
+- **A rule others must follow is a `prompt`, not a `memory`.** Prompts are
+  written out in AGENTS.md / CLAUDE.md, which Codex, opencode and a teammate
+  without open-primeagent all read. A memory shows there only as a title.
+- Write it for any machine: no absolute paths, no local interpreter locations.

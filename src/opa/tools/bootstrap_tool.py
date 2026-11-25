@@ -14,4 +14,7 @@ is preserved byte-for-byte. agent="auto" targets the prompt files that already
 exist. Pass remove=true to restore every touched file to its original state.
 
 Call this after changing harness entries so the next session starts with them.
+
+The block is the part other agents and teammates get: rules (`prompt` entries)
+are written out; memory entries appear as a title and a path under .opa/.
 """
