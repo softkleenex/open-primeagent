@@ -9,6 +9,10 @@
 **Claude Code hires a sub-agent. The sub-agent reads half your repo. Claude Code
 fires it, and next time hires a new one that reads it all again.**
 
+![The same follow-up asked of a fresh sub-agent and of one that already read the code: 81% less cost, 91% fewer tokens](docs/assets/reuse-demo.gif)
+
+<sub>Replayed from [measured data](bench/results/warm-sonnet.json) (Sonnet, n=4, means), not staged. [`bench/demo.py`](bench/demo.py) renders it.</sub>
+
 open-primeagent keeps the sub-agent. You can come back with a follow-up and it
 still knows the code. It is one MCP server added to the agent you already run
 (Claude Code, Codex or opencode), and it does three things:

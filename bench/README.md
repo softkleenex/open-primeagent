@@ -12,6 +12,10 @@ version: a learned harness entry pays when knowledge is expensive to
 rediscover, re-tasking a warm child is far cheaper than a cold one, fan-out
 never won, and the kernel was never actually called.
 
+The animation at the top of the main README is rendered from
+`results/warm-sonnet.json` by `demo.py` (needs `magick` and `ffmpeg`); it
+replays the means and states the time compression on screen.
+
 ```
 uv run python bench/evolution.py --variant hard --repeat 7
 uv run python bench/evolution.py --variant easy --repeat 3
