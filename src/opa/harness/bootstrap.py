@@ -135,6 +135,8 @@ def mark_projected(harness: HarnessService, entries: list) -> None:
     stamp = datetime.now(UTC).isoformat()
     for entry in entries:
         entry.metadata["projected_at"] = stamp
+        for store in (harness.local, harness.global_):
+            store.touch(entry)
     harness.local.save()
     harness.global_.save()
 

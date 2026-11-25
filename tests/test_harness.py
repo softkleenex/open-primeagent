@@ -456,3 +456,92 @@ def test_a_delete_survives_a_merge_triggered_by_someone_elses_write(tmp_path):
 
     reloaded = HarnessService(tmp_path / "c", shared)
     assert _global_titles(reloaded) == ["written by A"], "the delete must not be undone"
+
+
+# --- Found by review (2026-11-25): concurrent writers on the shared global store.
+
+
+def _two_servers(tmp_path):
+    shared = tmp_path / "global"
+    return (
+        HarnessService(tmp_path / "p1", shared),
+        HarnessService(tmp_path / "p2", shared),
+        shared / STATE_FILE_NAME,
+    )
+
+
+def _on_disk(path, kind):
+    return json.loads(path.read_text(encoding="utf-8"))["entries"][kind]
+
+
+def test_a_rollback_survives_another_servers_write(tmp_path):
+    a, b, state = _two_servers(tmp_path)
+    a.create("memory", "port", "dev server on 5173", global_=True)
+    event = a.apply([{"op": "delete", "id": "global:port"}], trigger="t")
+    b.create("memory", "unrelated", "x", global_=True)
+    a.rollback(event.id)
+    assert "port" in _on_disk(state, "memory"), "the restore was replayed away by the merge"
+    assert "unrelated" in _on_disk(state, "memory")
+
+
+def test_a_failed_apply_is_undone_on_disk_even_after_a_merge(tmp_path):
+    a, b, state = _two_servers(tmp_path)
+    a.create("prompt", "rule", "original", global_=True)
+    b.create("memory", "other", "x", global_=True)
+    with pytest.raises(KeyError):
+        a.apply(
+            [{"op": "update", "id": "global:rule", "content": "HALF-APPLIED"},
+             {"op": "delete", "id": "nope"}],
+            trigger="t",
+        )
+    assert _on_disk(state, "prompt")["rule"]["content"] == "original"
+
+
+def test_the_same_title_from_two_servers_keeps_both(tmp_path):
+    a, b, state = _two_servers(tmp_path)
+    a.create("memory", "Build command", "use make", global_=True)
+    b.create("memory", "Build command", "use bazel", global_=True)
+    contents = sorted(e["content"] for e in _on_disk(state, "memory").values())
+    assert contents == ["use bazel", "use make"]
+
+
+def test_a_read_failure_during_the_merge_refuses_to_write(tmp_path):
+    import os
+
+    a, b, state = _two_servers(tmp_path)
+    a.create("memory", "a1", "a", global_=True)
+    b.create("memory", "b1", "b", global_=True)
+    os.chmod(state, 0)
+    try:
+        with pytest.raises(RuntimeError, match="refusing to write"):
+            a.create("memory", "a2", "a", global_=True)
+    finally:
+        os.chmod(state, 0o644)
+    assert set(_on_disk(state, "memory")) == {"a1", "b1"}
+
+
+def _create_many(shared: str, project: str, prefix: str, count: int) -> None:
+    from pathlib import Path
+
+    service = HarnessService(Path(project), Path(shared))
+    for i in range(count):
+        service.create("memory", f"{prefix}{i}", "x", global_=True, id=f"{prefix}{i}")
+
+
+def test_real_processes_racing_on_the_global_store_lose_nothing(tmp_path):
+    """The stamp check and the write used to be separate steps; a save landing
+    between them was erased. Real processes, so the lock is what is tested."""
+    import multiprocessing
+
+    shared = tmp_path / "global"
+    ctx = multiprocessing.get_context("spawn")
+    procs = [
+        ctx.Process(target=_create_many, args=(str(shared), str(tmp_path / f"p{n}"), f"w{n}-", 25))
+        for n in range(3)
+    ]
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join(60)
+        assert p.exitcode == 0
+    assert len(_on_disk(shared / STATE_FILE_NAME, "memory")) == 75

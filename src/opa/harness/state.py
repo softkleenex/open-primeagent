@@ -17,6 +17,7 @@ ways.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -28,6 +29,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 from ..fsutil import atomic_write
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows: no advisory locks, merge only
+    fcntl = None
 
 HarnessKind = Literal["prompt", "memory", "skill", "subagent"]
 HarnessScope = Literal["local", "global"]
@@ -131,7 +137,9 @@ class HarnessStore:
         # (kind, id) -> entry, or None for a delete. What *this* process changed
         # since it last read the file, which is what has to survive a merge.
         self._touched: dict[tuple[str, str], object] = {}
-        self._stamp: tuple[int, int] | None = None
+        self._stamp: tuple[int, int, int] | None = None
+        self._created: set[tuple[str, str]] = set()      # ids we generated, not chose
+        self._touched_events: set[str] = set()           # refinements changed in place
         self.load()
 
     # ---------- persistence ----------
@@ -236,13 +244,37 @@ class HarnessStore:
                 self._dirty = False
                 self.save()
 
-    def _file_stamp(self) -> tuple[int, int] | None:
-        """Cheap identity for the file as we last saw it."""
+    def _file_stamp(self) -> tuple[int, int, int] | None:
+        """Cheap identity for the file as we last saw it.
+
+        The inode is part of it: every save is a rename, so a new inode, while
+        mtime and size can both repeat on a filesystem with coarse timestamps.
+        """
         try:
             info = self.file_path.stat()
         except OSError:
             return None
-        return (info.st_mtime_ns, info.st_size)
+        return (info.st_ino, info.st_mtime_ns, info.st_size)
+
+    @contextlib.contextmanager
+    def _locked(self):
+        """Hold the store's lock across check, merge and write.
+
+        Without it, a second server saving between our stamp check and our
+        rename had its entry silently erased - the lost update the merge exists
+        to prevent, one window later.
+        """
+        if fcntl is None:
+            yield
+            return
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self.file_path.with_name(self.file_path.name + ".lock")
+        with lock_path.open("a") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh, fcntl.LOCK_UN)
 
     def _merge_onto_disk(self) -> None:
         """Re-read, then replay only what this process changed.
@@ -257,14 +289,34 @@ class HarnessStore:
         a union would resurrect every entry either side had removed.
         """
         mine = dict(self._touched)
+        created = set(self._created)
         my_refinements = list(self.refinements)
+        changed_events = set(self._touched_events)
         self.load()
-        for (kind, entry_id), entry in mine.items():
+        if self.unreadable:
+            return  # save() refuses; replaying onto nothing would wipe the store
+        for (kind, entry_id), entry in list(mine.items()):
             if entry is None:
                 self.entries[kind].pop(entry_id, None)
-            else:
-                self.entries[kind][entry_id] = entry
+                continue
+            theirs = self.entries[kind].get(entry_id)
+            if (
+                (kind, entry_id) in created
+                and theirs is not None
+                and theirs.created_at != entry.created_at
+            ):
+                # Another server generated the same id from the same title. Ours
+                # moves aside instead of overwriting theirs.
+                del mine[(kind, entry_id)]
+                entry.id = f"{entry_id}-{uuid.uuid4().hex[:4]}"
+                mine[(kind, entry.id)] = entry
+            self.entries[kind][entry.id] = entry
+        ours = {event.id: event for event in my_refinements}
         known = {event.id for event in self.refinements}
+        self.refinements = [
+            ours[event.id] if event.id in changed_events and event.id in ours else event
+            for event in self.refinements
+        ]
         for event in my_refinements:
             if event.id not in known:
                 self.refinements.append(event)
@@ -290,11 +342,24 @@ class HarnessStore:
         if self._deferred:
             self._dirty = True
             return self
-        # No `is not None` guard: a store that loaded before the file existed
-        # has a stamp of None, and two servers starting fresh on a shared global
-        # store is exactly that case - the one the first version of this skipped.
-        if self._file_stamp() != self._stamp:
-            self._merge_onto_disk()
+        with self._locked():
+            # No `is not None` guard: a store that loaded before the file existed
+            # has a stamp of None, and two servers starting fresh on a shared
+            # global store is exactly that case - the one the first version of
+            # this skipped.
+            if self._file_stamp() != self._stamp:
+                self._merge_onto_disk()
+                if self.unreadable:
+                    # The merge's own read failed. Writing now would replace the
+                    # whole store with only what this process changed.
+                    raise RuntimeError(
+                        f"refusing to write {self.file_path}: re-reading it before "
+                        f"the merge failed ({self.unreadable})."
+                    )
+            self._write()
+        return self
+
+    def _write(self) -> None:
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "schema": SCHEMA_VERSION,
@@ -307,7 +372,27 @@ class HarnessStore:
         atomic_write(self.file_path, json.dumps(data, indent=2, ensure_ascii=False))
         self._stamp = self._file_stamp()
         self._touched = {}
-        return self
+        self._created = set()
+        self._touched_events = set()
+
+    def put(self, entry: HarnessEntry) -> None:
+        """Store `entry` as given - the restore path of rollback and undo.
+
+        Writing `entries[...]` directly skipped the change-set, so a merge
+        replayed the stale object instead: a failed `apply` stayed applied and
+        a rollback silently lost its restore whenever another server had saved.
+        """
+        self.entries[entry.kind][entry.id] = entry
+        self._touched[(entry.kind, entry.id)] = entry
+        self.save()
+
+    def touch(self, entry: HarnessEntry) -> None:
+        """Mark an entry changed in place (metadata) so a merge keeps the change."""
+        if self.entries[entry.kind].get(entry.id) is entry:
+            self._touched[(entry.kind, entry.id)] = entry
+
+    def touch_refinement(self, event: RefinementEvent) -> None:
+        self._touched_events.add(event.id)
 
     # ---------- CRUD ----------
 
@@ -320,6 +405,8 @@ class HarnessStore:
             raise ValueError("content must be a non-empty string")
         supplied = kw.pop("id", None)
         entry_id = validate_id(supplied) if supplied else self._unique_id(kind, title)
+        if not supplied:
+            self._created.add((kind, entry_id))
         entry = HarnessEntry(
             id=entry_id, kind=kind, title=title.strip(), content=content, scope=self.scope, **kw
         )

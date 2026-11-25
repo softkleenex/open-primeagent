@@ -325,6 +325,9 @@ class HarnessService:
 
         event.reverted_at = _now()
         event.outcome = "rolled back"
+        for store in (self.local, self.global_):
+            if store.find_refinement(event.id) is event:
+                store.touch_refinement(event)
         # Record the reversal as its own event, so history shows that a
         # refinement was tried and withdrawn rather than silently vanishing.
         self.local.record_refinement(
@@ -350,8 +353,7 @@ class HarnessService:
                 elif op in ("update", "delete"):
                     data = record["entry"]
                     store = self.store(data.get("scope") == "global")
-                    store.entries[data["kind"]][data["id"]] = HarnessEntry(**data)
-                    store.save()
+                    store.put(HarnessEntry(**data))
             except (KeyError, ValueError, TypeError):
                 continue
 
