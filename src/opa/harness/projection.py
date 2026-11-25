@@ -23,13 +23,23 @@ from ..fsutil import atomic_write
 from .state import HarnessEntry
 
 BEGIN = "<!-- opa:begin — generated. Nothing outside this block is touched. -->"
+# Same marker, recording that the user's file had no final newline before we
+# appended. Without it, apply-then-remove could not give back the exact bytes.
+BEGIN_NO_EOL = "<!-- opa:begin (no final newline) — generated. Nothing outside this block is touched. -->"
 END = "<!-- opa:end -->"
 
-# Find an existing block even if the surrounding whitespace or wording changed.
-_BLOCK = re.compile(
-    r"[ \t]*<!--\s*opa:begin.*?-->.*?<!--\s*opa:end\s*-->[ \t]*\n?",
-    re.DOTALL,
-)
+# A marker counts only when it is a whole line. The old pattern matched
+# `<!-- opa:begin` anywhere, so a user who quoted the marker in their own prose -
+# our README shows it - had everything from that mention to our END erased on
+# the next apply. Matching loosely *inside* the line still finds a block written
+# with older wording.
+_BEGIN_LINE = re.compile(r"[ \t]*<!--\s*opa:begin\b.*-->[ \t]*")
+_END_LINE = re.compile(r"[ \t]*<!--\s*opa:end\s*-->[ \t]*")
+
+
+class ProjectionConflict(ValueError):
+    """The file's markers are ambiguous, so any edit could hit the user's text."""
+
 
 MEMORY_DIR_NAME = "memory"
 
@@ -95,9 +105,9 @@ def render(entries: list[HarnessEntry], *, memory_dir: Path | None = None) -> st
     lines.append("")
 
     _section(lines, "Rules for this project", prompts,
-             lambda e: f"- **{e.title}** — {_one_line(e.content, SUMMARY_CHARS)}")
+             lambda e: f"- **{_one_line(e.title, SUMMARY_CHARS)}** — {_one_line(e.content, SUMMARY_CHARS)}")
     _section(lines, "Memory index", memories,
-             lambda e: f"- {e.title} → "
+             lambda e: f"- {_one_line(e.title, SUMMARY_CHARS)} → "
                        + (f"`.opa/{MEMORY_DIR_NAME}/{e.id}.md`" if memory_dir else f"`{e.id}`"))
     _section(lines, "Skills", skills,
              lambda e: f"- `{e.id}` — {_one_line(e.content, SUMMARY_CHARS)}")
@@ -110,25 +120,78 @@ def _one_line(text: str, limit: int = 160) -> str:
     return flat if len(flat) <= limit else flat[: limit - 1] + "…"
 
 
-def block(body: str) -> str:
-    return f"{BEGIN}\n{body.rstrip()}\n{END}\n"
+def _eol(text: str) -> str:
+    """The file's own line ending. We write in it rather than normalising."""
+    return "\r\n" if "\r\n" in text else "\n"
+
+
+def _is_marker(line: str) -> bool:
+    bare = line.rstrip("\r\n")
+    return bool(_BEGIN_LINE.fullmatch(bare) or _END_LINE.fullmatch(bare))
+
+
+def _locate(text: str) -> tuple[int, int, bool] | None:
+    """Byte span of our block (whole lines, trailing EOL included), or None.
+
+    Also returns whether the block records a missing final newline. Anything
+    other than exactly one BEGIN line followed by exactly one END line is
+    refused: a guess about which marker is ours is a guess about which of the
+    user's lines to delete.
+    """
+    lines = text.splitlines(keepends=True)
+    begins = [i for i, ln in enumerate(lines) if _BEGIN_LINE.fullmatch(ln.rstrip("\r\n"))]
+    ends = [i for i, ln in enumerate(lines) if _END_LINE.fullmatch(ln.rstrip("\r\n"))]
+    if not begins and not ends:
+        return None
+    if len(begins) != 1 or len(ends) != 1 or ends[0] < begins[0]:
+        raise ProjectionConflict(
+            f"found {len(begins)} opa:begin and {len(ends)} opa:end marker line(s); "
+            "refusing to edit a file where our block is ambiguous. Leave exactly "
+            "one block, or delete the markers by hand."
+        )
+    start = sum(len(ln) for ln in lines[: begins[0]])
+    stop = sum(len(ln) for ln in lines[: ends[0] + 1])
+    no_eol = "no final newline" in lines[begins[0]]
+    return start, stop, no_eol
+
+
+def block(body: str, *, eol: str = "\n", no_eol: bool = False) -> str:
+    lines = body.rstrip().splitlines()
+    if any(_is_marker(ln) for ln in lines):
+        # A marker line inside the body would end the block early on the next
+        # read, and everything after it would be stranded in the user's file.
+        raise ProjectionConflict("the projected body contains an opa marker line")
+    head = BEGIN_NO_EOL if no_eol else BEGIN
+    return eol.join([head, *lines, END]) + eol
+
+
+def _read(target: Path) -> str:
+    # newline="": see the file's real line endings instead of translated ones.
+    with target.open(encoding="utf-8", newline="") as fh:
+        return fh.read()
 
 
 def apply(target: Path, body: str) -> bool:
     """Replace only the delimiter block; append one if the file has none.
 
-    Everything outside the block is preserved byte for byte. Returns True if the
-    file changed.
+    Everything outside the block is preserved byte for byte, and `remove`
+    restores the original exactly. Returns True if the file changed.
     """
-    new_block = block(body)
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    existing = _read(target) if target.exists() else ""
+    eol = _eol(existing)
+    found = _locate(existing)
 
-    if _BLOCK.search(existing):
-        updated = _BLOCK.sub(lambda _: new_block, existing, count=1)
-    elif existing.strip():
-        updated = existing.rstrip("\n") + "\n\n" + new_block
+    if found:
+        start, stop, no_eol = found
+        updated = existing[:start] + block(body, eol=eol, no_eol=no_eol) + existing[stop:]
+    elif existing:
+        # One blank line between the user's text and ours. A file without a
+        # final newline needs one more, and the marker remembers that we added it.
+        no_eol = not existing.endswith(("\n", "\r"))
+        sep = eol + eol if no_eol else eol
+        updated = existing + sep + block(body, eol=eol, no_eol=no_eol)
     else:
-        updated = new_block
+        updated = block(body, eol=eol)
 
     if updated == existing:
         return False
@@ -140,12 +203,22 @@ def remove(target: Path) -> bool:
     """Remove the block and restore the file. The uninstall path must exist."""
     if not target.exists():
         return False
-    existing = target.read_text(encoding="utf-8")
-    if not _BLOCK.search(existing):
+    existing = _read(target)
+    found = _locate(existing)
+    if not found:
         return False
-    updated = _BLOCK.sub("", existing, count=1)
+    start, stop, no_eol = found
+    before, after = existing[:start], existing[stop:]
+    if not after.strip():
+        # The block is still where `apply` appended it: also take back the
+        # separator we added, and nothing else.
+        eol = _eol(existing)
+        sep = eol + eol if no_eol else eol
+        before = before.removesuffix(sep)
+        after = ""
+    updated = before + after
 
-    if not updated.strip():
+    if not updated:
         # The file held nothing but our block, so leaving no trace is the
         # tidiest outcome - but only when the name we were given is the file
         # itself. `read_text` follows a symlink and the removal below does not,
@@ -160,7 +233,7 @@ def remove(target: Path) -> bool:
             return True
         target.unlink()
         return True
-    atomic_write(target, updated.rstrip("\n") + "\n")
+    atomic_write(target, updated)
     return True
 
 

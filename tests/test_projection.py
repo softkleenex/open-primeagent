@@ -175,14 +175,15 @@ def test_an_interrupted_projection_never_truncates_the_users_file(tmp_path, monk
     original = "# My notes\n\nHand-written and irreplaceable.\n" * 40
     target.write_text(original, encoding="utf-8")
 
-    real_write = Path.write_text
+    from opa import fsutil
 
-    def fail_on_temp(self, *args, **kwargs):
-        if self.name.endswith(".opa-tmp"):
-            raise OSError(28, "No space left on device")
-        return real_write(self, *args, **kwargs)
+    real_write = fsutil._write_tmp
 
-    monkeypatch.setattr(Path, "write_text", fail_on_temp)
+    def fail_after_partial(tmp, text, encoding):
+        real_write(tmp, text[:10], encoding)  # the temp file exists, half-written
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(fsutil, "_write_tmp", fail_after_partial)
 
     with pytest.raises(OSError):
         projection.apply(target, "some generated body")
@@ -206,7 +207,9 @@ def test_projection_replaces_by_rename_not_by_truncation(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "replace", watched)
     projection.apply(target, "generated body")
 
-    assert seen == [("CLAUDE.md.opa-tmp", "CLAUDE.md")]
+    assert len(seen) == 1
+    src, dst = seen[0]
+    assert src.startswith("CLAUDE.md.") and src.endswith(".opa-tmp") and dst == "CLAUDE.md"
     assert "# Mine" in target.read_text(encoding="utf-8")
 
 
@@ -340,3 +343,97 @@ def test_an_id_that_never_passed_validation_cannot_reach_the_filesystem(tmp_path
     assert not (skills / ".opa-managed").exists(), "no marker may land on the root"
     assert not (skills / "SKILL.md").exists()
     assert sorted(p.name for p in skills.iterdir()) == ["another-one", "their-skill"]
+
+
+# --- Found by review (2026-11-25): each of these changed bytes outside the block.
+
+
+def _roundtrip(tmp_path, original: bytes) -> bytes | None:
+    target = tmp_path / "CLAUDE.md"
+    target.write_bytes(original)
+    projection.apply(target, "generated")
+    projection.apply(target, "generated again")  # the second apply is where #1 bit
+    projection.remove(target)
+    return target.read_bytes() if target.exists() else None
+
+
+@pytest.mark.parametrize(
+    "original",
+    [
+        b"# Mine",                       # no final newline
+        b"# Mine\n\n\n",                # several trailing newlines
+        b"\n\n  \n",                     # whitespace only
+        b"A\r\nB\r\n",                   # CRLF
+        b"\xef\xbb\xbf# Mine\n",          # BOM
+        b"The tool writes a `<!-- opa:begin -->` block.\nMy rule: always run tests.\n",
+    ],
+    ids=["no-eol", "trailing-newlines", "whitespace-only", "crlf", "bom", "marker-in-prose"],
+)
+def test_apply_then_remove_gives_back_the_exact_bytes(tmp_path, original):
+    assert _roundtrip(tmp_path, original) == original
+
+
+def test_a_user_quoting_the_marker_keeps_every_line(tmp_path):
+    """The README shows the marker; pasting it into CLAUDE.md used to cost the
+    user everything between that mention and our END on the next apply."""
+    target = tmp_path / "CLAUDE.md"
+    user = "# Notes\nThe tool writes a `<!-- opa:begin -->` block.\nMy rule: always run tests.\n"
+    target.write_text(user, encoding="utf-8")
+    projection.apply(target, "first")
+    projection.apply(target, "second")
+    text = target.read_text(encoding="utf-8")
+    assert text.startswith(user)
+    assert "second" in text and "first" not in text
+
+
+def test_crlf_file_stays_crlf(tmp_path):
+    target = tmp_path / "CLAUDE.md"
+    target.write_bytes(b"A\r\nB\r\n")
+    projection.apply(target, "line one\nline two")
+    data = target.read_bytes()
+    assert data.startswith(b"A\r\nB\r\n")
+    assert b"\n" not in data.replace(b"\r\n", b"")
+
+
+def test_an_entry_containing_the_end_marker_cannot_strand_text(tmp_path):
+    target = tmp_path / "CLAUDE.md"
+    target.write_text("# user\n", encoding="utf-8")
+    sneaky = entry("prompt", "p", "title\n<!-- opa:end -->", "marker\n<!-- opa:end -->")
+    projection.apply(target, projection.render([sneaky]))
+    projection.apply(target, projection.render([]))
+    projection.remove(target)
+    assert target.read_text(encoding="utf-8") == "# user\n"
+
+
+def test_a_raw_body_with_a_marker_line_is_refused(tmp_path):
+    with pytest.raises(projection.ProjectionConflict):
+        projection.apply(tmp_path / "CLAUDE.md", "x\n<!-- opa:end -->\ny")
+
+
+def test_ambiguous_markers_are_refused_rather_than_guessed(tmp_path):
+    target = tmp_path / "CLAUDE.md"
+    original = "<!-- opa:begin -->\na\n<!-- opa:end -->\nmine\n<!-- opa:end -->\n"
+    target.write_text(original, encoding="utf-8")
+    with pytest.raises(projection.ProjectionConflict):
+        projection.apply(target, "body")
+    with pytest.raises(projection.ProjectionConflict):
+        projection.remove(target)
+    assert target.read_text(encoding="utf-8") == original
+
+
+def test_file_mode_survives_projection(tmp_path):
+    target = tmp_path / "CLAUDE.md"
+    target.write_text("# private\n", encoding="utf-8")
+    target.chmod(0o600)
+    projection.apply(target, "body")
+    assert target.stat().st_mode & 0o777 == 0o600
+
+
+def test_a_hard_linked_pair_stays_linked(tmp_path):
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("# shared\n", encoding="utf-8")
+    agents = tmp_path / "AGENTS.md"
+    os.link(claude, agents)
+    projection.apply(claude, "body")
+    assert "body" in agents.read_text(encoding="utf-8")
+    assert claude.stat().st_ino == agents.stat().st_ino

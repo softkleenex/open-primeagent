@@ -12,9 +12,18 @@ ever sees a whole file: the old one or the new one.
 from __future__ import annotations
 
 import os
+import secrets
+import stat
 from pathlib import Path
 
 SUFFIX = ".opa-tmp"
+
+
+def _write_tmp(tmp: Path, text: str, encoding: str) -> None:
+    # "x": the name is random, so an existing file means something is wrong.
+    # newline="": write the text's own line endings, so a CRLF file stays CRLF.
+    with tmp.open("x", encoding=encoding, newline="") as fh:
+        fh.write(text)
 
 
 def atomic_write(target: Path, text: str, *, encoding: str = "utf-8") -> None:
@@ -33,9 +42,31 @@ def atomic_write(target: Path, text: str, *, encoding: str = "utf-8") -> None:
     if target.is_symlink():
         target = target.resolve()
         target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_name(target.name + SUFFIX)
+
     try:
-        tmp.write_text(text, encoding=encoding)
+        st = target.stat()
+    except FileNotFoundError:
+        st = None
+
+    if st is not None and st.st_nlink > 1:
+        # A rename gives the name a new inode and silently splits a hard-linked
+        # pair (CLAUDE.md <-> AGENTS.md is a real setup): one name gets the
+        # change, the other keeps the stale text forever. Keeping the user's
+        # link wins over atomicity here, so write in place.
+        with target.open("w", encoding=encoding, newline="") as fh:
+            fh.write(text)
+        return
+
+    # A unique name, not a fixed `<name>.opa-tmp`: two servers sharing the global
+    # harness store write the same target, and with one fixed name each one
+    # truncated, renamed away or unlinked the other's temp file.
+    tmp = target.with_name(f"{target.name}.{secrets.token_hex(4)}{SUFFIX}")
+    try:
+        _write_tmp(tmp, text, encoding)
+        if st is not None:
+            # A new inode starts at the umask default; a 0600 file must not
+            # come back 0644.
+            os.chmod(tmp, stat.S_IMODE(st.st_mode))
         os.replace(tmp, target)
     except BaseException:
         # Includes KeyboardInterrupt and SystemExit on purpose: an interrupted

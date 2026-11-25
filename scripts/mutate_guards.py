@@ -64,8 +64,8 @@ MUTATIONS: list[tuple[str, str, str, str]] = [
     (
         "durable writes go through a temp file and a rename",
         "src/opa/fsutil.py",
-        "        tmp.write_text(text, encoding=encoding)\n        os.replace(tmp, target)",
-        "        target.write_text(text, encoding=encoding)",
+        "        _write_tmp(tmp, text, encoding)",
+        "        target.write_text(text, encoding=encoding)\n        return",
     ),
     (
         "an unreadable state file is never written over",
