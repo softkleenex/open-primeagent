@@ -1,6 +1,6 @@
 [project]
 name = "open-primeagent"
-version = "0.1.5"
+version = "0.1.6"
 description = "What one coding agent learns about your repo, written into AGENTS.md for Claude Code, Codex and opencode"
 dynamic = ["readme"]
 requires-python = ">=3.11"
