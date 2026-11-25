@@ -22,7 +22,8 @@ The project is the `hard` variant from evolution.py: the generator that must
 run after a schema edit is one of 16 scripts under tools/, and the failure does
 not name it.
 
-    uv run python bench/portable.py --repeat 3
+    uv run python bench/portable.py --repeat 6
+    uv run python bench/portable.py --repeat 6 --variant deep
 """
 
 from __future__ import annotations
@@ -118,9 +119,40 @@ def _opa_config(workspace: Path) -> Path:
     return path
 
 
+# `deep`: the same repo, but three of the decoys are not inert. Each one really
+# does write models_gen.py, in a shape that is plausible and wrong (sorted, with
+# types, with a timestamp field the schema does not have), so running the wrong script
+# looks like progress and the suite still fails. The rule is exactly as easy to
+# state as before; it is much more expensive to rediscover. That is the case a
+# recorded rule is for, and the `hard` result above is the case it is not.
+WRONG_GENERATORS = {
+    "make_models": "repr(sorted(schema.FIELDS))",
+    "regen_types": "repr({f: 'str' for f in schema.FIELDS})",
+    "sync_schema": "repr(list(schema.FIELDS) + ['created_at'])",
+}
+VARIANT = "hard"
+
+
+def _wrong_generator(expr: str) -> str:
+    return (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "sys.path.insert(0, str(Path(__file__).resolve().parent.parent))\n"
+        "import schema\n"
+        "root = Path(__file__).resolve().parent.parent\n"
+        "(root / 'models_gen.py').write_text(\n"
+        f"    'GENERATED_FIELDS = ' + {expr} + '\\n', encoding='utf-8'\n"
+        ")\n"
+        "print('regenerated models_gen.py')\n"
+    )
+
+
 def _fresh(prefix: str) -> Path:
     root = Path(tempfile.mkdtemp(prefix=prefix)) / "svc"
     build_project(root, "hard")
+    if VARIANT == "deep":
+        for name, expr in WRONG_GENERATORS.items():
+            (root / "tools" / f"{name}.py").write_text(_wrong_generator(expr), encoding="utf-8")
     return root
 
 
@@ -176,8 +208,11 @@ def main() -> None:
     parser.add_argument("--model", default="sonnet")
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=900)
+    parser.add_argument("--variant", default="hard", choices=["hard", "deep"])
     parser.add_argument("--out", default=str(Path(__file__).parent / "results"))
     args = parser.parse_args()
+    global VARIANT
+    VARIANT = args.variant
 
     rows: list[Run] = []
     for attempt in range(1, args.repeat + 1):
@@ -199,7 +234,8 @@ def main() -> None:
             if agents_md is None:
                 break  # nothing was learned, so there is no teammate arm to run
 
-    out = Path(args.out) / f"portable-{args.model}.json"
+    stem = "portable" if args.variant == "hard" else f"portable-{args.variant}"
+    out = Path(args.out) / f"{stem}-{args.model}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
     out.write_text(json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8")
