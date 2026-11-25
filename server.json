@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.softkleenex/open-primeagent",
   "title": "open-primeagent",
-  "description": "Sub-agents that survive the session, project rules that stick, for the coding agent you already run",
+  "description": "What one coding agent learns, written into AGENTS.md for Claude Code, Codex and opencode to read",
   "repository": {
     "url": "https://github.com/softkleenex/open-primeagent",
     "source": "github"

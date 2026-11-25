@@ -1,7 +1,7 @@
 [project]
 name = "open-primeagent"
 version = "0.1.5"
-description = "Persistent Python, long-lived sub-agents and a continual harness for the coding agent you already use"
+description = "What one coding agent learns about your repo, written into AGENTS.md for Claude Code, Codex and opencode"
 dynamic = ["readme"]
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }

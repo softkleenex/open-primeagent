@@ -1,7 +1,7 @@
 {
   "name": "open-primeagent",
   "version": "0.1.5",
-  "description": "Persistent sub-agents you can re-task, a harness that learns the project into CLAUDE.md, and a persistent Python kernel - one MCP server, four tools.",
+  "description": "What your agent learns about the repo, written into AGENTS.md and CLAUDE.md so Claude Code, Codex and opencode all read it. Plus sub-agents across agents and a persistent Python kernel - one MCP server, four tools.",
   "author": {
     "name": "softkleenex"
   },
