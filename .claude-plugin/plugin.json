@@ -1,6 +1,6 @@
 {
   "name": "open-primeagent",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "What your agent learns about the repo, written into AGENTS.md and CLAUDE.md so Claude Code, Codex and opencode all read it. Plus sub-agents across agents and a persistent Python kernel - one MCP server, four tools.",
   "author": {
     "name": "softkleenex"
@@ -12,7 +12,7 @@
   "mcpServers": {
     "opa": {
       "command": "uvx",
-      "args": ["open-primeagent@0.1.6"]
+      "args": ["open-primeagent@0.1.7"]
     }
   }
 }
