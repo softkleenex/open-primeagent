@@ -52,6 +52,7 @@ claude mcp add opa -- uvx open-primeagent
 |---|---|---|
 | a rule learned with open-primeagent, read from `AGENTS.md` by a fresh agent without it, when three decoys write plausible wrong output | 51% fewer turns, 51% less time | won |
 | the same, when the rule is easy to rediscover | 26% fewer turns, 26% less time | won, modestly |
+| a rule Claude Code learned, read from `AGENTS.md` by plain Codex CLI (hard variant) | ran the right generator in 5 of 5 runs; without the file, 5 of 6 hand-edited the generated file instead, which the tests accept. No gain in time | won on what it did, not on speed |
 | the same, first version: the agent filed the rule as a memory, which other agents only see as a title | the key fact reached the next agent in 4 of 6 runs | lost, fixed: 6 of 6 |
 | a recorded rule, when the knowledge was hidden among 16 decoy scripts (August) | 57% less wall clock, variance collapsed | won |
 | the same rule, when the knowledge was one glance away | 26% more turns | lost |

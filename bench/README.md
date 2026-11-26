@@ -65,8 +65,9 @@ stages nothing between the steps:
 - **control**: the same fresh clone without it.
 
 `AGENTS.md` on purpose: it is what Codex and opencode read, and Claude Code
-2.1.332 reads it natively too (checked with every file tool disabled). We did
-not run Codex or opencode; that they read it is their documented behaviour.
+2.1.332 reads it natively too (checked with every file tool disabled). Codex is
+measured below (`--teammate codex`); opencode is not, and that it reads the file
+is its documented behaviour.
 
 | metric | control | teammate | delta |
 |---|---|---|---|
@@ -106,6 +107,41 @@ carry. Once it led with this machine's Python path and the block's 180, then
 about six turns, so there is little to save. The deep variant shows the gain
 growing with what rediscovery costs. We built the deep variant after seeing the
 easy result, and both are reported.
+
+**Claude Code learns, Codex reads: it changed what Codex did, not how fast.**
+`--variant deep --teammate codex`: the learn step is the same (Claude Code with
+open-primeagent), and the teammate and control arms are run by Codex CLI 0.172
+with the user's config ignored, so no MCP servers and nothing but the repo's
+`AGENTS.md` to carry the rule. Codex reports no turn count; we count its actions
+(shell commands and file edits) and log every command it ran.
+
+| metric (second run, commands logged) | control | teammate |
+|---|---|---|
+| ran `tools/sync_models.py` | 1 / 6 | **5 / 5** |
+| hand-edited the generated `models_gen.py` instead | **5 / 6** | 0 / 5 |
+| tests pass | 6 / 6 | 5 / 5 |
+| actions, mean | 5.0 | 4.4 |
+| wall clock, mean | 24.4 s | 18.5 s |
+
+`results/portable-deep-to-codex-sonnet.json`. The teammate arm has 5 runs
+because in attempt 4 the learn step did not record a rule (it finished in 6
+turns and skipped the save), so there was nothing to hand on; that miss is in the
+file too.
+
+What happened: Codex without the file read the test, saw it compares
+`models_gen.GENERATED_FIELDS` with the schema, and wrote the generated file by
+hand. The suite cannot tell that from regenerating it, so it passed, and the
+next regeneration would overwrite it. Codex with the file ran the generator the
+rule names, every time. Nothing in this toy repo says the file is generated
+except its name, so the hand edit is a reasonable guess; the rule is what told
+Codex the project's convention.
+
+Time does not show a win. The first run (`results/portable-deep-to-codex-v1-no-command-log-sonnet.json`,
+6 pairs, no command log) had means of 19.4 s with the file and 30.2 s without,
+but two slow control runs (50 s and 60 s) make that whole gap; medians are
+equal. Across both runs, faster with the file in 6 of 11 pairs. We report this as
+no speed effect on Codex: the decoys that cost Claude Code half its turns do not
+slow Codex down, because it never looks for a generator in the first place.
 
 ## 0. Sub-agent fan-out  ❌ opa loses badly
 

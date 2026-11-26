@@ -15,8 +15,15 @@ It runs the whole loop, with nothing staged between the steps:
 AGENTS.md, not CLAUDE.md, on purpose: it is the file Codex and opencode read
 too, so a rule that arrives this way arrives for them as well. Claude Code reads
 it natively (checked: 2.1.332 quoted a line from an AGENTS.md-only directory
-with every file tool disabled). We did not run Codex or opencode here; that
-they read AGENTS.md is their documented behaviour, not our measurement.
+with every file tool disabled). opencode is not run here; that it reads
+AGENTS.md is its documented behaviour, not our measurement.
+
+`--teammate codex` closes that gap for Codex: the learning agent is still Claude
+Code with open-primeagent, and the teammate and control arms are run by the
+Codex CLI instead, with the user's config ignored (no MCP servers, no custom
+provider). That is the case the README leads with: a rule Claude Code learned,
+read by Codex. Codex reports no turn count, so for it `agent_turns` is the
+number of actions it took (shell commands, file edits, tool calls).
 
 The project is the `hard` variant from evolution.py: the generator that must
 run after a schema edit is one of 16 scripts under tools/, and the failure does
@@ -24,6 +31,7 @@ not name it.
 
     uv run python bench/portable.py --repeat 6
     uv run python bench/portable.py --repeat 6 --variant deep
+    uv run python bench/portable.py --repeat 6 --variant deep --teammate codex
 """
 
 from __future__ import annotations
@@ -31,6 +39,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -65,6 +74,11 @@ class Run:
     agents_md_has_block: bool | None = None
     block_names_generator: bool | None = None
     block_text: str = ""
+    # Codex arms only: did it run the generator, or hand-edit the generated file?
+    # The suite cannot tell the two apart; the rule in AGENTS.md says which is right.
+    ran_generator: bool | None = None
+    hand_edited_generated: bool | None = None
+    commands: list[str] | None = None
 
 
 def _claude(cwd: Path, prompt: str, model: str, *, mcp_config: Path | None, timeout: float):
@@ -90,6 +104,51 @@ def _claude(cwd: Path, prompt: str, model: str, *, mcp_config: Path | None, time
         for k in ("input_tokens", "output_tokens", "cache_creation_input_tokens")
     )
     return payload, elapsed, billed
+
+
+HAND_WRITE = re.compile(r">\s*\S*models_gen\.py|(sed -i|perl -pi)[^|;&]*models_gen\.py")
+CODEX_ACTIONS = {"command_execution", "file_change", "mcp_tool_call", "web_search"}
+
+
+def _codex(cwd: Path, prompt: str, timeout: float):
+    """Plain Codex CLI on this repo: the user's config ignored, so no MCP
+    servers and no custom provider; only the repo's AGENTS.md can carry a rule."""
+    cmd = ["codex", "exec", "--ignore-user-config", "--ephemeral", "--skip-git-repo-check"]
+    cmd += ["-s", "workspace-write", "--json", "--", prompt]
+    started = time.monotonic()
+    proc = subprocess.run(
+        cmd, cwd=cwd, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL, check=False
+    )
+    elapsed = int((time.monotonic() - started) * 1000)
+    actions, billed, finished = 0, 0, False
+    commands: list[str] = []
+    edited: list[str] = []
+    for line in proc.stdout.decode("utf-8", "replace").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if (
+            event.get("type") == "item.completed"
+            and (event.get("item") or {}).get("type") in CODEX_ACTIONS
+        ):
+            actions += 1
+            item = event["item"]
+            if item.get("type") == "command_execution":
+                commands.append(str(item.get("command", ""))[:300])
+            if item.get("type") == "file_change":
+                edited += [str(c.get("path", "")) for c in item.get("changes") or []]
+        if event.get("type") == "turn.completed":
+            finished = True
+            usage = event.get("usage") or {}
+            billed += (
+                int(usage.get("input_tokens", 0))
+                - int(usage.get("cached_input_tokens", 0))
+                + int(usage.get("output_tokens", 0))
+            )
+    if not finished:  # a usage limit or an auth error, not a result: stop the run
+        raise RuntimeError(proc.stderr.decode("utf-8", "replace")[-2000:])
+    return {"num_turns": actions, "commands": commands, "edited": edited}, elapsed, billed
 
 
 def _opa_config(workspace: Path) -> Path:
@@ -131,6 +190,7 @@ WRONG_GENERATORS = {
     "sync_schema": "repr(list(schema.FIELDS) + ['created_at'])",
 }
 VARIANT = "hard"
+TEAMMATE = "claude"
 
 
 def _wrong_generator(expr: str) -> str:
@@ -197,8 +257,19 @@ def teammate(attempt: int, model: str, timeout: float, agents_md: str | None) ->
     root = _fresh(f"opa-port-{arm}-")
     if agents_md is not None:
         (root / "AGENTS.md").write_text(agents_md, encoding="utf-8")
-    payload, elapsed, billed = _claude(root, TASK, model, mcp_config=None, timeout=timeout)
-    row = _row(arm, attempt, root, payload, elapsed, billed)
+    extra = {}
+    if TEAMMATE == "codex":
+        payload, elapsed, billed = _codex(root, TASK, timeout)
+        commands = payload["commands"]
+        extra = {
+            "ran_generator": any("sync_models" in c for c in commands),
+            "hand_edited_generated": any(p.endswith("models_gen.py") for p in payload["edited"])
+            or any(HAND_WRITE.search(c) for c in commands),
+            "commands": commands,
+        }
+    else:
+        payload, elapsed, billed = _claude(root, TASK, model, mcp_config=None, timeout=timeout)
+    row = _row(arm, attempt, root, payload, elapsed, billed, **extra)
     shutil.rmtree(root.parent, ignore_errors=True)
     return row
 
@@ -209,10 +280,19 @@ def main() -> None:
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=900)
     parser.add_argument("--variant", default="hard", choices=["hard", "deep"])
+    parser.add_argument("--teammate", default="claude", choices=["claude", "codex"])
     parser.add_argument("--out", default=str(Path(__file__).parent / "results"))
     args = parser.parse_args()
-    global VARIANT
+    global VARIANT, TEAMMATE
     VARIANT = args.variant
+    TEAMMATE = args.teammate
+
+    stem = "portable" if args.variant == "hard" else f"portable-{args.variant}"
+    if args.teammate != "claude":
+        stem += f"-to-{args.teammate}"
+    out = Path(args.out) / f"{stem}-{args.model}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
 
     rows: list[Run] = []
     for attempt in range(1, args.repeat + 1):
@@ -228,18 +308,15 @@ def main() -> None:
             rows.append(row)
             print(
                 f"[{row.arm} {attempt}] pass={row.tests_pass} turns={row.agent_turns} "
-                f"{row.duration_ms / 1000:.1f}s",
+                f"{row.duration_ms / 1000:.1f}s generator={row.ran_generator} "
+                f"hand_edit={row.hand_edited_generated}",
                 flush=True,
             )
             if agents_md is None:
                 break  # nothing was learned, so there is no teammate arm to run
-
-    stem = "portable" if args.variant == "hard" else f"portable-{args.variant}"
-    out = Path(args.out) / f"{stem}-{args.model}.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    previous = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
-    out.write_text(json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8")
-    print(f"wrote {out}")
+        # after every attempt, so a usage limit part-way loses no finished pair
+        out.write_text(json.dumps(previous + [asdict(r) for r in rows], indent=2), encoding="utf-8")
+        print(f"wrote {out}", flush=True)
 
 
 if __name__ == "__main__":

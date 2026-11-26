@@ -485,6 +485,28 @@ compatibility test had pinned one handle field wrong and passed anyway. It now
 pins the live contract, and `rlm.spawn` works here. The README's "under 4k
 lines" was also wrong: it is about 4,800 without blanks and comments.
 
+## Codex followed the rule and was not faster (2026-11-26)
+
+The README leads with Claude Code learning a repo and Codex knowing none of it,
+and until today only the Claude half was measured. `bench/portable.py
+--teammate codex` hands the `AGENTS.md` Claude Code wrote to plain Codex CLI.
+
+The first run looked like a 36% time win, and was not: two slow controls made
+the whole gap, the medians matched. One logged pair showed why. Codex without
+the file never looked for a generator. It read the test, saw it compares the
+generated file with the schema, and wrote the generated file by hand; the suite
+cannot tell, so it passed. The decoys built to cost Claude Code half its turns
+never came into play.
+
+So the second run logged every command. With the file, Codex ran the generator
+the rule names 5 of 5 times; without it, 5 of 6 hand-edited the generated file.
+That is the result we report: the rule changed what Codex did, not how fast.
+A benchmark scored only on "tests pass" and "time" would have called it noise,
+and a benchmark scored only on the first run would have called it a win.
+
+One learn step in that run skipped the save (attempt 4, 6 turns), so its pair
+has no teammate arm. It is in the data.
+
 ## Incident log
 
 ### 2026-08-19 — path traversal through harness entry ids
