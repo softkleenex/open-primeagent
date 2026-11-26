@@ -312,6 +312,11 @@ claude mcp add opa --scope local -- uv run --directory "$PWD" opa
 Full per-host notes and every environment variable:
 [docs/install/](docs/install/) · [docs/reference/configuration.md](docs/reference/configuration.md).
 
+Also listed on the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=open-primeagent)
+(`io.github.softkleenex/open-primeagent`) and on Glama:
+
+<a href="https://glama.ai/mcp/servers/softkleenex/open-primeagent"><img width="380" height="200" src="https://glama.ai/mcp/servers/softkleenex/open-primeagent/badge" alt="open-primeagent MCP server on Glama" /></a>
+
 ## Benchmarks, including the ones we lost
 
 Measured with `claude -p --output-format json`, reading its own `usage` and
